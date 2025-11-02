@@ -29,10 +29,10 @@ class DropdownChoices(qw.QWidget):
         self.items_per_row = items_per_row
 
         self.stack = qw.QStackedWidget()
+        root.addWidget(self.stack)
         top.addWidget(self.dropdown_choices)
         top.addWidget(self.info)
         root.addLayout(top)
-        root.addWidget(self.stack)
 
         self.pages = {}
         self.grids = {}

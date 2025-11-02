@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     dropdown_choices = [
         "Prices vs Values",
-        "Prices vs EPR Prices",
+        "Prices vs Equilibrium Prices",
         "Output and Supply",
         "Wages and Employment",
         "Money Rates of Profit",
