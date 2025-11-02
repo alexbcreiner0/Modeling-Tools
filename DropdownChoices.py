@@ -2,17 +2,7 @@ from PyQt6 import (
     QtCore as qc,
     QtWidgets as qw,
 )
-
-class ToolButton(qw.QToolButton):
-    hovered = qc.pyqtSignal()
-
-    def __init__(self, text):
-        super().__init__()
-        self.setText(text)
-
-    def enterEvent(self, a0):
-        self.hovered.emit()
-        super().enterEvent(a0)
+from HelpButton import HelpButton
 
 class DropdownChoices(qw.QWidget):
     infoBoxHovered = qc.pyqtSignal()
@@ -25,7 +15,7 @@ class DropdownChoices(qw.QWidget):
         top = qw.QHBoxLayout()
        
         self.dropdown_choices = qw.QComboBox()
-        self.info = ToolButton("?")
+        self.info = HelpButton("?")
         self.items_per_row = items_per_row
 
         self.stack = qw.QStackedWidget()

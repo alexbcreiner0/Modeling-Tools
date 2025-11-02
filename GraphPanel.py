@@ -66,14 +66,11 @@ class GraphPanel(qw.QWidget):
         self.saved_x_label.setText(str(self.saved_xlim))
         self.saved_y_label = qw.QLabel()
         self.saved_y_label.setText(str(self.saved_ylim))
-        self.recompute_button = qw.QPushButton("Recompute")
-        self.recompute_button.clicked.connect(self.recompute_T)
 
         sub_layout2.addWidget(self.saved_x_info)
         sub_layout2.addWidget(self.saved_x_label)
         sub_layout2.addWidget(self.saved_y_info)
         sub_layout2.addWidget(self.saved_y_label)
-        sub_layout2.addWidget(self.recompute_button)
 
         sub_widget1 = qw.QWidget()
         sub_widget1.setLayout(sub_layout1)
@@ -87,6 +84,7 @@ class GraphPanel(qw.QWidget):
         self.camera_controls.setLayout(matplotlib_layout)
 
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        self.toolbar.pan()
         
         layout.addWidget(self.canvas, stretch=5)
         bottom_layout.addWidget(self.toolbar, stretch=2)
@@ -101,11 +99,11 @@ class GraphPanel(qw.QWidget):
         self.make_plot(init_traj, init_t, 0, {})
         self.start_up = False
 
-    def recompute_T(self):
-        print("Recomputing T")
-        new_T = int(self.xlim[1])
-        self.T = new_T
-        self.TChanged.emit("T", new_T)
+    # def recompute_T(self):
+    #     print("Recomputing T")
+    #     new_T = int(self.xlim[1])
+    #     self.T = new_T
+    #     self.TChanged.emit("T", new_T)
 
     def edit_axes(self):
         try:
@@ -152,10 +150,9 @@ class GraphPanel(qw.QWidget):
             epr_iron_prices = [epr_prices_i[1] for epr_prices_i in epr_prices]
             epr_sugar_prices = [epr_prices_i[2] for epr_prices_i in epr_prices]
 
-
             wages = traj["w"]
 
-            wage_values = np.array([np.array(values) for i in range(self.T)])
+            wage_values = np.array([np.array(values) for i in range(len(t))])
             for i,w in enumerate(wages):
                 wage_values[i] *= w
             corn_values, iron_values, sugar_values = wage_values[:,0], wage_values[:,1], wage_values[:,2]
@@ -187,7 +184,6 @@ class GraphPanel(qw.QWidget):
             epr_iron_prices = [epr_prices_i[1] for epr_prices_i in epr_prices]
             epr_sugar_prices = [epr_prices_i[2] for epr_prices_i in epr_prices]
 
-
             wages = traj["w"]
 
             wage_values = np.array([np.array(values) for i in range(self.T)])
@@ -209,24 +205,6 @@ class GraphPanel(qw.QWidget):
                 self.axis.plot(t, epr_corn_prices, color="red", linestyle="dashed", label="Equilibrium Price of Corn")
                 self.axis.plot(t, epr_iron_prices, color="green", linestyle="dashed", label="Equilibrium Price of Iron")
                 self.axis.plot(t, epr_sugar_prices, color="blue", linestyle="dashed", label="Equilibrium Price of Sugar")
-
-            # self.axis.set_ylabel("Dollars [$]")
-
-            # corn_prices = traj["p"][:,0]
-            # iron_prices = traj["p"][:,1]
-            # sugar_prices = traj["p"][:,2]
-            # epr_prices = traj["epr_prices"]
-
-            # epr_corn_prices = [epr_prices_i[0] for epr_prices_i in epr_prices]
-            # epr_iron_prices = [epr_prices_i[1] for epr_prices_i in epr_prices]
-            # epr_sugar_prices = [epr_prices_i[2] for epr_prices_i in epr_prices]
-
-            # self.axis.plot(t, corn_prices, 'r', label="Price of Corn")
-            # self.axis.plot(t, epr_corn_prices, 'r--', label="EPR Price of Corn")
-            # self.axis.plot(t, iron_prices, 'g', label="Price of Iron")
-            # self.axis.plot(t, epr_iron_prices, 'g--', label="EPR Price of Iron")
-            # self.axis.plot(t, sugar_prices, 'b', label="Price of Sugar")
-            # self.axis.plot(t, epr_sugar_prices, 'b--', label="EPR Price of Sugar")
 
         elif dropdown_choice == 2: # outputs
             self.axis.plot(t, traj["s"][:,0], 'r-', label="Corn Supply")
@@ -256,7 +234,7 @@ class GraphPanel(qw.QWidget):
             # self.axis.plot(t, interest, 'k--', label="Interest Rate")
 
             if "Toggle equilibrium RoP" in options:
-                self.axis.plot(t, epr_profit_rates, color="orange", linestyle='--', label="EPR Profit Rate")
+                self.axis.plot(t, epr_profit_rates, color="orange", linestyle='--', label="Equilibrium Profit Rate")
 
             if "Toggle sectoral RoPs" in options:
                 self.axis.plot(t, profit_rates[:,0], color="red", linestyle='-', label="Corn Sector Profit Rate")

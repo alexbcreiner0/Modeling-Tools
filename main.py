@@ -2,9 +2,9 @@ from PyQt6 import QtWidgets as qw
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
 from mathstuff import get_trajectories
-import numpy as np
 from mathstuff import *
 from init_data import params as init_params
+import sys
 
 class MainWindow(qw.QMainWindow):
     def __init__(self, init_params, trajectory_function, entry_boxes, dropdown_choices, dropdown_tooltips):
@@ -14,7 +14,6 @@ class MainWindow(qw.QMainWindow):
 
         self.params = init_params
         self.get_trajectories = trajectory_function
-        print(self.params)
         self.traj, self.t = self.get_trajectories(self.params)
 
         self.dropdown_choices = dropdown_choices
@@ -60,16 +59,16 @@ if __name__ == "__main__":
     app = qw.QApplication([])
 
     entry_boxes = {
-        "r0": {"label": r"$r(0)= $", "range": (0,1), "init_val": init_params.r0, "tooltip": "Initial interest rate. Capitalists finance all production through borrowing at this rate."},
-        "m_w0": {"label": r"$m_w(0)= $", "range": (0,1), "init_val": init_params.m_w0, "tooltip": "Initial worker savings. Total circulating money in the economy is fixed at M=1. Understand that all money in the simulation is possessed by either workers or capitalists. Thus the more money workers have, the less capitalists have, driving up interest rates."},
-        "L": {"label": r"$L= $", "range": (0,100), "init_val": init_params.L, "tooltip": "Initial total amount of labor available for employment (can be broken into arbitrarily small pieces). Note this stands in for the amount of workers available."},
-        "w0": {"label": r"$w(0)= $", "range": (0,1), "init_val": init_params.w0, "tooltip": "Initial hourly wage rate."},
-        "alpha_w": {"label": r"$\alpha_w= $", "range": (0,1), "init_val": init_params.alpha_w, "tooltip": "Worker propensity to consume. Workers spend this proportion of their savings each period on means of subsistence."},
-        "alpha_c": {"label": r"$\alpha_c= $", "range": (0,1), "init_val": init_params.alpha_c, "tooltip": "Capitalist propensity to consume. Capitalists spend this proportion of their savings each period on consumption."},
-        "eta_w": {"label": r"$\eta_w= $", "range": (0,2), "init_val": init_params.eta_w, "tooltip": "Constant of integration representing the elasticity of the hourly wage with respect to unemployment. Essentially, the higher this number is, the more dramatically wages will change with unemployment."},
-        "eta_r": {"label": r"$\eta_r= $", "range": (0,2), "init_val": init_params.eta_r, "tooltip": "Constant of integration representing the elasticity of the interest rate with respect to capitalist savings. Essentially, the higher this number is, the more dramatically the interest rate will fall with respect to changes in the total money posessed by capitalists."},
-        "alpha_L": {"label": r"$\alpha_L= $", "range": (0,1), "init_val": init_params.alpha_L, "tooltip": "Rate of population growth of the working class."},
-        "T": {"label": r"$T= $", "range": (10,1000), "init_val": init_params.T, "tooltip": "Number of periods simulated. Keep in mind larger values of this will slow down simulation speed."}
+        "r0": {"label": r"$r(0)= $", "range": (0,1), "init_val": init_params.r0, "num_type": "float", "tooltip": "Initial interest rate. Capitalists finance all production through borrowing at this rate."},
+        "m_w0": {"label": r"$m_w(0)= $", "range": (0,1), "init_val": init_params.m_w0, "num_type": "float", "tooltip": "Initial worker savings. Total circulating money in the economy is fixed at M=1. Understand that all money in the simulation is possessed by either workers or capitalists. Thus the more money workers have, the less capitalists have, driving up interest rates."},
+        "L": {"label": r"$L= $", "range": (0,100), "init_val": init_params.L, "num_type": "float", "tooltip": "Initial total amount of labor available for employment (can be broken into arbitrarily small pieces). Note this stands in for the amount of workers available."},
+        "w0": {"label": r"$w(0)= $", "range": (0,1), "init_val": init_params.w0, "num_type": "float", "tooltip": "Initial hourly wage rate."},
+        "alpha_w": {"label": r"$\alpha_w= $", "range": (0,1), "init_val": init_params.alpha_w, "num_type": "float", "tooltip": "Worker propensity to consume. Workers spend this proportion of their savings each period on means of subsistence."},
+        "alpha_c": {"label": r"$\alpha_c= $", "range": (0,1), "init_val": init_params.alpha_c, "num_type": "float", "tooltip": "Capitalist propensity to consume. Capitalists spend this proportion of their savings each period on consumption."},
+        "eta_w": {"label": r"$\eta_w= $", "range": (0,2), "init_val": init_params.eta_w, "num_type": "float", "tooltip": "Constant of integration representing the elasticity of the hourly wage with respect to unemployment. Essentially, the higher this number is, the more dramatically wages will change with unemployment."},
+        "eta_r": {"label": r"$\eta_r= $", "range": (0,2), "init_val": init_params.eta_r, "num_type": "float", "tooltip": "Constant of integration representing the elasticity of the interest rate with respect to capitalist savings. Essentially, the higher this number is, the more dramatically the interest rate will fall with respect to changes in the total money posessed by capitalists."},
+        "alpha_L": {"label": r"$\alpha_L= $", "range": (0,1), "init_val": init_params.alpha_L, "num_type": "float", "tooltip": "Rate of population growth of the working class."},
+        "T": {"label": r"$T= $", "range": (10,1000), "init_val": init_params.T, "num_type": "int", "tooltip": "Number of periods simulated. Keep in mind larger values of this will slow down simulation speed."}
     }
 
     dropdown_choices = [

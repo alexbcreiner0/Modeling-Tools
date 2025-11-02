@@ -109,8 +109,9 @@ class ControlPanel(qw.QWidget):
         wrap = qw.QWidget()
         wrappers = [qw.QWidget() for i in range(math.ceil(len(entry_boxes) / 2))]
         wlays = [qw.QHBoxLayout(wrapper) for wrapper in wrappers]
-        print(f"wlays = {wlays}")
-        for wlay in wlays: wlay.setContentsMargins(0,0,0,0)
+        for wlay in wlays: 
+            wlay.setContentsMargins(0,0,0,0)
+            wlay.setSpacing(0)
         # wlay = qw.QHBoxLayout(wrap); wlay.setContentsMargins(0,0,0,0)
         for wrapper in wrappers:
             wrapper.setSizePolicy(qw.QSizePolicy.Policy.Preferred, qw.QSizePolicy.Policy.Maximum)
@@ -118,10 +119,9 @@ class ControlPanel(qw.QWidget):
         j = 0
 
         for name, entry in entry_boxes.items():
-            widget = EntryBlock(name, entry["label"], entry["range"], entry["init_val"], entry["tooltip"])
+            widget = EntryBlock(name, entry["label"], entry["range"], entry["init_val"], entry["tooltip"], entry["num_type"])
             self.entry_blocks.append(widget)
             widget.setSizePolicy(qw.QSizePolicy.Policy.Preferred, qw.QSizePolicy.Policy.Maximum)
-            print(f"Setting wlays[{j}]")
             wlays[j].addWidget(widget, alignment= qc.Qt.AlignmentFlag.AlignTop, stretch=0)
             widget.valueChanged.connect(self.update_plot)
             i += 1
@@ -132,6 +132,8 @@ class ControlPanel(qw.QWidget):
 
         matrix_widget3 = qw.QWidget()
         matrix_layout3 = qw.QHBoxLayout(matrix_widget3)
+        matrix_layout3.setContentsMargins(0,0,0,0)
+        matrix_layout3.setSpacing(0)
 
         self.eta_entry = MatrixEntry("eta", r"$\mathbf{\eta}= $", (3,1), params.eta.reshape(-1,1))
         self.eta_entry.textChanged.connect(self.update_plot)
