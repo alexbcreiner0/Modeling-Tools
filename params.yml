@@ -1,6 +1,5 @@
 presets:
   baseline: &baseline
-    random_seed: 0
     A: [[0.2, 0.0, 0.4],
         [0.2, 0.8, 0.0],
         [0.0, 0.1, 0.1]]
@@ -9,7 +8,7 @@ presets:
     c_bar:  [0.2, 0.0, 0.4]
     alpha_w: 0.8
     alpha_c: 0.7
-    alpha_L: 0.101
+    alpha_L: 0.0
     kappa:  [1, 1, 1]
     eta:    [2, 2, 2]
     eta_w:  0.25
@@ -23,6 +22,11 @@ presets:
     r0:     0.0
     T:      100
 
-  high_wage_share:
+  pos_interest_rate:
     <<: *baseline
-    alpha_w: 0.9
+    alpha_L: 0.03
+
+  pos_labor_pool_growth:
+    <<: *baseline
+    r0: 0.03
+
