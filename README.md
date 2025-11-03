@@ -1,6 +1,6 @@
 <img width="1908" height="1026" alt="image" src="https://github.com/user-attachments/assets/016e9b36-8a78-442c-a310-73d21f475b60" />
 
-Visualization tool for exploring Ian Wright's dynamic equilibrium model. I've modified his model slightly by allowing for a growing labor force. With this change, we can witness a convergence towards equilibrium profit rates and the classical Sraffian price system. Assumptions of the model:
+Visualization tool for exploring Ian Wright's dynamic equilibrium model. I've modified his model slightly by allowing for a growing labor force. With this change, we can witness a convergence towards uniform profit rates and the classical Sraffian price system (despite supply demand *disequilibrium*!). Assumptions of the model:
 
 - All the classical Sraffian stuff (fixed unique production techniques for each commodity, uniform wages, etcetera - if you're here you don't need to hear me recite these). 
 - A fixed amount of money circulating in the economy
