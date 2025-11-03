@@ -1,0 +1,97 @@
+from PyQt6 import (
+    QtWidgets as qw,
+    QtGui as qg
+)
+import re
+
+class DescDialog(qw.QDialog):
+    def __init__(self, parent= None, display_text= ""):
+        super().__init__()
+        root = qw.QVBoxLayout(self)
+        
+        display_label = qw.QLabel()
+        if display_text == "":
+            display_label.setText("No description provided.")
+        else:
+            display_label.setText(display_text)
+
+        finish_button = qw.QDialogButtonBox(qw.QDialogButtonBox.StandardButton.Cancel)
+        finish_button.rejected.connect(self.reject)
+        root.addWidget(display_label)
+        root.addWidget(finish_button)
+
+class SaveDialog(qw.QDialog):
+    def __init__(self, preset_names, parent= None, name_text= None, desc_text= None):
+        super().__init__(parent)
+        self.preset_names = preset_names
+        root = qw.QVBoxLayout()
+        self.resize(520, 200)
+        
+        entry_widget = qw.QWidget()
+        layout = qw.QGridLayout(entry_widget)
+        if not name_text:
+            name_label = qw.QLabel("Name: ")
+        else:
+            name_label = qw.QLabel(name_text)
+        if not desc_text:
+            desc_label = qw.QLabel("(Optional) Description: ")
+        else:
+            desc_label = qw.QLabel("(Optional) New Description: ")
+        self.name_entry = qw.QLineEdit()
+        self.desc_entry = qw.QTextEdit()
+        layout.addWidget(name_label, 0, 0)
+        layout.addWidget(desc_label, 1, 0)
+        layout.addWidget(self.name_entry, 0, 1)
+        layout.addWidget(self.desc_entry, 1, 1)
+
+        bottom_widget = qw.QWidget()
+        bottom_layout = qw.QHBoxLayout(bottom_widget)
+
+        buttons = qw.QDialogButtonBox(
+            qw.QDialogButtonBox.StandardButton.Save | # calls self.accept() when clicked
+            qw.QDialogButtonBox.StandardButton.Cancel # calls self.reject() when clicked
+        )
+        buttons.accepted.connect(self._on_save)
+        buttons.rejected.connect(self.reject)
+        bottom_layout.addWidget(buttons)
+
+        self.dialog_label = qw.QLabel()
+        bottom_layout.addWidget(self.dialog_label)
+        
+        root.addWidget(entry_widget)
+        root.addWidget(bottom_widget)
+
+        self.setLayout(root)
+
+    def _on_save(self):
+        name = self.name_entry.text().strip()
+        if not name:
+            self.dialog_label.setText("Please enter a name.")
+            self.name_entry.setFocus()
+            return
+        if make_shortname(name) in self.preset_names:
+            self.dialog_label.setText("Name already in use. Please choose something different.")
+            self.name_entry.setFocus()
+            return
+        self.accept() # closes dialog when accepted
+
+    def get_values(self):
+        return (
+            make_shortname(self.name_entry.text().strip()),
+            self.name_entry.text().strip(),
+            self.desc_entry.toPlainText().strip()
+        )
+
+    def bootstrap(self, parent= None):
+        if self.exec() == qw.QDialog.DialogCode.Accepted: # close once the acceptance flag is flagged (in the on_save method)
+            return self.get_values() #after that, grab the variables and return them
+        return None
+    
+def make_shortname(display_name: str) -> str:
+    s = display_name.lower()
+    # replace spaces and punctuation with underscores
+    s = re.sub(r"[^a-z0-9]+", "_", s)
+    # collapse multiple underscores
+    s = re.sub(r"_+", "_", s)
+    s = s.strip("_")
+    return s
