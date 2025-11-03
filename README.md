@@ -1,4 +1,5 @@
-<img width="1908" height="1026" alt="image" src="https://github.com/user-attachments/assets/ea64357b-9393-463c-ba5d-a5e4ed052a7b" />
+<img width="1908" height="1026" alt="image" src="https://github.com/user-attachments/assets/016e9b36-8a78-442c-a310-73d21f475b60" />
+
 Visualization tool for exploring Ian Wright's dynamic equilibrium model. I've modified his model slightly by allowing for a growing labor force. With this change, we can witness a convergence towards equilibrium profit rates and the classical Sraffian price system. Assumptions of the model:
 
 - All the classical Sraffian stuff (fixed unique production techniques for each commodity, uniform wages, etcetera - if you're here you don't need to hear me recite these). 
@@ -10,7 +11,7 @@ Visualization tool for exploring Ian Wright's dynamic equilibrium model. I've mo
 - Prices change proportionally to the change in supply, and approach infinity as supply approaches zero (supply changes according to the aforementioned capitalist and worker consumption as well as means of production usage)
 - Capitalists borrow *all* money used to produce from creditors (or seen differently loan it to each other) at an interest rate which changes inversely proportionally to the change in the capitalist class's total savings, and which goes to infinity as those savings go to zero. This amount of money may exceed the total money circulating in the economy (e.g. fictitious capital), however debt does not accumulate. Rather, they simply surrender a portion of their revenue according to the interest rate. (Note, they are surrendering it to themselves. Hmm...)
 
-The model is extremely robust and has a ton of possible applications. It's basically a (classical, e.g. non-probabilistic) capitalist economy in a box. Plug it into whatever you want. See [http://pinguet.free.fr/wrightthesis.pdf](Ian Wright's PhD thesis) for more information on the model. There is a lot I am planning on adding and doing to this, and by the time you download it it will probably already look different from the screenshot. Have fun!
+The model is extremely robust and has a ton of possible applications. It's basically a (classical, e.g. non-probabilistic) capitalist economy in a box. Plug it into whatever you want. See [http://pinguet.free.fr/wrightthesis.pdf ](Ian Wright's PhD thesis) for more information on the model. There is a lot I am planning on adding and doing to this, and by the time you download it it will probably already look different from the screenshot. Have fun!
 
 ## To run
 - Install [https://www.python.org/](Python) if you don't have it, make sure you check the 'add to system path' checkbox in the process if you are a Windows user.
