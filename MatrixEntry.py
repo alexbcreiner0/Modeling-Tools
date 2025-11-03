@@ -65,9 +65,15 @@ class MatrixEntry(qw.QWidget):
                     new_matrix[i][j] = float(self.entries[i][j].text())
             if self.dim[0] != self.dim[1]:
                 new_matrix = new_matrix.reshape(1,-1)[0]
-            print(f"Emitting: {new_matrix}")
             self.textChanged.emit(self.name, new_matrix)
         except ValueError:
             pass
 
 
+    def change_values(self, array):
+        for i in range(self.dim[0]):
+            if self.dim[1] > 1:
+                for j in range(self.dim[1]):
+                    self.entries[i][j].setText(str(array[i][j]))
+            else:
+                self.entries[i][0].setText(str(array[i]))
