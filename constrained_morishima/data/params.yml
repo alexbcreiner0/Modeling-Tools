@@ -1,0 +1,16 @@
+presets:
+  default_preset:
+    name: Default
+    desc: ''
+    params:
+      y1i: 100
+      y2i: 100
+      e: 1
+      a: 0.5
+      k1: 1
+      k2: 4
+      w: 1
+      r: 0.02
+      s: 0.8
+      N0: 180
+      T: 30

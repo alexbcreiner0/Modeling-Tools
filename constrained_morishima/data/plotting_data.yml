@@ -1,0 +1,26 @@
+everything:
+  name: "Everything"
+  tooltip: 
+  plots:
+    outputs:
+      labels: ["$y_1(t)$", "$y_2(t)$"]
+      traj_key: "y"
+      checkbox_name: "Toggle outputs"
+      toggled: True
+      on_startup: True
+      colors: ["red", "blue"]
+    employment:
+      labels: ["Employment"]
+      traj_key: "Es"
+      checkbox_name: "Toggle employment"
+      toggled: False
+      on_startup: False
+      colors: ["green"]
+    labor_pool:
+      labels: ["Labor population"]
+      traj_key: "Ns"
+      checkbox_name: "Toggle number of laborers"
+      toggled: False
+      on_startup: False
+      colors: ["yellow"]
+      

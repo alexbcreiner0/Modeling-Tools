@@ -1,0 +1,144 @@
+# This yaml file contains a per-row specification of the widgets which are to appear in the control panel.
+# A control widget at present is assumed to always associate with a specific parameter of the model. 
+# The yaml name is not important, but the param_name MUST perfectly match the name of the associated parameter
+# Program will crash if there is not a label or tooltip field, but you can leave it blank. 
+# There are three types: matrix, vector, and scalar. Different widgets will be created depending on the type.
+# If your control widget is a matrix or a vector, then the dimension of the matrix dim MUST be specified.
+# For a matrix, the dim needs to be a list, e.g. [3,3] for a 3x3 matrix. For a vector, it just needs to be an integer
+# If your control widget is a scalar, then you MUST specify a slider range ([0,1] for a slider from 0 to 1) and
+# a scalar_type (either "float" or "int")
+row1:
+  A:
+    param_name: "A"
+    label: "$A= $"
+    tooltip: "The requirements matrix. Rows and columns (for this and the vectors next to this) represent |
+      the first, second and third commodities circulating (for sake of example corn, iron, and sugar). |
+      The (i,j) entry of this matrix represents the number of units of commodity i needed to produce a unit of commodity j. |
+      So the bottom right entry is the amount of 'sugar' needed to make 'sugar'."
+    type: "matrix"
+    dim: [3,3]
+  l:
+    param_name: "l"
+    label: '$\mathbf{l}= $'
+    tooltip: "The living labor vector. The ith entry of this is the number of hours of labor required to produce a unit of the ith commodity."
+    type: "vector"
+    dim: 3
+row2:
+  b:
+    param_name: "b_bar"
+    label: '$\mathbf{b}= $'
+    tooltip: "Workers will spend a proportion of their savings each period on a means of subsistence bundle amounting to a scalar multiple of this vector. By default, we have workers consuming corn and sugar, but mostly corn."
+    type: "vector"
+    dim: 3
+  c:
+    param_name: "c_bar"
+    label: '$\mathbf{c}= $'
+    tooltip: "Workers will spend a proportion of their savings each period on a consumption bundle amounting to a scalar multiple of this vector. By default, we have capitalists consuming corn and sugar, but mostly sugar."
+    type: "vector"
+    dim: 3
+  q:
+    param_name: "q0"
+    label: '$\mathbf{q}(0)= $'
+    tooltip: "Initial output vector. This one is much less consequential than the initial supply vector found next to this."
+    type: "vector"
+    dim: 3
+  s:
+    param_name: "s0"
+    label: '$\mathbf{s}(0)= $'
+    tooltip: "Initial supply vector. Default example has an initial shortage of 'iron'. Try increasing this amount (the second entry) and see what changes."
+    type: "vector"
+    dim: 3
+row3:
+  r0:
+    param_name: "r0"
+    label: '$r(0)=$'
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Initial interest rate. Capitalists finance all production through borrowing at this rate."
+  m_w0:
+    param_name: "m_w0"
+    label: '$m_w(0)= $'
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Initial worker savings. Total circulating money in the economy is fixed at M=1. Understand that all money in the simulation is possessed by either workers or capitalists. Thus the more money workers have, the less capitalists have, driving up interest rates."
+row4:
+  L:
+    param_name: "L"
+    label: '$L= $'
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "float"
+    tooltip: "Initial total amount of labor available for employment (can be broken into arbitrarily small pieces). Note this stands in for the amount of workers available."
+  w:
+    param_name: "w0"
+    label: '$w(0)= $'
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Initial hourly wage rate."
+row5:
+  alpha_w:
+    param_name: "alpha_w"
+    label: '$\alpha_w= $'
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Worker propensity to consume. Workers spend this proportion of their savings each period on means of subsistence."
+  alpha_c:
+    param_name: "alpha_c"
+    label: '$\alpha_c= $'
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Capitalist propensity to consume. Capitalists spend this proportion of their savings each period on consumption."
+row6:
+  eta_w:
+    param_name: "eta_w"
+    label: '$\eta_w= $'
+    type: "scalar"
+    range: [0,2]
+    scalar_type: "float"
+    tooltip: "Constant of integration representing the elasticity of the hourly wage with respect to unemployment. Essentially, the higher this number is, the more dramatically wages will change with unemployment."
+  eta_r:
+    param_name: "eta_r"
+    label: '$\eta_r= $'
+    type: "scalar"
+    range: [0,2]
+    scalar_type: "float"
+    tooltip: "Constant of integration representing the elasticity of the interest rate with respect to capitalist savings. Essentially, the higher this number is, the more dramatically the interest rate will fall with respect to changes in the total money posessed by capitalists."
+row7:
+  alpha_l:
+    param_name: "alpha_L"
+    label: '$\alpha_L= $'
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Rate of population growth of the working class."
+  T:
+    param_name: "T"
+    label: '$T= $'
+    type: "scalar"
+    range: [10,1000]
+    scalar_type: "int"
+    tooltip: "Number of periods simulated. Keep in mind larger values of this will slow down simulation speed."
+row8:
+  p:
+    param_name: "p0"
+    label: '$\mathbf{p}(0)= $'
+    tooltip: "The initial unit price vector. Entry i is the price of a unit of i at the start of the simulation."
+    type: "vector"
+    dim: 3
+  eta:
+    param_name: "eta"
+    label: '$\mathbf{\eta}= $'
+    type: "vector"
+    dim: 3
+    tooltip: ""
+  kappa:
+    param_name: "kappa"
+    label: '$\mathbf{\kappa}= $'
+    type: "vector"
+    dim: 3
+    tooltip: ""

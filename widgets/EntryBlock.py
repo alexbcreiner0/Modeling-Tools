@@ -2,9 +2,9 @@ from PyQt6 import (
     QtCore as qc,
     QtWidgets as qw,
 )
-from LatexLabel import LatexLabel
-from FloatSlider import FloatSlider
-from HelpButton import HelpButton
+from .LatexLabel import LatexLabel
+from .FloatSlider import FloatSlider
+from .HelpButton import HelpButton
 
 class EntryBlock(qw.QWidget):
     valueChanged = qc.pyqtSignal(str, object)
@@ -42,11 +42,8 @@ class EntryBlock(qw.QWidget):
         self.debounce_timer.setSingleShot(True)
         self.entry.textChanged.connect(lambda _: self.debounce_timer.start(300))
         self.debounce_timer.timeout.connect(self.entry_change)
-        # self.entry.textChanged.connect(self.entry_change)
 
         self.info_button = HelpButton("?", tooltip)
-        # self.info_button.setText("?")
-        # self.info_button.setToolTip(tooltip)
 
         self.top_row_layout.addWidget(self.label)
         self.top_row_layout.addWidget(self.entry)

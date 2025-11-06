@@ -1,0 +1,202 @@
+# This yaml file specifies the plots which are available to see through the dropdown widget of the control panel and the checkboxes
+# Sometimes, you will be plotting vector trajectories (e.g. prices for multiple commodities). It is expected that there be a single dictionary entry
+# for all types of prices, e.g. that the dictionary value is a matrix whose columns are the individual trajectories. The number of labels and colors
+# MUST match the number of columns of this matrix. Checkbox name is optional. If there is one then there MUST also be an entry called toggled, set to true 
+# or false, which specifies whether the plot will be showing at launch or not. Colors are necessary and expected, but linestyle is not and will default to solid.
+# on_startup is a bandaid setting meant to address a bug. It's only really needed for plots on the first dropdown window that displays 
+# (dropdown options display in the order listed) when the app is launched, which have checkboxes but which are meant to be pre-checked on. Without it, they will
+# not show up until the user changes something.
+prices_vs_values:
+  name: "Prices vs Values"
+  tooltip: "Labor values here are converted into amounts of money via multiplication by the hourly wage (hours * dollars/hour = dollars) for the sake of comparison. If you see values changing despite unchanging technology, this is the sole reason."
+  plots:
+    prices:
+      labels: ["Price of Corn", "Price of Iron", "Price of Sugar"]
+      traj_key: "p"
+      checkbox_name: "Toggle prices"
+      toggled: True
+      on_startup: True
+      colors: ["red", "green","blue"]
+    values:
+      labels: ["Value of Corn", "Value of Iron", "Value of Sugar"]
+      traj_key: "wage_values"
+      checkbox_name: "Toggle values"
+      toggled: True
+      on_startup: True
+      colors: ["red", "green", "blue"]
+      linestyle: "dashed"
+    epr_prices:
+      labels: ["Equilibrium Price of Corn", "Equilibrium Price of Iron", "Equilibrium Price of Sugar"]
+      traj_key: "epr_prices"
+      checkbox_name: "Toggle equilibrium prices"
+      toggled: False
+      colors: ["red", "green", "blue"]
+      linestyle: "dotted"
+prices_vs_equilibrium:
+  name: "Prices vs Equilibrium Prices"
+  tooltip: 
+  plots:
+    prices:
+      labels: ["Price of Corn", "Price of Iron", "Price of Sugar"]
+      traj_key: "p"
+      checkbox_name: "Toggle prices"
+      toggled: True
+      colors: ["red", "green","blue"]
+    values:
+      labels: ["Value of Corn", "Value of Iron", "Value of Sugar"]
+      traj_key: "wage_values"
+      checkbox_name: "Toggle values"
+      toggled: False
+      colors: ["red", "green", "blue"]
+      linestyle: "dotted"
+    epr_prices:
+      labels: ["Equilibrium Price of Corn", "Equilibrium Price of Iron", "Equilibrium Price of Sugar"]
+      traj_key: "epr_prices"
+      checkbox_name: "Toggle equilibrium prices"
+      toggled: true
+      colors: ["red", "green", "blue"]
+      linestyle: "dashed"
+output_vs_supply:
+  name: "Output and Supply"
+  tooltip:
+  plots:
+    supplies:
+      labels: ["Corn Supply", "Iron Supply", "Sugar Supply"]
+      traj_key: "s"
+      checkbox_name: "Toggle supply"
+      toggled: True
+      colors: ["red", "green", "blue"]
+      linestyle: "solid"
+    outputs:
+      labels: ["Corn Output", "Iron Output", "Sugar Output"]
+      traj_key: "q"
+      checkbox_name: "Toggle outputs"
+      toggled: True
+      colors: ["red", "green", "blue"]
+      linestyle: "dashed"
+wages_and_unemployment:
+  name: "Wages and Employment"
+  tooltip:
+  plots:
+    wage_rate:
+      labels: ["Hourly Wage"]
+      traj_key: "w"
+      checkbox_name: "Toggle wage rage"
+      toggled: True
+      colors: ["black"]
+      linestyle: "dashed"
+    employment:
+      labels: ["Employment"]
+      traj_key: "total_labor_employed"
+      checkbox_name: "Toggle employment"
+      toggled: True
+      colors: ["red"]
+      linestyle: "dashed"
+    reserve_army:
+      labels: ["Size of Reserve Army"]
+      traj_key: "reserve_army_size"
+      checkbox_name: "Toggle reserve army size"
+      toggled: True
+      colors: ["blue"]
+    labor_demand:
+      labels: ["Demand for Labor"]
+      traj_key: "labor_demand"
+      checkbox_name: "Toggle labor demand"
+      toggled: True
+      colors: ["teal"]
+    exploitation:
+      labels: ["Rate of Exploitation"]
+      traj_key: "e"
+      checkbox_name: "Toggle rate of exploitation"
+      toggled: False
+      colors: ["orange"]
+rates_of_profit:
+  name: "Money Rates of Profit"
+  tooltip:
+  plots:
+    equilibrium_rop:
+      labels: ["Equilibrium Profit Rate"]
+      traj_key: "epr_profit_rates"
+      checkbox_name: "Toggle equilibrium RoP"
+      toggled: True
+      colors: ["orange"]
+      linestyle: "dashed"
+    sectoral_rops:
+      labels: ["Corn Sector Profit Rate", "Iron Sector Profit Rate", "Sugar Sector Profit Rate"]
+      traj_key: "profit_rates"
+      checkbox_name: "Toggle sectoral RoPs"
+      toggled: True
+      colors: ["red", "green", "blue"]
+    value_rop:
+      labels: ["Value Rate of Profit"]
+      traj_key: "value_rops"
+      checkbox_name: "Toggle value RoP"
+      toggled: False
+      colors: ["teal"]
+      linestyle: "dashed"
+    value_rop2:
+      labels: ["Value Rate of Profit"]
+      traj_key: "value_rops2"
+      checkbox_name: "Toggle value RoP2"
+      toggled: False
+      colors: ["orange"]
+      linestyle: "dashed"
+    exploitation:
+      labels: ["Rate of Exploitation"]
+      traj_key: "e"
+      checkbox_name: "Toggle rate of exploitation"
+      toggled: False
+      colors: ["magenta"]
+      linestyle: "solid"
+    # interest_rate:
+    #   labels: ["Interest Rate"]
+    #   traj_key: "r"
+    #   checkbox_name: "Toggle interest rate"
+    #   toggled: False
+    #   colors: ["black"]
+    #   linestyle: "dashed"
+    overall_comp:
+      labels: ["Overall Composition of Capital"]
+      traj_key: "compos_of_capital"
+      checkbox_name: "Toggle overall composition of capital"
+      toggled: False
+      colors: ["brown"]
+labor_time_distn:
+  name: "Distribtion of Labor Time"
+  tooltip:
+  plots:
+    surplus:
+      labels: ["Surplus Value Produced"]
+      traj_key: "surplus_vals"
+      colors: ["green"]
+    mos:
+      labels: ["Value of Means of Subistence Produced"]
+      traj_key: "values_ms"
+      colors: ["red"]
+    cc:
+      labels: ["Value of Constant Capital Produced"]
+      traj_key: "cc_vals"
+      colors: ["blue"]
+income_distn:
+  name: "Distribution of Income"
+  tooltip:
+  plots:
+    worker_savings:
+      labels: ["Worker Savings"]
+      traj_key: "m_w"
+      colors: ["red"]
+    capitalist_savings:
+      labels: ["Capitalist Savings"]
+      traj_key: "m_c"
+      colors: ["green"]
+    wages:
+      labels: ["Hourly Wage"]
+      traj_key: "w"
+      colors: ["black"]
+    exploitation:
+      labels: ["Rate of Exploitation"]
+      traj_key: "e"
+      checkbox_name: "Toggle rate of exploitation"
+      toggled: False
+      colors: ["orange"]
+      linestyles: ["dashed"]

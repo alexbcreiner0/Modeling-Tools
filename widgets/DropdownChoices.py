@@ -2,7 +2,7 @@ from PyQt6 import (
     QtCore as qc,
     QtWidgets as qw,
 )
-from HelpButton import HelpButton
+from .HelpButton import HelpButton
 
 class DropdownChoices(qw.QWidget):
     infoBoxHovered = qc.pyqtSignal()

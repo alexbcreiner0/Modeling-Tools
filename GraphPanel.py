@@ -1,3 +1,4 @@
+import sys
 from PyQt6 import (
     QtCore as qc,
     QtWidgets as qw,
@@ -9,11 +10,10 @@ import scienceplots
 plt.style.use(["grid", "notebook"])
 
 class GraphPanel(qw.QWidget):
-    TChanged = qc.pyqtSignal(str, int)
-
-    def __init__(self, init_traj, init_t, dropdown_choices, T):
+    def __init__(self, init_traj, init_t, dropdown_choices, T, plotting_data):
         super().__init__()
         self.start_up = True
+        self.data = plotting_data
         layout = qw.QVBoxLayout()
         self.dropdown_choices = dropdown_choices
         self.figure, self.axis = plt.subplots()
@@ -99,12 +99,6 @@ class GraphPanel(qw.QWidget):
         self.make_plot(init_traj, init_t, 0, {})
         self.start_up = False
 
-    # def recompute_T(self):
-    #     print("Recomputing T")
-    #     new_T = int(self.xlim[1])
-    #     self.T = new_T
-    #     self.TChanged.emit("T", new_T)
-
     def edit_axes(self):
         try:
             new_xlim = (float(self.xlower_entry.text()), float(self.xupper_entry.text()))
@@ -130,147 +124,157 @@ class GraphPanel(qw.QWidget):
         self.edit_axes()
 
     def make_plot(self, traj, t, dropdown_choice, options):
-        # if not xlim:
         current_xlim = self.axis.get_xlim()
-        # else:
-        #     current_xlim = xlim
-        # if not ylim:
         current_ylim = self.axis.get_ylim()
-        # else:
-        #     current_ylim = ylim
         self.axis.clear()
         self.axis.set_xlabel("Time [t]")
-        if dropdown_choice == 0: # prices
-            corn_prices = traj["p"][:,0]
-            iron_prices = traj["p"][:,1]
-            sugar_prices = traj["p"][:,2]
-            values = traj["values"]
-            epr_prices = traj["epr_prices"]
-            epr_corn_prices = [epr_prices_i[0] for epr_prices_i in epr_prices]
-            epr_iron_prices = [epr_prices_i[1] for epr_prices_i in epr_prices]
-            epr_sugar_prices = [epr_prices_i[2] for epr_prices_i in epr_prices]
 
-            wages = traj["w"]
+        dropdown_list = list(self.data.keys())
+        plots = self.data[dropdown_list[dropdown_choice]]["plots"]
 
-            wage_values = np.array([np.array(values) for i in range(len(t))])
-            for i,w in enumerate(wages):
-                wage_values[i] *= w
-            corn_values, iron_values, sugar_values = wage_values[:,0], wage_values[:,1], wage_values[:,2]
-
-            if "Toggle prices" in options or self.start_up:
-                self.axis.plot(t, corn_prices, color="red", label="Price of Corn")
-                self.axis.plot(t, iron_prices, color="green", label="Price of Iron")
-                self.axis.plot(t, sugar_prices, color="blue", label="Price of Sugar")
-
-            if "Toggle values" in options or self.start_up:
-                self.axis.plot(t, corn_values, color="red", linestyle="dashed", label="Value of Corn")
-                self.axis.plot(t, iron_values, color="green", linestyle="dashed", label="Value of Iron")
-                self.axis.plot(t, sugar_values, color="blue", linestyle="dashed", label="Value of Sugar")
-
-            if "Toggle equilibrium prices" in options:
-                self.axis.plot(t, epr_corn_prices, color="red", linestyle="dotted", label="Equilibrium Price of Corn")
-                self.axis.plot(t, epr_iron_prices, color="green", linestyle="dotted", label="Equilibrium Price of Iron")
-                self.axis.plot(t, epr_sugar_prices, color="blue", linestyle="dotted", label="Equilibrium Price of Sugar")
-
-            # self.axis.set_ylabel("Dollars [$]")
-
-        elif dropdown_choice == 1: # prices vs epr prices
-            corn_prices = traj["p"][:,0]
-            iron_prices = traj["p"][:,1]
-            sugar_prices = traj["p"][:,2]
-            values = traj["values"]
-            epr_prices = traj["epr_prices"]
-            epr_corn_prices = [epr_prices_i[0] for epr_prices_i in epr_prices]
-            epr_iron_prices = [epr_prices_i[1] for epr_prices_i in epr_prices]
-            epr_sugar_prices = [epr_prices_i[2] for epr_prices_i in epr_prices]
-
-            wages = traj["w"]
-
-            wage_values = np.array([np.array(values) for i in range(self.T)])
-            for i,w in enumerate(wages):
-                wage_values[i] *= w
-            corn_values, iron_values, sugar_values = wage_values[:,0], wage_values[:,1], wage_values[:,2]
-
-            if "Toggle prices" in options or self.start_up:
-                self.axis.plot(t, corn_prices, color="red", label="Price of Corn")
-                self.axis.plot(t, iron_prices, color="green", label="Price of Iron")
-                self.axis.plot(t, sugar_prices, color="blue", label="Price of Sugar")
-
-            if "Toggle values" in options:
-                self.axis.plot(t, corn_values, color="red", linestyle="dotted", label="Value of Corn")
-                self.axis.plot(t, iron_values, color="green", linestyle="dotted", label="Value of Iron")
-                self.axis.plot(t, sugar_values, color="blue", linestyle="dotted", label="Value of Sugar")
-
-            if "Toggle equilibrium prices" in options or self.start_up:
-                self.axis.plot(t, epr_corn_prices, color="red", linestyle="dashed", label="Equilibrium Price of Corn")
-                self.axis.plot(t, epr_iron_prices, color="green", linestyle="dashed", label="Equilibrium Price of Iron")
-                self.axis.plot(t, epr_sugar_prices, color="blue", linestyle="dashed", label="Equilibrium Price of Sugar")
-
-        elif dropdown_choice == 2: # outputs
-            self.axis.plot(t, traj["s"][:,0], 'r-', label="Corn Supply")
-            self.axis.plot(t, traj["s"][:,1], 'g-', label="Iron Supply")
-            self.axis.plot(t, traj["s"][:,2], 'b-', label="Sugar Supply")
-
-            self.axis.plot(t, traj["q"][:,0], 'r--', label="Corn Output")
-            self.axis.plot(t, traj["q"][:,1], 'g--', label="Iron Output")
-            self.axis.plot(t, traj["q"][:,2], 'b--', label="Sugar Output")
-
-            # self.axis.set_label("Units")
-
-        elif dropdown_choice == 3: # wages and employment
-            wages, employment = traj["w"], traj["total_labor_employed"]
-            L = traj["L"]
-            self.axis.plot(t, wages, 'k-', label="Hourly Wage")
-            self.axis.plot(t, employment, 'r-', label="Employment")
-            self.axis.plot(t, L-employment, 'b', label= "Size of Reserve Army")
-            self.axis.plot(t, traj["labor_demand"], label= "Demand for Labor")
-
-        elif dropdown_choice == 4: # rates
-            interest = traj["r"]
-            epr_profit_rates = traj["epr_profit_rates"]
-            e = traj["e"]
-            profit_rates = traj["profit_rates"]
-            # self.axis.set_ylim(0,5)
-            # self.axis.plot(t, interest, 'k--', label="Interest Rate")
-
-            if "Toggle equilibrium RoP" in options:
-                self.axis.plot(t, epr_profit_rates, color="orange", linestyle='--', label="Equilibrium Profit Rate")
-
-            if "Toggle sectoral RoPs" in options:
-                self.axis.plot(t, profit_rates[:,0], color="red", linestyle='-', label="Corn Sector Profit Rate")
-                self.axis.plot(t, profit_rates[:,1], color="green", linestyle='-', label="Iron Sector Profit Rate")
-                self.axis.plot(t, profit_rates[:,2], color="blue", linestyle='-', label="Sugar Sector Profit Rate")
-
-            if "Toggle value RoP" in options:
-                self.axis.plot(t, traj["value_rops"], label="Value Rate of Profit")
-
-            if "Toggle rate of exploitation" in options:
-                self.axis.plot(t, traj["e"], color="purple", linestyle="-", label="Rate of Exploitation")
-
-            if "Toggle interest rate" in options:
-                self.axis.plot(t, traj["r"], color="black", linestyle="--", label="Interest rate")
-
-        elif dropdown_choice == 5: # value distn
-            self.axis.plot(t, traj["surplus_vals"], 'g-', label="Surplus Value Produced")
-            self.axis.plot(t, traj["values_ms"], 'r--', label="Value of Means of Subsistence")
-            self.axis.plot(t, traj["cc_vals"], 'b-', label="Value of Constant Capital")
-
-            # self.axis.set_ylabel("Hours [t]")
-
-        elif dropdown_choice == 6:
-            m_w = traj["m_w"]
-            m_c = [1-m_wi for m_wi in m_w]
-            wages = traj["w"]
-            e = traj["e"]
-            self.axis.plot(t, e, 'y--', label="Rate of Exploitation")
-            self.axis.plot(t, wages, 'b-', label="Hourly Wage")
-            self.axis.plot(t, m_w, 'k--', label="Worker savings")
-            self.axis.plot(t, m_c, 'r--', label="Capitalist savings")
+        for plot in plots:
+            plot_dict = plots[plot]
+            n = len(plot_dict["labels"])
+            if "checkbox_name" in plot_dict:
+                if plot_dict["checkbox_name"] in options or (self.start_up and "on_startup" in plot_dict):
+                    if len(plot_dict["labels"]) == 1:
+                        if "linestyle" in plot_dict: 
+                            linestyle = plot_dict["linestyle"] 
+                        else: 
+                            linestyle = "solid"
+                        self.axis.plot(t, traj[plot_dict["traj_key"]], color= plot_dict["colors"][0], linestyle= linestyle, label= plot_dict["labels"][0])
+                    else:
+                        n = len(plot_dict["labels"])
+                        if "linestyle" in plot_dict:
+                             linestyle = plot_dict["linestyle"] 
+                        else: 
+                            linestyle = "solid"
+                        for i in range(n):
+                            self.axis.plot(t, traj[plot_dict["traj_key"]][:,i], color= plot_dict["colors"][i], linestyle= linestyle, label= plot_dict["labels"][i])
+            else:
+                if len(plot_dict["labels"]) == 1:
+                    if "linestyle" in plot_dict: 
+                        linestyle = plot_dict["linestyle"] 
+                    else: 
+                        linestyle = "solid"
+                    self.axis.plot(t, traj[plot_dict["traj_key"]], color= plot_dict["colors"][0], linestyle= linestyle, label= plot_dict["labels"][0])
+                else:
+                    n = len(plot_dict["labels"])
+                    if "linestyle" in plot_dict:
+                         linestyle = plot_dict["linestyle"] 
+                    else: 
+                        linestyle = "solid"
+                    for i in range(n):
+                        self.axis.plot(t, traj[plot_dict["traj_key"]][:,i], color= plot_dict["colors"][i], linestyle= linestyle, label= plot_dict["labels"][i])
 
         self.axis.set_xlim(current_xlim)
         self.axis.set_ylim(current_ylim)
         self.axis.legend()
         self.canvas.draw_idle()
         plt.tight_layout()
+
+    # def make_plot2(self, traj, t, dropdown_choice, options):
+    #     current_xlim = self.axis.get_xlim()
+    #     current_ylim = self.axis.get_ylim()
+    #     self.axis.clear()
+    #     self.axis.set_xlabel("Time [t]")
+    #     if dropdown_choice == 0: # prices
+
+    #         if "Toggle prices" in options or self.start_up:
+    #             self.axis.plot(t, traj["corn_prices"], color="red", label="Price of Corn")
+    #             self.axis.plot(t, traj["iron_prices"], color="green", label="Price of Iron")
+    #             self.axis.plot(t, traj["sugar_prices"], color="blue", label="Price of Sugar")
+
+    #         if "Toggle values" in options or self.start_up:
+    #             self.axis.plot(t, traj["corn_values"], color="red", linestyle="dashed", label="Value of Corn")
+    #             self.axis.plot(t, traj["iron_values"], color="green", linestyle="dashed", label="Value of Iron")
+    #             self.axis.plot(t, traj["sugar_values"], color="blue", linestyle="dashed", label="Value of Sugar")
+
+    #         if "Toggle equilibrium prices" in options:
+    #             self.axis.plot(t, traj["epr_corn_prices"], color="red", linestyle="dotted", label="Equilibrium Price of Corn")
+    #             self.axis.plot(t, traj["epr_iron_prices"], color="green", linestyle="dotted", label="Equilibrium Price of Iron")
+    #             self.axis.plot(t, traj["epr_sugar_prices"], color="blue", linestyle="dotted", label="Equilibrium Price of Sugar")
+
+    #     elif dropdown_choice == 1: # prices vs epr prices
+
+    #         if "Toggle prices" in options or self.start_up:
+    #             self.axis.plot(t, traj["corn_prices"], color="red", label="Price of Corn")
+    #             self.axis.plot(t, traj["iron_prices"], color="green", label="Price of Iron")
+    #             self.axis.plot(t, traj["sugar_prices"], color="blue", label="Price of Sugar")
+
+    #         if "Toggle values" in options or self.start_up:
+    #             self.axis.plot(t, traj["corn_values"], color="red", linestyle="dotted", label="Value of Corn")
+    #             self.axis.plot(t, traj["iron_values"], color="green", linestyle="dotted", label="Value of Iron")
+    #             self.axis.plot(t, traj["sugar_values"], color="blue", linestyle="dotted", label="Value of Sugar")
+
+    #         if "Toggle equilibrium prices" in options:
+    #             self.axis.plot(t, traj["epr_corn_prices"], color="red", linestyle="dashed", label="Equilibrium Price of Corn")
+    #             self.axis.plot(t, traj["epr_iron_prices"], color="green", linestyle="dashed", label="Equilibrium Price of Iron")
+    #             self.axis.plot(t, traj["epr_sugar_prices"], color="blue", linestyle="dashed", label="Equilibrium Price of Sugar")
+
+    #     elif dropdown_choice == 2: # outputs
+    #         self.axis.plot(t, traj["s"][:,0], 'r-', label="Corn Supply")
+    #         self.axis.plot(t, traj["s"][:,1], 'g-', label="Iron Supply")
+    #         self.axis.plot(t, traj["s"][:,2], 'b-', label="Sugar Supply")
+
+    #         self.axis.plot(t, traj["q"][:,0], 'r--', label="Corn Output")
+    #         self.axis.plot(t, traj["q"][:,1], 'g--', label="Iron Output")
+    #         self.axis.plot(t, traj["q"][:,2], 'b--', label="Sugar Output")
+
+    #     elif dropdown_choice == 3: # wages and employment
+    #         wages, employment = traj["w"], traj["total_labor_employed"]
+    #         L = traj["L"]
+    #         self.axis.plot(t, wages, 'k-', label="Hourly Wage")
+    #         self.axis.plot(t, employment, 'r-', label="Employment")
+    #         self.axis.plot(t, L-employment, 'b', label= "Size of Reserve Army")
+    #         self.axis.plot(t, traj["labor_demand"], label= "Demand for Labor")
+
+    #     elif dropdown_choice == 4: # rates
+    #         interest = traj["r"]
+    #         epr_profit_rates = traj["epr_profit_rates"]
+    #         e = traj["e"]
+    #         profit_rates = traj["profit_rates"]
+    #         # self.axis.set_ylim(0,5)
+    #         # self.axis.plot(t, interest, 'k--', label="Interest Rate")
+
+    #         if "Toggle equilibrium RoP" in options:
+    #             self.axis.plot(t, epr_profit_rates, color="orange", linestyle='--', label="Equilibrium Profit Rate")
+
+    #         if "Toggle sectoral RoPs" in options:
+    #             self.axis.plot(t, profit_rates[:,0], color="red", linestyle='-', label="Corn Sector Profit Rate")
+    #             self.axis.plot(t, profit_rates[:,1], color="green", linestyle='-', label="Iron Sector Profit Rate")
+    #             self.axis.plot(t, profit_rates[:,2], color="blue", linestyle='-', label="Sugar Sector Profit Rate")
+
+    #         if "Toggle value RoP" in options:
+    #             self.axis.plot(t, traj["value_rops"], label="Value Rate of Profit")
+
+    #         if "Toggle rate of exploitation" in options:
+    #             self.axis.plot(t, traj["e"], color="purple", linestyle="-", label="Rate of Exploitation")
+
+    #         if "Toggle interest rate" in options:
+    #             self.axis.plot(t, traj["r"], color="black", linestyle="--", label="Interest rate")
+
+    #     elif dropdown_choice == 5: # value distn
+    #         self.axis.plot(t, traj["surplus_vals"], 'g-', label="Surplus Value Produced")
+    #         self.axis.plot(t, traj["values_ms"], 'r--', label="Value of Means of Subsistence")
+    #         self.axis.plot(t, traj["cc_vals"], 'b-', label="Value of Constant Capital")
+
+    #         # self.axis.set_ylabel("Hours [t]")
+
+    #     elif dropdown_choice == 6:
+    #         m_w = traj["m_w"]
+    #         m_c = [1-m_wi for m_wi in m_w]
+    #         wages = traj["w"]
+    #         e = traj["e"]
+    #         self.axis.plot(t, e, 'y--', label="Rate of Exploitation")
+    #         self.axis.plot(t, wages, 'b-', label="Hourly Wage")
+    #         self.axis.plot(t, m_w, 'k--', label="Worker savings")
+    #         self.axis.plot(t, m_c, 'r--', label="Capitalist savings")
+
+    #     self.axis.set_xlim(current_xlim)
+    #     self.axis.set_ylim(current_ylim)
+    #     self.axis.legend()
+    #     self.canvas.draw_idle()
+    #     plt.tight_layout()
 
 

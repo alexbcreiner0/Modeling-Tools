@@ -1,0 +1,94 @@
+row1:
+  y1i:
+    param_name: y1i
+    label: "$y_1(0)= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "float"
+    tooltip: 
+  y2i:
+    param_name: y2i
+    label: "$y_2(0)= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "float"
+    tooltip: 
+row2:
+  e:
+    param_name: e
+    label: "$e= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,5]
+    scalar_type: "float"
+    tooltip: 
+  a:
+    param_name: a
+    label: "$a= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: 
+row3:
+  k1:
+    param_name: k1
+    label: "$k_1= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "float"
+    tooltip: 
+  k2:
+    param_name: k2
+    label: "$k_2= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "float"
+    tooltip: 
+row4:
+  w:
+    param_name: w
+    label: "$w= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,2]
+    scalar_type: "float"
+    tooltip: 
+  r:
+    param_name: r
+    label: "$r= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Rate of reproduction for the employed working class"
+row5:
+  s:
+    param_name: s
+    label: "$s= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Attrition rate for unemployed workers"
+  N0:
+    param_name: N0
+    label: "$N(0)= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,200]
+    scalar_type: "int"
+    tooltip: "Initial number of workers"
+row6:
+  T:
+    param_name: T
+    label: "$T= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "int"
+    tooltip: 

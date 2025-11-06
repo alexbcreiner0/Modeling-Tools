@@ -4,8 +4,8 @@ from PyQt6 import (
 )
 from functools import partial
 from numpy import ndarray, zeros
-from LatexLabel import LatexLabel
-from HelpButton import HelpButton
+from .LatexLabel import LatexLabel
+from .HelpButton import HelpButton
 
 class MatrixEntry(qw.QWidget):
     textChanged = qc.pyqtSignal(str, ndarray)

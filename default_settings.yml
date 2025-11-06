@@ -1,0 +1,3 @@
+simulation_model: ian_wright_basic
+simulation_function: get_trajectories
+default_preset: default_preset
