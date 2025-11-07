@@ -64,7 +64,7 @@ class MainWindow(qw.QMainWindow):
         self.control_panel.plotChoiceChanged.connect(self.switch_plot)
 
         main_layout = qw.QHBoxLayout()
-        main_layout.addWidget(self.control_panel, stretch=2)
+        main_layout.addWidget(self.control_panel, stretch=3)
         main_layout.addWidget(self.graph_panel, stretch=5)
 
         main_container = qw.QWidget()
@@ -176,5 +176,5 @@ class MainWindow(qw.QMainWindow):
     def view_desc(self, name):
         desc = self.presets[name]["desc"]
         dialog = DescDialog(self, desc)
-        dialog.exec()
+        dialog.bootstrap()
 

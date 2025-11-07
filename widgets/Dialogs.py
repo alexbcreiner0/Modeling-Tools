@@ -6,8 +6,9 @@ import re
 
 class DescDialog(qw.QDialog):
     def __init__(self, parent= None, display_text= ""):
-        super().__init__()
+        super().__init__(parent)
         root = qw.QVBoxLayout(self)
+        self.resize(520, 200)
         
         display_label = qw.QLabel()
         if display_text == "":
@@ -19,6 +20,13 @@ class DescDialog(qw.QDialog):
         finish_button.rejected.connect(self.reject)
         root.addWidget(display_label)
         root.addWidget(finish_button)
+        display_label.setWordWrap(True)
+
+    def bootstrap(self):
+        if self.exec() == qw.QDialog.DialogCode.Rejected: # close once the acceptance flag is flagged (in the on_save method)
+            return  #after that, grab the variables and return them
+        return None
+ 
 
 class SaveDialog(qw.QDialog):
     def __init__(self, preset_names, parent= None, name_text= None, desc_text= None):
