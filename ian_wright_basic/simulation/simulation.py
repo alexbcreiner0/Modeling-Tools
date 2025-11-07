@@ -232,7 +232,7 @@ def get_trajectories(params, rtol=1e-6, atol=1e-9, method="RK45") -> tuple[Dict[
     L = y[3*n+1, :]
 
     traj = {"q": q, "p": p, "s": s, "m_w": m_w, "L": L}
-    get_dependent_plots(params, traj, t, constant_real_wage=True)
+    get_dependent_plots(params, traj, t)
 
     return traj, t
 
@@ -345,8 +345,6 @@ def get_dydt_fixed_wages(params: Params) -> Callable[[float, np.ndarray], np.nda
         return np.concatenate([delta_q, delta_p, delta_s, np.array([delta_m_w]), np.array([delta_L])])
 
     return rhs
-
-
 
 def get_dydt_fixed_hourly_b_vecs(params: Params) -> Callable[[float, np.ndarray], np.ndarray]:
     A = params.A
