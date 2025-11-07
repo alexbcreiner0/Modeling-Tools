@@ -5,16 +5,16 @@ from PyQt6 import (
 import yaml
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
-from loader import load_presets, _dump_to_yaml
-from simulation.parameters import params_from_mapping, to_plain
+from loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping
+# from simulation.parameters import params_from_mapping, to_plain
 from widgets.Dialogs import SaveDialog, DescDialog
 
 class MainWindow(qw.QMainWindow):
-    def __init__(self, init_params, trajectory_function, presets, panel_data, plotting_data):
+    def __init__(self, init_params, trajectory_function, presets, panel_data, plotting_data, current_path):
         super().__init__()
         self.setWindowTitle("Dynamic Equilibrium Model")
         self.presets = presets
-
+        self.current_path = current_path
 
         # Extract dropdown info from data
         dropdown_choices = [plotting_data[dropdown_choice]["name"] for dropdown_choice in plotting_data]
@@ -92,14 +92,14 @@ class MainWindow(qw.QMainWindow):
             qw.QApplication.quit()
 
     def load_preset(self, preset):
-        self.params = params_from_mapping(self.presets[preset]["params"])
+        self.params = params_from_mapping(self.presets[preset]["params"], f"{self.current_path}/simulation/parameters.py")
         self.traj, self.t = self.get_trajectories(self.params)
         options = self.control_panel.dropdown_widget.get_current_checked_boxes()
         self.graph_panel.make_plot(self.traj, self.t, self.current_dropdown_choice, options)
         self.control_panel.load_new_params(self.params)
 
     def save_preset(self):
-        with open("data/params.yml", "r") as f:
+        with open(f"{self.current_path}/data/params.yml", "r") as f:
             presets = yaml.safe_load(f)["presets"]
 
         params_dict = to_plain(self.params)
@@ -110,7 +110,7 @@ class MainWindow(qw.QMainWindow):
             return
         presets[shortname] = {"name": name, "desc": desc, "params": params_dict}
 
-        _dump_to_yaml(presets)
+        _dump_to_yaml(presets, self.current_path)
         
         preset_options_submenu = self.presets_submenu.addMenu(name)
         preset_options_submenu.setProperty("preset_id", shortname)
@@ -132,7 +132,7 @@ class MainWindow(qw.QMainWindow):
     def delete_preset(self, preset):
         del self.presets[preset]
 
-        _dump_to_yaml(presets)
+        _dump_to_yaml(self.presets, self.current_path)
         for action in self.presets_submenu.actions():
             submenu = action.menu()
             if submenu.property("preset_id") == preset:
@@ -141,7 +141,7 @@ class MainWindow(qw.QMainWindow):
                 break
 
     def rename_preset(self, old_shortname):
-        with open("data/params.yml", "r") as f:
+        with open(f"{self.current_path}/data/params.yml", "r") as f:
             presets = yaml.safe_load(f)["presets"]
         dialog = SaveDialog(presets.keys(), self, name_text= "New Name: ", desc_text= "(Optional) New Description")
         try:
@@ -155,7 +155,7 @@ class MainWindow(qw.QMainWindow):
         presets[shortname] = preset
         del presets[old_shortname]
 
-        _dump_to_yaml(presets)
+        _dump_to_yaml(presets, self.current_path)
         preset_options_submenu = self.presets_submenu.addMenu(new_name)
         preset_options_submenu.setProperty("preset_id", shortname)
         load_action = qg.QAction("Load preset", self)

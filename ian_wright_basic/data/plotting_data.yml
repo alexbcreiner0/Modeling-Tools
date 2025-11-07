@@ -134,13 +134,6 @@ rates_of_profit:
       toggled: False
       colors: ["teal"]
       linestyle: "dashed"
-    value_rop2:
-      labels: ["Value Rate of Profit"]
-      traj_key: "value_rops2"
-      checkbox_name: "Toggle value RoP2"
-      toggled: False
-      colors: ["orange"]
-      linestyle: "dashed"
     exploitation:
       labels: ["Rate of Exploitation"]
       traj_key: "e"
@@ -148,13 +141,13 @@ rates_of_profit:
       toggled: False
       colors: ["magenta"]
       linestyle: "solid"
-    # interest_rate:
-    #   labels: ["Interest Rate"]
-    #   traj_key: "r"
-    #   checkbox_name: "Toggle interest rate"
-    #   toggled: False
-    #   colors: ["black"]
-    #   linestyle: "dashed"
+    interest_rate:
+      labels: ["Interest Rate"]
+      traj_key: "r"
+      checkbox_name: "Toggle interest rate"
+      toggled: False
+      colors: ["black"]
+      linestyle: "dashed"
     overall_comp:
       labels: ["Overall Composition of Capital"]
       traj_key: "compos_of_capital"

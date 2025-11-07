@@ -6,7 +6,9 @@ import yaml
 from loader import load_presets, _dump_to_yaml, params_from_mapping
 import sys, importlib
 from pathlib import Path
+from dataclasses import dataclass
 from MainWindow import MainWindow
+import numpy as np
 import yaml
 
 if __name__ == "__main__":
@@ -50,7 +52,7 @@ if __name__ == "__main__":
     with open(f"{sim_model}/data/control_panel_data.yml") as f:
         panel_data = yaml.safe_load(f)
 
-    window = MainWindow(init_params, get_trajectories, presets, panel_data, plotting_data)
+    window = MainWindow(init_params, get_trajectories, presets, panel_data, plotting_data, sim_model)
 
     window.show()
     app.exec()

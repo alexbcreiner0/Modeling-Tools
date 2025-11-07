@@ -1,7 +1,7 @@
 import yaml
 import numpy as np
 import importlib.util
-from dataclasses import fields, is_dataclass
+from dataclasses import fields, is_dataclass, asdict
 from typing import get_origin, get_args
 # from parameters import Params, params_from_mapping
 
@@ -111,3 +111,23 @@ def params_from_mapping(map: dict, dataclass_path: str):
     # field_names = {f.name for f in fields(Params)}
     # filtered = {k: v for k, v in map.items() if k in field_names}
     return Params(**kwargs)
+
+def to_plain(obj): # opaque as fuck chatgpt code for converting the parameters dataclass to a yaml-friendly dictionary
+    """Recursively convert dataclass / numpy types to YAML-friendly Python types."""
+    if is_dataclass(obj):
+        obj = asdict(obj)
+    if isinstance(obj, dict):
+        return {k: to_plain(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [to_plain(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    return obj
+
+
