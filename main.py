@@ -17,6 +17,10 @@ if __name__ == "__main__":
     PROJECT_ROOT = Path(__file__).resolve().parent
     sys.path.insert(0, str(PROJECT_ROOT))
 
+    # with open("themes/Geoo.qss", "r") as f: 
+    #     qss = f.read()
+    # app.setStyleSheet(qss)
+
     with open("default_settings.yml", "r") as f:
         default_settings = yaml.safe_load(f)
 
