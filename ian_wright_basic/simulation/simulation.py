@@ -70,6 +70,79 @@ def _split_state(y, n):
     L  = y[3*n+1]
     return q, p, s, m_w, L
 
+def get_trajectories_perturbed(params, rtol=1e-6, atol=1e-9, method="BDF") -> tuple[Dict[str, np.ndarray], np.ndarray]:
+    n = params.A.shape[0]
+    # fundamentally we are solving for q, p, s, m and (in my improved version) L
+    y = np.concatenate([params.q0, params.p0, params.s0, np.array([params.m_w0]), np.array([params.L])])
+    print(y)
+
+    t_all = [0.0]
+    q_list, p_list, s_list, mw_list, L_list = [], [], [], [], []
+    q0, p0, s0, mw0, L0 = _split_state(y, n)
+    q_list.append(q0); p_list.append(p0); s_list.append(s0); mw_list.append(mw0); L_list.append(L0)
+
+    def run_segment(seg_params, t_start, t_end, y_start):
+        """Step by integer times; return last y and whether completed."""
+        y_curr = y_start
+        for k in range(t_start, t_end):
+            try:
+                dydt = get_dydt(seg_params)
+                sol = solve_ivp(dydt, (float(k), float(k+1)), y_curr,
+                                method=method, rtol=rtol, atol=atol,
+                                t_eval=[float(k+1)], max_step=1.0)
+                if not sol.success or not np.all(np.isfinite(sol.y)):
+                    return y_curr, False
+                y_curr = sol.y[:, -1]  # state at k+1
+                q, p, s, mw, L = _split_state(y_curr, n)
+                q_list.append(q); p_list.append(p); s_list.append(s)
+                mw_list.append(mw); L_list.append(L)
+                t_all.append(float(k+1))
+            except Exception:
+                # stop and return partial trajectory
+                return y_curr, False
+        return y_curr, True
+
+    # first half
+    y, ok1 = run_segment(params, 0, params.T//2, y)
+
+    # second half with perturbed params
+    new_params = copy.deepcopy(params)
+    new_params.l = 0.5 * params.l
+    y, ok2 = run_segment(new_params, params.T//2, params.T, y)
+
+    # build traj arrays
+    q = np.vstack(q_list)          # (len(t_all), n)
+    p = np.vstack(p_list)
+    s = np.vstack(s_list)
+    m_w = np.array(mw_list)        # (len(t_all),)
+    L   = np.array(L_list)
+
+    traj = {"q": q, "p": p, "s": s, "m_w": m_w, "L": L}
+
+    # compute dependents using correct params for each half:
+    # first half
+    idx_mid = t_all.index(float(params.T//2)) if float(params.T//2) in t_all else len(t_all)-1
+    traj1 = {k: v[:idx_mid+1].copy() for k, v in traj.items()}
+    get_dependent_plots(params, traj1, np.array(t_all[:idx_mid+1]))
+    # second half
+    traj2 = {k: v[idx_mid:].copy() for k, v in traj.items()}
+    get_dependent_plots(new_params, traj2, np.array(t_all[idx_mid:]))
+
+    t = np.array(t_all)
+
+    traj = {}
+    for key in traj1:
+        new_val = []
+        for val in traj1[key]:
+            new_val.append(val)
+        for val in traj2[key]:
+            new_val.append(val)
+        traj[key] = np.array(new_val[0:len(t_all)])
+
+    return traj, np.array(t_all)
+
+
+
 def get_trajectories_okishio(params, rtol=1e-6, atol=1e-9, method="BDF") -> tuple[Dict[str, np.ndarray], np.ndarray]:
     n = params.A.shape[0]
     # fundamentally we are solving for q, p, s, m and (in my improved version) L
