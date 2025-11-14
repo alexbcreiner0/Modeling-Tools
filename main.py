@@ -48,7 +48,6 @@ if __name__ == "__main__":
             params_dict = presets[next(iter(presets))]
 
     init_params = params_from_mapping(params_dict["params"], f"{sim_model}/simulation/parameters.py")
-    print(f"init_params loaded = {init_params}")
 
     with open(f"{sim_model}/data/plotting_data.yml") as f:
         plotting_data = yaml.safe_load(f)

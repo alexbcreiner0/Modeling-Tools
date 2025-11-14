@@ -9,7 +9,7 @@ presets:
       c_bar: [0.2, 0.0, 0.4]
       alpha_w: 0.8
       alpha_c: 0.7
-      alpha_L: 0.03
+      alpha_L: 0.0
       kappa: [1, 1, 1]
       eta: [2, 2, 2]
       eta_w: 0.25

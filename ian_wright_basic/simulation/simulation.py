@@ -70,11 +70,25 @@ def _split_state(y, n):
     L  = y[3*n+1]
     return q, p, s, m_w, L
 
+def get_trajectories_class_test(params):
+    import os
+    from ian_wright_basic.simulation.CapitalistEconomy import CapitalistEconomy
+    economy = CapitalistEconomy(params)
+
+    for i in range(100):
+        economy.step()
+        if i == 50:
+            s = economy.check_supply()
+            deduction = 0.5*s
+            economy.exo_supply_shock(deduction)
+
+    traj, t = economy.traj, economy.t
+    return traj, t
+
 def get_trajectories_perturbed(params, rtol=1e-6, atol=1e-9, method="BDF") -> tuple[Dict[str, np.ndarray], np.ndarray]:
     n = params.A.shape[0]
     # fundamentally we are solving for q, p, s, m and (in my improved version) L
-    y = np.concatenate([params.q0, params.p0, params.s0, np.array([params.m_w0]), np.array([params.l])])
-    print(y)
+    y = np.concatenate([params.q0, params.p0, params.s0, np.array([params.m_w0]), np.array([params.L])])
 
     t_all = [0.0]
     q_list, p_list, s_list, mw_list, L_list = [], [], [], [], []
@@ -105,18 +119,9 @@ def get_trajectories_perturbed(params, rtol=1e-6, atol=1e-9, method="BDF") -> tu
     # first half
     y, ok1 = run_segment(params, 0, params.T//2, y)
 
-    traj = {"q": q, "p": p, "s": s, "m_w": m_w, "L": L}
-
-    # compute dependents using correct params for each half:
-    # first half
-    idx_mid = t_all.index(float(params.T//2)) if float(params.T//2) in t_all else len(t_all)-1
-    traj1 = {k: v[:idx_mid+1].copy() for k, v in traj.items()}
-    get_dependent_plots(params, traj1, np.array(t_all[:idx_mid+1]))
-
     # second half with perturbed params
     new_params = copy.deepcopy(params)
     new_params.l = 0.5 * params.l
-    new_params.q0 = traj1[:,]
     y, ok2 = run_segment(new_params, params.T//2, params.T, y)
 
     # build traj arrays
@@ -125,6 +130,14 @@ def get_trajectories_perturbed(params, rtol=1e-6, atol=1e-9, method="BDF") -> tu
     s = np.vstack(s_list)
     m_w = np.array(mw_list)        # (len(t_all),)
     L   = np.array(L_list)
+
+    traj = {"q": q, "p": p, "s": s, "m_w": m_w, "L": L}
+
+    # compute dependents using correct params for each half:
+    # first half
+    idx_mid = t_all.index(float(params.T//2)) if float(params.T//2) in t_all else len(t_all)-1
+    traj1 = {k: v[:idx_mid+1].copy() for k, v in traj.items()}
+    get_dependent_plots(params, traj1, np.array(t_all[:idx_mid+1]))
 
     # second half
     traj2 = {k: v[idx_mid:].copy() for k, v in traj.items()}
@@ -290,7 +303,6 @@ def get_trajectories_fuck_okishio(params, rtol=1e-6, atol=1e-9, method="BDF") ->
 
 def get_trajectories(params, rtol=1e-6, atol=1e-9, method="RK45") -> tuple[Dict[str, np.ndarray], np.ndarray]:
     n = params.A.shape[0]
-    y0 = np.concatenate
     # fundamentally we are solving for q, p, s, m and (in my improved version) L
     y0 = np.concatenate([params.q0, params.p0, params.s0, np.array([params.m_w0]), np.array([params.L])])
     t = np.linspace(0,params.T, params.T)
@@ -349,9 +361,12 @@ def get_dydt(params: Params) -> Callable[[float, np.ndarray], np.ndarray]:
         total_demand = A@q + b + c
 
         delta_s = q - total_demand
+        print(f"delta s = {delta_s}")
 
         s_safe = np.maximum(s, params.s_floor)
+        print(f"s safe = {s_safe}")
         delta_p = -eta * delta_s * (p / s_safe)
+        print(f"delta_p = {delta_p}")
 
         unit_cost = A.T@p+w*l
         revenue = p * total_demand # sectoral revenue vector (not a dot product)
