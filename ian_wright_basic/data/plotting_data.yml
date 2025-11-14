@@ -116,7 +116,7 @@ rates_of_profit:
   plots:
     equilibrium_rop:
       labels: ["Equilibrium Profit Rate"]
-      traj_key: "epr_profit_rates"
+      traj_key: "epr"
       checkbox_name: "Toggle equilibrium RoP"
       toggled: True
       colors: ["orange"]

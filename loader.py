@@ -67,13 +67,13 @@ def coerce_value(val, anno):
         if origin is list:
             # List[T]
             inner = args[0] if args else None
-            return [ _coerce_value(v, inner) for v in (val or []) ]
+            return [ coerce_value(v, inner) for v in (val or []) ]
         if origin is tuple:
             inner = args[0] if args else None
-            return tuple(_coerce_value(v, inner) for v in (val or []))
+            return tuple(coerce_value(v, inner) for v in (val or []))
         if origin is dict:
             k_anno, v_anno = (args + (None, None))[:2]
-            return { _coerce_value(k, k_anno): _coerce_value(v, v_anno) for k, v in (val or {}).items() }
+            return { coerce_value(k, k_anno): coerce_value(v, v_anno) for k, v in (val or {}).items() }
         if origin is type(None):  # Optional[None]? ignore
             return val
         if origin is np.ndarray:  # rare typing usage
@@ -86,7 +86,7 @@ def coerce_value(val, anno):
         kwargs = {}
         for k, v in (val or {}).items():
             if k in sub_fields:
-                kwargs[k] = _coerce_value(v, sub_fields[k].type)
+                kwargs[k] = coerce_value(v, sub_fields[k].type)
         return anno(**kwargs)
 
     # Basic scalars
@@ -99,7 +99,6 @@ def coerce_value(val, anno):
     return val  # default: no change
 
 def params_from_mapping(map: dict, dataclass_path: str):
-    print(f"Dataclass path to load params from: {dataclass_path}")
     Params = load_from_path(dataclass_path, "Params")
     
     params_fields = fields(Params)
