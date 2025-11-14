@@ -1,11 +1,10 @@
 # from parameters import Params
 import numpy as np
 from scipy.integrate import solve_ivp
-import copy
 
 class CapitalistEconomy:
-
-    def __init__(self, params, dydt= None):
+    """Basic capitalist economy"""
+    def __init__(self, params):
         self.params = params # number of commodities
         self.n = self.params.A.shape[0]
         self.current_t = 0
@@ -61,7 +60,7 @@ class CapitalistEconomy:
         setattr(self.params, param_name, new_val)
 
     def _step_traj(self, y):
-        q, p, s, m_w, L = self._split_state()
+        q, p, s, m_w, L = self._split_state(y)
         self.traj["q"] = np.append(self.traj["q"], [q], axis=0)
         self.traj["p"] = np.append(self.traj["p"], [p], axis=0)
         self.traj["s"] = np.append(self.traj["s"], [s], axis=0)
@@ -110,7 +109,7 @@ class CapitalistEconomy:
         pass
 
     def exo_supply_shock(self, deduction):
-        q, p, s, m_w, L = self._split_state()
+        q, p, s, m_w, L = self._split_state(self.y)
         s -= deduction
         self.y = np.concatenate([q, p, s, np.array([m_w]), np.array([L])])
         self.exo_supply_deduction = deduction
@@ -118,13 +117,13 @@ class CapitalistEconomy:
     def _trade(self):
         pass
 
-    def _split_state(self):
+    def _split_state(self, y):
         n = self.n
-        q = self.y[0:n]
-        p = self.y[n:2*n]
-        s = self.y[2*n:3*n]
-        m_w = self.y[3*n]
-        L  = self.y[3*n+1]
+        q = y[0:n]
+        p = y[n:2*n]
+        s = y[2*n:3*n]
+        m_w = y[3*n]
+        L  = y[3*n+1]
         return q, p, s, m_w, L
 
     def _get_employment(self, q, l):
@@ -237,94 +236,11 @@ class CapitalistEconomy:
             unit_profit_rates[i] /= unit_costs[i]
         return unit_profit_rates
 
-
-if __name__ == "__main__":
-    from typing import get_origin, get_args, Callable
-    import yaml
-    from dataclasses import fields, is_dataclass, asdict
-    import importlib.util
-
-    def load_from_path(filepath, thing):
-        spec = importlib.util.spec_from_file_location(thing, filepath)
-        print(spec)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        print(f"Attempting to load {thing} from module")
-        cls = getattr(module, thing)
-        return cls
-
-
-    def coerce_value(val, anno):
-        """Best-effort coercion based on the dataclass field annotation."""
-        if anno is None:
-            return val
-
-        # np.ndarray (common case)
-        if anno is np.ndarray or getattr(anno, "__name__", "") == "ndarray":
-            return np.asarray(val)
-
-        # typing.Optional[T]
-        origin = get_origin(anno)
-        if origin is not None:
-            args = get_args(anno)
-            if origin is list:
-                # List[T]
-                inner = args[0] if args else None
-                return [ coerce_value(v, inner) for v in (val or []) ]
-            if origin is tuple:
-                inner = args[0] if args else None
-                return tuple(coerce_value(v, inner) for v in (val or []))
-            if origin is dict:
-                k_anno, v_anno = (args + (None, None))[:2]
-                return { coerce_value(k, k_anno): coerce_value(v, v_anno) for k, v in (val or {}).items() }
-            if origin is type(None):  # Optional[None]? ignore
-                return val
-            if origin is np.ndarray:  # rare typing usage
-                return np.asarray(val)
-
-        # Nested dataclass?
-        if is_dataclass(anno):
-            # If a nested dataclass appears, instantiate it from the dict
-            sub_fields = {f.name: f for f in fields(anno)}
-            kwargs = {}
-            for k, v in (val or {}).items():
-                if k in sub_fields:
-                    kwargs[k] = coerce_value(v, sub_fields[k].type)
-            return anno(**kwargs)
-
-        # Basic scalars
-        if anno in (float, int, bool, str):
-            try:
-                return anno(val)
-            except Exception:
-                return val  # fall back
-
-        return val  # default: no change
-
-    def params_from_mapping(map: dict, dataclass_path: str):
-        print(f"Dataclass path to load params from: {dataclass_path}")
-        Params = load_from_path(dataclass_path, "Params")
-        
-        params_fields = fields(Params)
-        kwargs = {}
-        for f in params_fields:
-            if f.name in map:
-                kwargs[f.name] = coerce_value(map[f.name], f.type)
-
-        # field_names = {f.name for f in fields(Params)}
-        # filtered = {k: v for k, v in map.items() if k in field_names}
-        return Params(**kwargs)
-
-
-    with open("/home/alex/Nextcloud/Personal-Programming/python/Classical-Dynamic-Equilibrium-Model-Visualization-Tool/ian_wright_basic/data/params.yml") as f:
-        doc = yaml.safe_load(f)
+class CapitalistEconomyFixedRealWage(CapitalistEconomy):
+    def __init__(self, params):
+        super().__init__(params)
     
-    presets = doc["presets"]
-    params_dict = presets[next(iter(presets))]
-
-    params = params_from_mapping(params_dict["params"], "/home/alex/Nextcloud/Personal-Programming/python/Classical-Dynamic-Equilibrium-Model-Visualization-Tool/ian_wright_basic/simulation/parameters.py")
-
-    def get_dydt(params: Params) -> Callable[[float, np.ndarray], np.ndarray]:
+    def _get_dydt(self, params):
         A = params.A
         l = params.l
         b_bar = params.b_bar
@@ -333,12 +249,11 @@ if __name__ == "__main__":
         eta = params.eta
         alpha_w = params.alpha_w
         alpha_c = params.alpha_c
-        L = params.L
         alpha_L = params.alpha_L
 
         # Creates the right hand side of the equation dy/dt = f(t,y)
         def rhs(t: float, y: np.ndarray) -> np.ndarray:
-            n = A.shape[0]
+            n = self.n
             q = y[0:n]
             p = y[n:2*n]
             s = y[2*n:3*n]
@@ -347,11 +262,12 @@ if __name__ == "__main__":
 
             delta_L = alpha_L*L
 
-            w = get_hourly_wage(params, q, L)
-            r = get_interest_rate(params, m_w)
+            r = self._get_interest_rate(m_w)
 
             p_dot_b = max(p.dot(b_bar), 1e-12)
             p_dot_c = max(p.dot(c_bar), 1e-12)
+
+            w = p_dot_b
 
             total_labor = l.dot(q)
             delta_m_w = total_labor * w - alpha_w * m_w
@@ -360,7 +276,7 @@ if __name__ == "__main__":
             c = (c_bar * alpha_c * (1.0 - m_w)) / p_dot_c
             total_demand = A@q + b + c
 
-            delta_s = q - total_demand
+            delta_s = q - total_demand - self.exo_supply_deduction
 
             s_safe = np.maximum(s, params.s_floor)
             delta_p = -eta * delta_s * (p / s_safe)
@@ -377,19 +293,45 @@ if __name__ == "__main__":
 
         return rhs
 
-    def get_hourly_wage(params: Params, q: np.ndarray, L: float) -> float:
-        initial_total_labor = float(params.l.dot(params.q0))
-        total_labor = float(params.l.dot(q))
-        denom = max(L - total_labor, params.eps_u)
-        num = max(1 - initial_total_labor, params.eps_u)
-        return params.w0 * (num / denom) ** params.eta_w
+    def _step_traj(self, y):
+        q, p, s, m_w, L = self._split_state(y)
+        self.traj["q"] = np.append(self.traj["q"], [q], axis=0)
+        self.traj["p"] = np.append(self.traj["p"], [p], axis=0)
+        self.traj["s"] = np.append(self.traj["s"], [s], axis=0)
+        self.traj["m_w"] = np.append(self.traj["m_w"], m_w)
+        self.traj["L"] = np.append(self.traj["L"], L)
 
-    def get_interest_rate(params: Params, mw_scalar: float) -> float:
-        denom = max(1.0 - float(mw_scalar), params.eps_m)
-        num = max(1.0 - params.m_w0, params.eps_m)
-        return params.r0 * (num / denom) ** params.eta_r
+        w = p.dot(self.params.b_bar)
+        self.traj["w"] = np.append(self.traj["w"], w)
+        r = self._get_interest_rate(m_w)
+        self.traj["r"] = np.append(self.traj["r"], r)
+        employment = self._get_employment(q, self.params.l)
+        self.traj["total_labor_employed"] = np.append(self.traj["total_labor_employed"], employment)
+        b, c = self._get_consumption(m_w, p)
+        self.traj["b"] = np.append(self.traj["b"], [b], axis=0)
+        self.traj["c"] = np.append(self.traj["c"], [c], axis=0)
+
+        values = self._get_values(self.params.A, self.params.l)
+        self.traj["values"] = np.append(self.traj["values"], [values], axis=0)
+        self.traj["wage_values"] = np.append(self.traj["wage_values"], [w * values], axis=0)
+        self.traj["reserve_army_size"] = np.append(self.traj["reserve_army_size"], L - employment)
+        self.traj["m_c"] = np.append(self.traj["m_c"], 1-self.params.m_w0)
+
+        val_ms, val_cc, surplus_val, e, value_rop = self._get_value_split(values, b, q, self.params.A)
+        self.traj["values_ms"] = np.append(self.traj["values_ms"], val_ms)
+        self.traj["cc_vals"] = np.append(self.traj["cc_vals"], val_cc)
+        self.traj["surplus_vals"] = np.append(self.traj["surplus_vals"], surplus_val)
+        self.traj["e"] = np.append(self.traj["e"], e)
+        self.traj["value_rops"] = np.append(self.traj["value_rops"], value_rop)
+
+        epr, eq_p = self._get_equilibrium_info(p, w, self.params.A, self.params.l)
+        self.traj["epr"] = np.append(self.traj["epr"], epr)
+        self.traj["epr_prices"] = np.append(self.traj["epr_prices"], [eq_p], axis=0)
+
+        self.traj["compos_of_capital"] = np.append(self.traj["compos_of_capital"], val_cc / val_ms)
+        profit_rates = self._get_profit_rates(self.params.A, p, w, self.params.l)
+        self.traj["profit_rates"] = np.append(self.traj["profit_rates"], [profit_rates], axis=0)
 
 
-    testEconomy = CapitalistEconomy(params, get_dydt)
-    testEconomy.step()
-    print(testEconomy.traj)
+if __name__ == "__main__":
+    pass
