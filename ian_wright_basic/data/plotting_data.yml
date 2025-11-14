@@ -98,12 +98,12 @@ wages_and_unemployment:
       checkbox_name: "Toggle reserve army size"
       toggled: True
       colors: ["blue"]
-    labor_demand:
-      labels: ["Demand for Labor"]
-      traj_key: "labor_demand"
-      checkbox_name: "Toggle labor demand"
-      toggled: True
-      colors: ["teal"]
+    # labor_demand:
+    #   labels: ["Demand for Labor"]
+    #   traj_key: "labor_demand"
+    #   checkbox_name: "Toggle labor demand"
+    #   toggled: True
+    #   colors: ["teal"]
     exploitation:
       labels: ["Rate of Exploitation"]
       traj_key: "e"
