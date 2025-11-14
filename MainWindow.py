@@ -1,7 +1,10 @@
 from PyQt6 import (
     QtWidgets as qw,
-    QtGui as qg
+    QtGui as qg,
+    QtCore as qc
 )
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib import pyplot as plt
 import yaml
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
@@ -21,6 +24,21 @@ class MainWindow(qw.QMainWindow):
         dropdown_tooltips = {plotting_data[choice]["name"]: plotting_data[choice]["tooltip"] for choice in plotting_data}
         for choice in dropdown_tooltips:
             if not dropdown_tooltips[choice]: dropdown_tooltips[choice] = "No notes"
+
+        self.figure, self.axis = plt.subplots()
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        self.toolbar.pan()
+
+        self.nav_toolbar = qw.QToolBar("Navigation")
+
+        print(self.toolbar.actions())
+        for action in self.toolbar.actions():
+            # if action.isSeparator():
+            #     continue
+            self.nav_toolbar.addAction(action)
+
+        self.addToolBar(qc.Qt.ToolBarArea.TopToolBarArea, self.nav_toolbar)
 
         # Create top bar menu
         menu = self.menuBar()
@@ -57,7 +75,7 @@ class MainWindow(qw.QMainWindow):
 
         # Create the control panel and the graph panel
         self.current_dropdown_choice = 0
-        self.graph_panel = GraphPanel(self.traj, self.t, dropdown_choices, self.params.T, plotting_data)
+        self.graph_panel = GraphPanel(self.traj, self.t, dropdown_choices, self.params.T, plotting_data, self.canvas, self.figure, self.axis, self.toolbar)
         self.control_panel = ControlPanel(self.params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data)
         self.control_panel.paramChanged.connect(self.update_plot)
         self.control_panel.checkStateChanged.connect(self.new_check_update)

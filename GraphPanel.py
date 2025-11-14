@@ -10,14 +10,17 @@ import scienceplots
 plt.style.use(["grid", "notebook"])
 
 class GraphPanel(qw.QWidget):
-    def __init__(self, init_traj, init_t, dropdown_choices, T, plotting_data):
+    def __init__(self, init_traj, init_t, dropdown_choices, T, plotting_data, canvas, figure, axis, toolbar):
         super().__init__()
         self.start_up = True
         self.data = plotting_data
         layout = qw.QVBoxLayout()
         self.dropdown_choices = dropdown_choices
-        self.figure, self.axis = plt.subplots()
-        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.canvas = canvas
+        self.figure, self.axis = figure, axis
+        self.toolbar = toolbar
+        # self.figure, self.axis = plt.subplots()
+        # self.canvas = FigureCanvasQTAgg(self.figure)
         bottom_layout = qw.QHBoxLayout()
         matplotlib_layout = qw.QHBoxLayout()
         sub_layout1 = qw.QGridLayout()
@@ -83,9 +86,14 @@ class GraphPanel(qw.QWidget):
         self.camera_controls = qw.QWidget()
         self.camera_controls.setLayout(matplotlib_layout)
 
-        self.toolbar = NavigationToolbar2QT(self.canvas, self)
+        # self.toolbar = NavigationToolbar2QT(self.canvas, self)
         self.toolbar.pan()
-        
+
+        # for action in self.toolbar.actions():
+        #     # if action.isSeparator():
+        #     #     continue
+        #     self.toolbar.addAction(action)
+
         layout.addWidget(self.canvas, stretch=5)
         bottom_layout.addWidget(self.toolbar, stretch=2)
         bottom_layout.addWidget(self.camera_controls, stretch=2)
