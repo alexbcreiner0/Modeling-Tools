@@ -28,15 +28,50 @@ class MainWindow(qw.QMainWindow):
         self.figure, self.axis = plt.subplots()
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
-        self.toolbar.pan()
 
         self.nav_toolbar = qw.QToolBar("Navigation")
 
         print(self.toolbar.actions())
-        for action in self.toolbar.actions():
-            # if action.isSeparator():
-            #     continue
+        for i, action in enumerate(self.toolbar.actions()):
+            if i == 10: continue
             self.nav_toolbar.addAction(action)
+
+        spacer = qw.QWidget()
+        spacer.setSizePolicy(
+            qw.QSizePolicy.Policy.Expanding,
+            qw.QSizePolicy.Policy.Preferred,
+        )
+        self.nav_toolbar.addWidget(spacer)
+
+        saved_infos = [qw.QLabel("Saved x-axis: "), qw.QLabel("Saved y-axis: ")]
+        self.saved_labels = [qw.QLabel(), qw.QLabel()]
+
+        xrange_label_from = qw.QLabel("X-axis: from")
+        xrange_label_to = qw.QLabel(" to ")
+        yrange_label_from = qw.QLabel("Y-axis: from")
+        yrange_label_to = qw.QLabel(" to ")
+        xlower_entry, xupper_entry = qw.QLineEdit(), qw.QLineEdit()
+        ylower_entry, yupper_entry = qw.QLineEdit(), qw.QLineEdit()
+
+        entries = [xlower_entry, ylower_entry, xupper_entry, yupper_entry]
+
+        save_button = qw.QPushButton("Save Current Axes")
+        load_button = qw.QPushButton("Load Saved Axes")
+
+        self.nav_toolbar.addSeparator()
+        self.nav_toolbar.addWidget(save_button)
+        self.nav_toolbar.addWidget(load_button)
+        self.nav_toolbar.addSeparator()
+
+        self.nav_toolbar.addWidget(xrange_label_from)
+        self.nav_toolbar.addWidget(xlower_entry)
+        self.nav_toolbar.addWidget(xrange_label_to)
+        self.nav_toolbar.addWidget(xupper_entry)
+        self.nav_toolbar.addSeparator()
+        self.nav_toolbar.addWidget(yrange_label_from)
+        self.nav_toolbar.addWidget(ylower_entry)
+        self.nav_toolbar.addWidget(yrange_label_to)
+        self.nav_toolbar.addWidget(yupper_entry)
 
         self.addToolBar(qc.Qt.ToolBarArea.TopToolBarArea, self.nav_toolbar)
 
@@ -68,6 +103,12 @@ class MainWindow(qw.QMainWindow):
         file_menu.addAction(quit_button)
         quit_button.triggered.connect(qw.QApplication.quit)
 
+        self.status_bar = self.statusBar()
+        self.status_bar.addPermanentWidget(saved_infos[0])
+        self.status_bar.addPermanentWidget(self.saved_labels[0])
+        self.status_bar.addPermanentWidget(saved_infos[1])
+        self.status_bar.addPermanentWidget(self.saved_labels[1])
+
         # Load and perform initial simulation, get trajectories
         self.params = init_params
         self.get_trajectories = trajectory_function
@@ -75,7 +116,17 @@ class MainWindow(qw.QMainWindow):
 
         # Create the control panel and the graph panel
         self.current_dropdown_choice = 0
-        self.graph_panel = GraphPanel(self.traj, self.t, dropdown_choices, self.params.T, plotting_data, self.canvas, self.figure, self.axis, self.toolbar)
+        self.graph_panel = GraphPanel(self.traj, self.t, dropdown_choices, 
+                                      self.params.T, plotting_data, self.canvas, 
+                                      self.figure, self.axis, self.toolbar,
+                                      entries, save_button, load_button
+                                      )
+
+        self.graph_panel.saved_lims_changed.connect(self.update_saved_lims)
+        xlim, ylim = self.graph_panel.xlim, self.graph_panel.ylim
+        passxlim = (float(f"{float(xlim[0]):.3f}"), float(f"{float(xlim[1]):.3f}"))
+        passylim = (float(f"{float(ylim[0]):.3f}"), float(f"{float(ylim[1]):.3f}"))
+        self.update_saved_lims(xlim, ylim)
         self.control_panel = ControlPanel(self.params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data)
         self.control_panel.paramChanged.connect(self.update_plot)
         self.control_panel.checkStateChanged.connect(self.new_check_update)
@@ -89,6 +140,10 @@ class MainWindow(qw.QMainWindow):
         main_container.setLayout(main_layout)
 
         self.setCentralWidget(main_container)
+
+    def update_saved_lims(self, xlim, ylim):
+        self.saved_labels[0].setText(str(xlim))
+        self.saved_labels[1].setText(str(ylim))
 
     def update_plot(self, name, new_val):
         setattr(self.params, name, new_val)

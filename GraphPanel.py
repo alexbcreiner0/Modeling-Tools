@@ -10,7 +10,11 @@ import scienceplots
 plt.style.use(["grid", "notebook"])
 
 class GraphPanel(qw.QWidget):
-    def __init__(self, init_traj, init_t, dropdown_choices, T, plotting_data, canvas, figure, axis, toolbar):
+    saved_lims_changed = qc.pyqtSignal(tuple, tuple)
+
+    def __init__(self, init_traj, init_t, dropdown_choices, T,
+                 plotting_data, canvas, figure, axis, toolbar,
+                 entries, save_button, load_button):
         super().__init__()
         self.start_up = True
         self.data = plotting_data
@@ -19,15 +23,7 @@ class GraphPanel(qw.QWidget):
         self.canvas = canvas
         self.figure, self.axis = figure, axis
         self.toolbar = toolbar
-        # self.figure, self.axis = plt.subplots()
-        # self.canvas = FigureCanvasQTAgg(self.figure)
-        bottom_layout = qw.QHBoxLayout()
-        matplotlib_layout = qw.QHBoxLayout()
-        sub_layout1 = qw.QGridLayout()
-        xrange_label_from = qw.QLabel("X-axis: from")
-        xrange_label_to = qw.QLabel(" to ")
-        yrange_label_from = qw.QLabel("Y-axis: from")
-        yrange_label_to = qw.QLabel(" to ")
+
         try:
             with open("dimensions.txt", "r") as f:
                 xlim_str = f.readline().strip().strip('()').split(',')
@@ -39,96 +35,97 @@ class GraphPanel(qw.QWidget):
                 print(str((0,50)),"\n",str((0,50)), file= f)
             self.xlim, self.ylim = (0,50), (0,50)
         self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
-        self.xlower_entry, self.xupper_entry = qw.QLineEdit(str(self.xlim[0])), qw.QLineEdit(str(self.xlim[1]))
-        self.ylower_entry, self.yupper_entry = qw.QLineEdit(str(self.ylim[0])), qw.QLineEdit(str(self.ylim[1]))
-        entries = [self.xlower_entry, self.ylower_entry, self.xupper_entry, self.yupper_entry]
+        self.xlower_entry, self.xupper_entry = entries[0], entries[2]
+        self.ylower_entry, self.yupper_entry = entries[1], entries[3]
+        self.xlower_entry.setText(str(self.xlim[0]))
+        self.xupper_entry.setText(str(self.xlim[1]))
+        self.ylower_entry.setText(str(self.ylim[0]))
+        self.yupper_entry.setText(str(self.ylim[1]))
         for entry in entries: 
             entry.setSizePolicy(qw.QSizePolicy.Policy.Fixed,qw.QSizePolicy.Policy.Fixed)
             entry.setFixedWidth(70)
-            entry.textChanged.connect(self.edit_axes)
-        self.save_button = qw.QPushButton("Save Current Axes")
+            entry.textChanged.connect(self.edit_axes) # KEEP THIS
+        self.save_button, self.load_button = save_button, load_button
         self.save_button.clicked.connect(self.save_axes)
-        self.load_button = qw.QPushButton("Load Saved Axes")
         self.load_button.clicked.connect(self.load_axes)
-        sub_layout1.addWidget(xrange_label_from, 0, 0)
-        sub_layout1.addWidget(self.xlower_entry, 0, 1)
-        sub_layout1.addWidget(xrange_label_to,0,2)
-        sub_layout1.addWidget(self.xupper_entry,0,3)
-        sub_layout1.addWidget(yrange_label_from,1,0)
-        sub_layout1.addWidget(self.ylower_entry, 1, 1)
-        sub_layout1.addWidget(yrange_label_to,1,2)
-        sub_layout1.addWidget(self.yupper_entry,1,3)
-        sub_layout1.addWidget(self.save_button,2,0,1,2)
-        sub_layout1.addWidget(self.load_button,2,2,1,2)
-
-        sub_layout2 = qw.QVBoxLayout()
-
-        self.saved_x_info = qw.QLabel("Saved X-axis: ")
-        self.saved_y_info = qw.QLabel("Saved y-axis: ")
-        self.saved_x_label = qw.QLabel()
-        self.saved_x_label.setText(str(self.saved_xlim))
-        self.saved_y_label = qw.QLabel()
-        self.saved_y_label.setText(str(self.saved_ylim))
-
-        sub_layout2.addWidget(self.saved_x_info)
-        sub_layout2.addWidget(self.saved_x_label)
-        sub_layout2.addWidget(self.saved_y_info)
-        sub_layout2.addWidget(self.saved_y_label)
-
-        sub_widget1 = qw.QWidget()
-        sub_widget1.setLayout(sub_layout1)
-        sub_widget2 = qw.QWidget()
-        sub_widget2.setLayout(sub_layout2)
-
-        matplotlib_layout.addWidget(sub_widget1)
-        matplotlib_layout.addWidget(sub_widget2)
-       
+        # self.saved_x_label, self.saved_y_label = saved_labels[0], saved_labels[1]
+        # self.saved_lims_changed.emit(self.saved_xlim, self.saved_ylim)
+        # self.saved_x_label.setText(str(self.saved_xlim))
+        # self.saved_y_label.setText(str(self.saved_ylim))
+      
         self.camera_controls = qw.QWidget()
-        self.camera_controls.setLayout(matplotlib_layout)
-
-        # self.toolbar = NavigationToolbar2QT(self.canvas, self)
         self.toolbar.pan()
 
-        # for action in self.toolbar.actions():
-        #     # if action.isSeparator():
-        #     #     continue
-        #     self.toolbar.addAction(action)
-
         layout.addWidget(self.canvas, stretch=5)
-        bottom_layout.addWidget(self.toolbar, stretch=2)
-        bottom_layout.addWidget(self.camera_controls, stretch=2)
-        bottom_bar = qw.QWidget()
-        bottom_bar.setLayout(bottom_layout)
-        layout.addWidget(bottom_bar)
-
         self.setLayout(layout)
         self.T = T
         self.edit_axes()
         self.make_plot(init_traj, init_t, 0, {})
+
         self.start_up = False
+
+        self.axis.callbacks.connect("xlim_changed", self._on_axis_limits_changed)
+        self.axis.callbacks.connect("xlim_changed", self._on_axis_limits_changed)
+        self._block_axis_callback = False
+
+    def _on_axis_limits_changed(self, ax):
+        if self._block_axis_callback:
+            return
+
+        # Read current limits from the axes
+        self.xlim = ax.get_xlim()
+        self.ylim = ax.get_ylim()
+
+        # Update the QLineEdits without re-triggering edit_axes
+        widgets_and_values = [
+            (self.xlower_entry, self.xlim[0]),
+            (self.xupper_entry, self.xlim[1]),
+            (self.ylower_entry, self.ylim[0]),
+            (self.yupper_entry, self.ylim[1]),
+        ]
+
+        for w, v in widgets_and_values:
+            w.blockSignals(True)
+            text = f"{v:.3f}"
+            w.setText(text)
+            w.blockSignals(False)
 
     def edit_axes(self):
         try:
             new_xlim = (float(self.xlower_entry.text()), float(self.xupper_entry.text()))
             new_ylim = (float(self.ylower_entry.text()), float(self.yupper_entry.text()))
-            self.xlim, self.ylim = new_xlim, new_ylim
-            self.axis.set_xlim(self.xlim)
-            self.axis.set_ylim(self.ylim)
+
+            self._block_axis_callback = True
+            self.axis.set_xlim(new_xlim)
+            self.axis.set_ylim(new_ylim)
             self.canvas.draw_idle()
+            self._block_axis_callback = False
+
+            self.xlim, self.ylim = new_xlim, new_ylim
+
         except ValueError:
-            pass
+            self._block_axis_callback = False
 
     def save_axes(self):
-        self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
-        self.saved_x_label.setText(str(self.xlim))
-        self.saved_y_label.setText(str(self.ylim))
+        self.saved_xlim, self.saved_ylim = (float(f"{float(self.xlim[0]):.3f}"), float(f"{float(self.xlim[1]):.3f}")), (float(f"{float(self.ylim[0]):.3f}"), float(f"{float(self.ylim[1]):.3f}"))
+        self.saved_lims_changed.emit(self.saved_xlim, self.saved_ylim)
 
     def load_axes(self):
         self.xlim, self.ylim = self.saved_xlim, self.saved_ylim
-        self.xlower_entry.setText(str(self.xlim[0]))
-        self.xupper_entry.setText(str(self.xlim[1]))
-        self.ylower_entry.setText(str(self.ylim[0]))
-        self.yupper_entry.setText(str(self.ylim[1]))
+
+        
+        widgets_and_values = [
+            (self.xlower_entry, self.xlim[0]),
+            (self.xupper_entry, self.xlim[1]),
+            (self.ylower_entry, self.ylim[0]),
+            (self.yupper_entry, self.ylim[1]),
+        ]
+
+        for w, v in widgets_and_values:
+            w.blockSignals(True)
+            w.setText(f"{v:.3f}")   # or str(v)
+            w.blockSignals(False)
+
         self.edit_axes()
 
     def make_plot(self, traj, t, dropdown_choice, options):
