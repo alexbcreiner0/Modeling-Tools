@@ -3,14 +3,31 @@ from PyQt6 import (
     QtGui as qg,
     QtCore as qc
 )
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from matplotlib import pyplot as plt
 import yaml
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
 from loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping
+from matplotlib.backend_bases import cursors
+
 # from simulation.parameters import params_from_mapping, to_plain
 from widgets.Dialogs import SaveDialog, DescDialog
+
+# background worker for plot updating (this was the only way to get the computing message to properly display)
+class SimWorker(qc.QObject):
+    finished = qc.pyqtSignal(object, object, object) # traj, t, e
+
+    def __init__(self, params, get_trajectories):
+        super().__init__()
+        self.params = params
+        self.get_trajectories = get_trajectories
+
+    @qc.pyqtSlot()
+    def run(self):
+        traj, t, e = self.get_trajectories(self.params)
+        self.finished.emit(traj, t, e)
 
 class MainWindow(qw.QMainWindow):
     def __init__(self, init_params, trajectory_function, presets, panel_data, plotting_data, current_path):
@@ -28,13 +45,13 @@ class MainWindow(qw.QMainWindow):
         self.figure, self.axis = plt.subplots()
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
-
+        
         self.nav_toolbar = qw.QToolBar("Navigation")
 
-        print(self.toolbar.actions())
         for i, action in enumerate(self.toolbar.actions()):
             if i == 10: continue
             self.nav_toolbar.addAction(action)
+
 
         spacer = qw.QWidget()
         spacer.setSizePolicy(
@@ -112,14 +129,14 @@ class MainWindow(qw.QMainWindow):
         # Load and perform initial simulation, get trajectories
         self.params = init_params
         self.get_trajectories = trajectory_function
-        self.traj, self.t = self.get_trajectories(self.params)
+        self.traj, self.t, e = self.get_trajectories(self.params)
 
         # Create the control panel and the graph panel
         self.current_dropdown_choice = 0
         self.graph_panel = GraphPanel(self.traj, self.t, dropdown_choices, 
                                       self.params.T, plotting_data, self.canvas, 
                                       self.figure, self.axis, self.toolbar,
-                                      entries, save_button, load_button
+                                      entries, save_button, load_button, self.status_bar
                                       )
 
         self.graph_panel.saved_lims_changed.connect(self.update_saved_lims)
@@ -138,6 +155,7 @@ class MainWindow(qw.QMainWindow):
 
         main_container = qw.QWidget()
         main_container.setLayout(main_layout)
+        self.update_plot()
 
         self.setCentralWidget(main_container)
 
@@ -145,9 +163,30 @@ class MainWindow(qw.QMainWindow):
         self.saved_labels[0].setText(str(xlim))
         self.saved_labels[1].setText(str(ylim))
 
-    def update_plot(self, name, new_val):
-        setattr(self.params, name, new_val)
-        self.traj, self.t = self.get_trajectories(self.params)
+    def update_plot(self, name= None, new_val= None):
+        if name != None:
+            setattr(self.params, name, new_val)
+        self.status_bar.showMessage("Computing trajectories...")
+
+        self.thread = qc.QThread(self)
+        self.worker = SimWorker(self.params, self.get_trajectories)
+        self.worker.moveToThread(self.thread)
+
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.show_results)
+        self.worker.finished.connect(self.thread.quit)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.start()
+
+    def show_results(self, traj, t, e):
+        self.traj, self.t = traj, t
+        if e != None:
+            self.status_bar.showMessage(f"Simulation failed to complete. Exception caught: {str(e)}")
+        elif (len(self.t) - 1) // self.params.res < self.params.T:
+            self.status_bar.showMessage("Simulation failed to complete. Likely a number got too big or small for the program to handle.", msecs= 3000)
+        else:
+            self.status_bar.clearMessage()
+
         options = self.control_panel.dropdown_widget.get_current_checked_boxes()
         self.graph_panel.make_plot(self.traj, self.t, self.current_dropdown_choice, options)
 
@@ -166,7 +205,7 @@ class MainWindow(qw.QMainWindow):
 
     def load_preset(self, preset):
         self.params = params_from_mapping(self.presets[preset]["params"], f"{self.current_path}/simulation/parameters.py")
-        self.traj, self.t = self.get_trajectories(self.params)
+        self.traj, self.t, e = self.get_trajectories(self.params)
         options = self.control_panel.dropdown_widget.get_current_checked_boxes()
         self.graph_panel.make_plot(self.traj, self.t, self.current_dropdown_choice, options)
         self.control_panel.load_new_params(self.params)

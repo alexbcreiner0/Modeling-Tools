@@ -22,5 +22,6 @@ default_preset:
     w0: 0.5
     r0: 0.0
     T: 100
+    res: 3
 
 

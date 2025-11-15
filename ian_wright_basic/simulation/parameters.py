@@ -25,10 +25,12 @@ class Params:
     p0: ndarray
     s0: ndarray
     m_w0: float
+    alpha_l: float = 0.0
     s_floor: float = 1e-5
     eps_u: float = 1e-8
     eps_m: float = 1e-8
     T: int = 100
+    res: int = 3
 
 def params_from_mapping(map: dict):
     return Params(
@@ -40,6 +42,7 @@ def params_from_mapping(map: dict):
         alpha_w=float(map["alpha_w"]),
         alpha_c=float(map["alpha_c"]),
         alpha_L=float(map["alpha_L"]),
+        alpha_l = float(map["alpha_l"]),
         kappa=np.array(map["kappa"]),
         eta=np.array(map["eta"]),
         eta_w=float(map["eta_w"]),
@@ -51,6 +54,7 @@ def params_from_mapping(map: dict):
         s0=np.array(map["s0"]),
         m_w0=float(map["m_w0"]),
         T=int(map["T"]),
+        res=int(map["res"])
     )
 
 def to_plain(obj): # opaque as fuck chatgpt code for converting the parameters dataclass to a yaml-friendly dictionary

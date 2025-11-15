@@ -9,7 +9,7 @@ class CapitalistEconomy:
         self.n = self.params.A.shape[0]
         self.current_t = 0
         self.t = [0.0]
-        self.y = np.concatenate([params.q0, params.p0, params.s0, np.array([params.m_w0]), np.array([params.L])])
+        self.y = np.concatenate([params.q0, params.p0, params.s0, params.l, np.array([params.m_w0]), np.array([params.L])])
         self.exo_supply_deduction = np.zeros(self.n)
 
         self.traj = {
@@ -19,7 +19,8 @@ class CapitalistEconomy:
             "m_w": np.array([params.m_w0]), 
             "L": np.array([params.L]), 
             "w": np.array([params.w0]),
-            "r": np.array([params.r0])
+            "r": np.array([params.r0]),
+            "l": np.array([params.l])
         }
 
         self.traj["total_labor_employed"] = np.array([self._get_employment(params.q0, params.l)])
@@ -41,43 +42,46 @@ class CapitalistEconomy:
         self.dydt = self._get_dydt(self.params)
 
     def step(self):
+        t_eval = np.linspace(self.current_t, self.current_t+1, self.params.res+1)[1:]
         sol = solve_ivp(self.dydt, (float(self.current_t), float(self.current_t+1)), self.y,
                         method= "BDF", rtol= 1e-6, atol=1e-9,
-                        t_eval=[float(self.current_t+1)], max_step=1.0)
+                        t_eval=t_eval, max_step=1.0)
         if not sol.success or not np.all(np.isfinite(sol.y)):
             # Do something besides this
             print("Simulation failed.")
         self.exo_supply_deduction = np.zeros(self.n)
-        self.y = sol.y[:,-1]
-        self._step_traj(self.y)
-        self.current_t = self.current_t+1
-        self.t.append(float(self.current_t + 1))
+        # print(sol.y)
+        for i in range(self.params.res):
+            self.y = sol.y[:,i]
+            self._step_traj(self.y)
+            self.current_t = t_eval[i]
+            self.t.append(float(self.current_t))
 
-        # self.params.q0 , self.params.p0, self.params.s0, self.params.m_w0, self.params.L = new_q, new_p, new_s, new_mw, new_L
         self.dydt = self._get_dydt(self.params)
 
     def change_param(self, param_name, new_val):
         setattr(self.params, param_name, new_val)
 
     def _step_traj(self, y):
-        q, p, s, m_w, L = self._split_state(y)
+        q, p, s, l, m_w, L = self._split_state(y)
         self.traj["q"] = np.append(self.traj["q"], [q], axis=0)
         self.traj["p"] = np.append(self.traj["p"], [p], axis=0)
         self.traj["s"] = np.append(self.traj["s"], [s], axis=0)
         self.traj["m_w"] = np.append(self.traj["m_w"], m_w)
         self.traj["L"] = np.append(self.traj["L"], L)
+        self.traj["l"] = np.append(self.traj["l"], l)
 
-        w = self._get_hourly_wage(self.params.l, q, L)
+        w = self._get_hourly_wage(l, q, L)
         self.traj["w"] = np.append(self.traj["w"], w)
         r = self._get_interest_rate(m_w)
         self.traj["r"] = np.append(self.traj["r"], r)
-        employment = self._get_employment(q, self.params.l)
+        employment = self._get_employment(q, l)
         self.traj["total_labor_employed"] = np.append(self.traj["total_labor_employed"], employment)
         b, c = self._get_consumption(m_w, p)
         self.traj["b"] = np.append(self.traj["b"], [b], axis=0)
         self.traj["c"] = np.append(self.traj["c"], [c], axis=0)
 
-        values = self._get_values(self.params.A, self.params.l)
+        values = self._get_values(self.params.A, l)
         self.traj["values"] = np.append(self.traj["values"], [values], axis=0)
         self.traj["wage_values"] = np.append(self.traj["wage_values"], [w * values], axis=0)
         self.traj["reserve_army_size"] = np.append(self.traj["reserve_army_size"], L - employment)
@@ -90,12 +94,12 @@ class CapitalistEconomy:
         self.traj["e"] = np.append(self.traj["e"], e)
         self.traj["value_rops"] = np.append(self.traj["value_rops"], value_rop)
 
-        epr, eq_p = self._get_equilibrium_info(p, w, self.params.A, self.params.l)
+        epr, eq_p = self._get_equilibrium_info(p, w, self.params.A, l)
         self.traj["epr"] = np.append(self.traj["epr"], epr)
         self.traj["epr_prices"] = np.append(self.traj["epr_prices"], [eq_p], axis=0)
 
         self.traj["compos_of_capital"] = np.append(self.traj["compos_of_capital"], val_cc / val_ms)
-        profit_rates = self._get_profit_rates(self.params.A, p, w, self.params.l)
+        profit_rates = self._get_profit_rates(self.params.A, p, w, l)
         self.traj["profit_rates"] = np.append(self.traj["profit_rates"], [profit_rates], axis=0)
 
     def check_supply(self):
@@ -109,9 +113,9 @@ class CapitalistEconomy:
         pass
 
     def exo_supply_shock(self, deduction):
-        q, p, s, m_w, L = self._split_state(self.y)
+        q, p, s, l, m_w, L = self._split_state(self.y)
         s -= deduction
-        self.y = np.concatenate([q, p, s, np.array([m_w]), np.array([L])])
+        self.y = np.concatenate([q, p, s, l, np.array([m_w]), np.array([L])])
         self.exo_supply_deduction = deduction
 
     def _trade(self):
@@ -122,16 +126,16 @@ class CapitalistEconomy:
         q = y[0:n]
         p = y[n:2*n]
         s = y[2*n:3*n]
-        m_w = y[3*n]
-        L  = y[3*n+1]
-        return q, p, s, m_w, L
+        l = y[3*n:4*n]
+        m_w = y[4*n]
+        L  = y[4*n+1]
+        return q, p, s, l, m_w, L
 
     def _get_employment(self, q, l):
         return q@l
 
     def _get_dydt(self, params):
         A = params.A
-        l = params.l
         b_bar = params.b_bar
         c_bar = params.c_bar
         kappa = params.kappa
@@ -139,6 +143,7 @@ class CapitalistEconomy:
         alpha_w = params.alpha_w
         alpha_c = params.alpha_c
         alpha_L = params.alpha_L
+        alpha_l = params.alpha_l
 
         # Creates the right hand side of the equation dy/dt = f(t,y)
         def rhs(t: float, y: np.ndarray) -> np.ndarray:
@@ -146,10 +151,12 @@ class CapitalistEconomy:
             q = y[0:n]
             p = y[n:2*n]
             s = y[2*n:3*n]
-            m_w = float(y[3*n])
-            L = float(y[3*n+1])
+            l = y[3*n:4*n]
+            m_w = float(y[4*n])
+            L = float(y[4*n+1])
 
             delta_L = alpha_L*L
+            delta_l = -1*alpha_l*l
 
             w = self._get_hourly_wage(l, q, L)
             r = self._get_interest_rate(m_w)
@@ -177,7 +184,7 @@ class CapitalistEconomy:
             denom = np.maximum(unit_cost * (1.0 + r), 1e-12)
             delta_q = kappa * (profit / denom)
 
-            return np.concatenate([delta_q, delta_p, delta_s, np.array([delta_m_w]), np.array([delta_L])])
+            return np.concatenate([delta_q, delta_p, delta_s, delta_l, np.array([delta_m_w]), np.array([delta_L])])
 
         return rhs
 
@@ -215,6 +222,7 @@ class CapitalistEconomy:
     def _get_equilibrium_info(self, p, w, A, l):
         hourly_b = w / (p.dot(self.params.b_bar)) * self.params.b_bar
         r_hat, eq_p = self._get_pf_info(A, l, hourly_b)
+        r_hat = np.real(r_hat)
         epr = 1/r_hat - 1
         scalar = np.linalg.norm(p) / np.linalg.norm(eq_p)
         eq_p = scalar * eq_p
@@ -242,7 +250,6 @@ class CapitalistEconomyFixedRealWage(CapitalistEconomy):
     
     def _get_dydt(self, params):
         A = params.A
-        l = params.l
         b_bar = params.b_bar
         c_bar = params.c_bar
         kappa = params.kappa
@@ -250,6 +257,7 @@ class CapitalistEconomyFixedRealWage(CapitalistEconomy):
         alpha_w = params.alpha_w
         alpha_c = params.alpha_c
         alpha_L = params.alpha_L
+        alpha_l = params.alpha_l
 
         # Creates the right hand side of the equation dy/dt = f(t,y)
         def rhs(t: float, y: np.ndarray) -> np.ndarray:
@@ -257,10 +265,12 @@ class CapitalistEconomyFixedRealWage(CapitalistEconomy):
             q = y[0:n]
             p = y[n:2*n]
             s = y[2*n:3*n]
-            m_w = float(y[3*n])
-            L = float(y[3*n+1])
+            l = y[3*n:4*n]
+            m_w = float(y[4*n])
+            L = float(y[4*n+1])
 
             delta_L = alpha_L*L
+            delta_l = -1*alpha_l*l
 
             r = self._get_interest_rate(m_w)
 
@@ -289,29 +299,30 @@ class CapitalistEconomyFixedRealWage(CapitalistEconomy):
             denom = np.maximum(unit_cost * (1.0 + r), 1e-12)
             delta_q = kappa * (profit / denom)
 
-            return np.concatenate([delta_q, delta_p, delta_s, np.array([delta_m_w]), np.array([delta_L])])
+            return np.concatenate([delta_q, delta_p, delta_s, delta_l, np.array([delta_m_w]), np.array([delta_L])])
 
         return rhs
 
     def _step_traj(self, y):
-        q, p, s, m_w, L = self._split_state(y)
+        q, p, s, l, m_w, L = self._split_state(y)
         self.traj["q"] = np.append(self.traj["q"], [q], axis=0)
         self.traj["p"] = np.append(self.traj["p"], [p], axis=0)
         self.traj["s"] = np.append(self.traj["s"], [s], axis=0)
         self.traj["m_w"] = np.append(self.traj["m_w"], m_w)
         self.traj["L"] = np.append(self.traj["L"], L)
+        self.traj["l"] = np.append(self.traj["l"], l)
 
         w = p.dot(self.params.b_bar)
         self.traj["w"] = np.append(self.traj["w"], w)
         r = self._get_interest_rate(m_w)
         self.traj["r"] = np.append(self.traj["r"], r)
-        employment = self._get_employment(q, self.params.l)
+        employment = self._get_employment(q, l)
         self.traj["total_labor_employed"] = np.append(self.traj["total_labor_employed"], employment)
         b, c = self._get_consumption(m_w, p)
         self.traj["b"] = np.append(self.traj["b"], [b], axis=0)
         self.traj["c"] = np.append(self.traj["c"], [c], axis=0)
 
-        values = self._get_values(self.params.A, self.params.l)
+        values = self._get_values(self.params.A, l)
         self.traj["values"] = np.append(self.traj["values"], [values], axis=0)
         self.traj["wage_values"] = np.append(self.traj["wage_values"], [w * values], axis=0)
         self.traj["reserve_army_size"] = np.append(self.traj["reserve_army_size"], L - employment)
@@ -324,12 +335,12 @@ class CapitalistEconomyFixedRealWage(CapitalistEconomy):
         self.traj["e"] = np.append(self.traj["e"], e)
         self.traj["value_rops"] = np.append(self.traj["value_rops"], value_rop)
 
-        epr, eq_p = self._get_equilibrium_info(p, w, self.params.A, self.params.l)
+        epr, eq_p = self._get_equilibrium_info(p, w, self.params.A, l)
         self.traj["epr"] = np.append(self.traj["epr"], epr)
         self.traj["epr_prices"] = np.append(self.traj["epr_prices"], [eq_p], axis=0)
 
         self.traj["compos_of_capital"] = np.append(self.traj["compos_of_capital"], val_cc / val_ms)
-        profit_rates = self._get_profit_rates(self.params.A, p, w, self.params.l)
+        profit_rates = self._get_profit_rates(self.params.A, p, w, l)
         self.traj["profit_rates"] = np.append(self.traj["profit_rates"], [profit_rates], axis=0)
 
 

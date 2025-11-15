@@ -29,31 +29,32 @@ class FloatSlider(qw.QSlider):
         self.valueChanged.connect(self.update_value)
 
     def compute_tic_pos(self, val):
-        tic_pos = int((val / self.float_range[1])*1000)
-        return tic_pos
+        fmin, fmax = self.float_range
+        smin, smax = self.slider_range
+
+        val = max(min(val, fmax), fmin)
+        frac = (val - fmin) / (fmax - fmin)
+
+        return int(round(smin + frac * (smax - smin)))
 
     def compute_value(self, tic_pos):
-        advance = (tic_pos / self.slider_range[1])
-        new_val = self.slider_range[0]+(self.float_range[1] - self.float_range[0])*advance
-        return new_val
+        fmin, fmax = self.float_range
+        smin, smax = self.slider_range
+
+        frac = (tic_pos - smin) / (smax - smin)
+        return fmin + frac * (fmax - fmin)
 
     def get_current_val(self):
-        advance = (self.value() / self.slider_range[1])
-        new_val = self.slider_range[0]+(self.float_range[1] - self.float_range[0])*advance
-        return new_val
+        return self.compute_value(self.value())
 
     def update_value(self, tic_pos):
         new_val = self.compute_value(tic_pos)
         self.current_val = new_val
 
     def change_value(self, val):
-        if val > self.float_range[1]:
-            new_val = self.float_range[1]
-        elif val < self.float_range[0]:
-            new_val = self.float_range[0]
-        else:
-            new_val = val
+        fmin, fmax = self.float_range
+
+        new_val = max(min(val, fmax), fmin)
         tic_pos = self.compute_tic_pos(new_val)
         self.setValue(tic_pos)
-
 

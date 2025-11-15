@@ -3,18 +3,27 @@ from PyQt6 import (
     QtCore as qc,
     QtWidgets as qw,
 )
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
-from matplotlib import pyplot as plt
+from matplotlib import (
+    pyplot as plt,
+    rcParams
+)
 import numpy as np
+from matplotlib.backend_bases import cursors
 import scienceplots
 plt.style.use(["grid", "notebook"])
+rcParams["figure.constrained_layout.use"] = False
+rcParams["figure.autolayout"] = False
+rcParams["figure.constrained_layout.h_pad"] = float(0)
+rcParams["figure.constrained_layout.hspace"] = float(0)
+with open("log.txt", "w") as f:
+    print(rcParams, file=f)
 
 class GraphPanel(qw.QWidget):
     saved_lims_changed = qc.pyqtSignal(tuple, tuple)
 
     def __init__(self, init_traj, init_t, dropdown_choices, T,
                  plotting_data, canvas, figure, axis, toolbar,
-                 entries, save_button, load_button):
+                 entries, save_button, load_button, status_bar):
         super().__init__()
         self.start_up = True
         self.data = plotting_data
@@ -23,6 +32,16 @@ class GraphPanel(qw.QWidget):
         self.canvas = canvas
         self.figure, self.axis = figure, axis
         self.toolbar = toolbar
+        self.status_bar = status_bar
+
+        self._orig_canvas_set_cursor = self.canvas.set_cursor
+        def custom_set_cursor(cursor):
+            if cursor == cursors.MOVE:
+                self.canvas.unsetCursor()
+            else:
+                self._orig_canvas_set_cursor(cursor)
+
+        self.canvas.set_cursor = custom_set_cursor
 
         try:
             with open("dimensions.txt", "r") as f:
@@ -44,14 +63,18 @@ class GraphPanel(qw.QWidget):
         for entry in entries: 
             entry.setSizePolicy(qw.QSizePolicy.Policy.Fixed,qw.QSizePolicy.Policy.Fixed)
             entry.setFixedWidth(70)
-            entry.textChanged.connect(self.edit_axes) # KEEP THIS
+            entry.textChanged.connect(self.edit_axes) 
         self.save_button, self.load_button = save_button, load_button
         self.save_button.clicked.connect(self.save_axes)
         self.load_button.clicked.connect(self.load_axes)
-        # self.saved_x_label, self.saved_y_label = saved_labels[0], saved_labels[1]
-        # self.saved_lims_changed.emit(self.saved_xlim, self.saved_ylim)
-        # self.saved_x_label.setText(str(self.saved_xlim))
-        # self.saved_y_label.setText(str(self.saved_ylim))
+        
+        self._init_snap_artists()
+        self.dragging = False
+
+        self.canvas.mpl_connect("button_press_event", self.on_press)
+        self.canvas.mpl_connect("motion_notify_event", self.on_motion)
+        self.canvas.mpl_connect("button_release_event", self.on_release)
+        self.canvas.mpl_connect("scroll_event", self.on_scroll)
       
         self.camera_controls = qw.QWidget()
         self.toolbar.pan()
@@ -64,9 +87,48 @@ class GraphPanel(qw.QWidget):
 
         self.start_up = False
 
-        self.axis.callbacks.connect("xlim_changed", self._on_axis_limits_changed)
-        self.axis.callbacks.connect("xlim_changed", self._on_axis_limits_changed)
+        self._connect_axis_callbacks()
         self._block_axis_callback = False
+
+    def on_scroll(self, event):
+        if event.inaxes is not self.axis:
+            return
+        if event.xdata is None or event.ydata is None:
+            return
+
+        base_scale = 1.2
+
+        if event.button == "up":
+            scale_factor = 1 / base_scale
+        elif event.button == "down":
+            scale_factor = base_scale
+        else:
+            return
+
+        xdata, ydata = event.xdata, event.ydata
+
+        x_min, x_max = self.axis.get_xlim()
+        y_min, y_max = self.axis.get_ylim()
+
+        dx_left = xdata - x_min
+        dx_right = x_max - xdata
+        dy_bottom = ydata - y_min
+        dy_top = y_max - ydata
+
+        new_x_min = xdata - dx_left * scale_factor
+        new_x_max = xdata + dx_right * scale_factor
+        new_y_min = ydata - dy_bottom * scale_factor
+        new_y_max = ydata + dy_top * scale_factor
+
+        if new_x_max == new_x_min or new_y_max == new_y_min:
+            return
+
+        self._block_axis_callback = True
+        self.axis.set_xlim(new_x_min, new_x_max)
+        self.axis.set_ylim(new_y_min, new_y_max)
+        self._block_axis_callback = False
+
+        self.canvas.draw_idle()
 
     def _on_axis_limits_changed(self, ax):
         if self._block_axis_callback:
@@ -89,6 +151,23 @@ class GraphPanel(qw.QWidget):
             text = f"{v:.3f}"
             w.setText(text)
             w.blockSignals(False)
+
+    def _connect_axis_callbacks(self):
+        self.axis.callbacks.connect("xlim_changed", self._on_axis_limits_changed)
+        self.axis.callbacks.connect("ylim_changed", self._on_axis_limits_changed)
+
+    def _init_snap_artists(self):
+        self.snap_marker, = self.axis.plot([], [], "o", ms=6)
+        self.snap_marker.set_visible(False)
+
+        self.snap_annot = self.axis.annotate(
+            "",
+            xy=(0, 0),
+            xytext=(10, 10),
+            textcoords="offset points",
+            bbox=dict(boxstyle="round,pad=0.3", fc="w", ec="k", lw=0.5),
+        )
+        self.snap_annot.set_visible(False)
 
     def edit_axes(self):
         try:
@@ -175,111 +254,91 @@ class GraphPanel(qw.QWidget):
         self.axis.set_xlim(current_xlim)
         self.axis.set_ylim(current_ylim)
         self.axis.legend()
+        self._init_snap_artists()
+        self._connect_axis_callbacks()
+        self.canvas.draw()
+        self.figure.tight_layout()
         self.canvas.draw_idle()
-        plt.tight_layout()
 
-    # def make_plot2(self, traj, t, dropdown_choice, options):
-    #     current_xlim = self.axis.get_xlim()
-    #     current_ylim = self.axis.get_ylim()
-    #     self.axis.clear()
-    #     self.axis.set_xlabel("Time [t]")
-    #     if dropdown_choice == 0: # prices
+        # with open("log2.txt", "w") as f:
+        #     print(rcParams, file=f)
 
-    #         if "Toggle prices" in options or self.start_up:
-    #             self.axis.plot(t, traj["corn_prices"], color="red", label="Price of Corn")
-    #             self.axis.plot(t, traj["iron_prices"], color="green", label="Price of Iron")
-    #             self.axis.plot(t, traj["sugar_prices"], color="blue", label="Price of Sugar")
+    def on_press(self, event):
+        if event.button != 1:
+            return
+        if event.inaxes is not self.axis:
+            return
+    
+        self.dragging = True
+        self._update_snap(event)
 
-    #         if "Toggle values" in options or self.start_up:
-    #             self.axis.plot(t, traj["corn_values"], color="red", linestyle="dashed", label="Value of Corn")
-    #             self.axis.plot(t, traj["iron_values"], color="green", linestyle="dashed", label="Value of Iron")
-    #             self.axis.plot(t, traj["sugar_values"], color="blue", linestyle="dashed", label="Value of Sugar")
+    def _update_snap(self, event):
+        if event.xdata is None or event.ydata is None:
+            return
+        
+        ex, ey = event.x, event.y
+        best_line = None
+        best_idx = None
+        best_dist = np.inf
 
-    #         if "Toggle equilibrium prices" in options:
-    #             self.axis.plot(t, traj["epr_corn_prices"], color="red", linestyle="dotted", label="Equilibrium Price of Corn")
-    #             self.axis.plot(t, traj["epr_iron_prices"], color="green", linestyle="dotted", label="Equilibrium Price of Iron")
-    #             self.axis.plot(t, traj["epr_sugar_prices"], color="blue", linestyle="dotted", label="Equilibrium Price of Sugar")
+        trans = self.axis.transData
+        
+        for line in self.axis.lines:
+            if not line.get_visible():
+                continue
 
-    #     elif dropdown_choice == 1: # prices vs epr prices
+            xdata = np.asarray(line.get_xdata(), dtype= float)
+            ydata = np.asarray(line.get_ydata(), dtype= float)
+            if xdata.size == 0:
+                continue
+            
+            pts = np.column_stack((xdata, ydata))
+            disp = trans.transform(pts)
+            dx = disp[:,0] - ex
+            dy = disp[:,1] - ey
+            dist = dx**2 + dy**2
 
-    #         if "Toggle prices" in options or self.start_up:
-    #             self.axis.plot(t, traj["corn_prices"], color="red", label="Price of Corn")
-    #             self.axis.plot(t, traj["iron_prices"], color="green", label="Price of Iron")
-    #             self.axis.plot(t, traj["sugar_prices"], color="blue", label="Price of Sugar")
+            idx = int(np.argmin(dist))
+            d = dist[idx]
 
-    #         if "Toggle values" in options or self.start_up:
-    #             self.axis.plot(t, traj["corn_values"], color="red", linestyle="dotted", label="Value of Corn")
-    #             self.axis.plot(t, traj["iron_values"], color="green", linestyle="dotted", label="Value of Iron")
-    #             self.axis.plot(t, traj["sugar_values"], color="blue", linestyle="dotted", label="Value of Sugar")
+            if d < best_dist:
+                best_dist = d
+                best_line = line
+                best_idx = idx
 
-    #         if "Toggle equilibrium prices" in options:
-    #             self.axis.plot(t, traj["epr_corn_prices"], color="red", linestyle="dashed", label="Equilibrium Price of Corn")
-    #             self.axis.plot(t, traj["epr_iron_prices"], color="green", linestyle="dashed", label="Equilibrium Price of Iron")
-    #             self.axis.plot(t, traj["epr_sugar_prices"], color="blue", linestyle="dashed", label="Equilibrium Price of Sugar")
+        if best_line is None:
+            self.snap_marker.set_visible(False)
+            self.snap_annot.set_visible(False)
+            self.canvas.draw_idle()
+            return
 
-    #     elif dropdown_choice == 2: # outputs
-    #         self.axis.plot(t, traj["s"][:,0], 'r-', label="Corn Supply")
-    #         self.axis.plot(t, traj["s"][:,1], 'g-', label="Iron Supply")
-    #         self.axis.plot(t, traj["s"][:,2], 'b-', label="Sugar Supply")
+        color = best_line.get_color()
+        self.snap_marker.set_color(color)
+        x_near = best_line.get_xdata()[best_idx]
+        y_near = best_line.get_ydata()[best_idx]
 
-    #         self.axis.plot(t, traj["q"][:,0], 'r--', label="Corn Output")
-    #         self.axis.plot(t, traj["q"][:,1], 'g--', label="Iron Output")
-    #         self.axis.plot(t, traj["q"][:,2], 'b--', label="Sugar Output")
+        self.snap_marker.set_data([x_near], [y_near])
+        self.snap_marker.set_visible(True)
 
-    #     elif dropdown_choice == 3: # wages and employment
-    #         wages, employment = traj["w"], traj["total_labor_employed"]
-    #         L = traj["L"]
-    #         self.axis.plot(t, wages, 'k-', label="Hourly Wage")
-    #         self.axis.plot(t, employment, 'r-', label="Employment")
-    #         self.axis.plot(t, L-employment, 'b', label= "Size of Reserve Army")
-    #         self.axis.plot(t, traj["labor_demand"], label= "Demand for Labor")
+        self.snap_annot.xy = (x_near, y_near)
+        self.snap_annot.set_text(f"({x_near:0.6g}, {y_near:0.6g})")
+        self.snap_annot.set_visible(True)
 
-    #     elif dropdown_choice == 4: # rates
-    #         interest = traj["r"]
-    #         epr_profit_rates = traj["epr_profit_rates"]
-    #         e = traj["e"]
-    #         profit_rates = traj["profit_rates"]
-    #         # self.axis.set_ylim(0,5)
-    #         # self.axis.plot(t, interest, 'k--', label="Interest Rate")
+        self.canvas.draw_idle()
 
-    #         if "Toggle equilibrium RoP" in options:
-    #             self.axis.plot(t, epr_profit_rates, color="orange", linestyle='--', label="Equilibrium Profit Rate")
+    def on_motion(self, event):
+        if not self.dragging:
+            return
+        if event.inaxes is not self.axis:
+            return
 
-    #         if "Toggle sectoral RoPs" in options:
-    #             self.axis.plot(t, profit_rates[:,0], color="red", linestyle='-', label="Corn Sector Profit Rate")
-    #             self.axis.plot(t, profit_rates[:,1], color="green", linestyle='-', label="Iron Sector Profit Rate")
-    #             self.axis.plot(t, profit_rates[:,2], color="blue", linestyle='-', label="Sugar Sector Profit Rate")
+        self._update_snap(event)
 
-    #         if "Toggle value RoP" in options:
-    #             self.axis.plot(t, traj["value_rops"], label="Value Rate of Profit")
-
-    #         if "Toggle rate of exploitation" in options:
-    #             self.axis.plot(t, traj["e"], color="purple", linestyle="-", label="Rate of Exploitation")
-
-    #         if "Toggle interest rate" in options:
-    #             self.axis.plot(t, traj["r"], color="black", linestyle="--", label="Interest rate")
-
-    #     elif dropdown_choice == 5: # value distn
-    #         self.axis.plot(t, traj["surplus_vals"], 'g-', label="Surplus Value Produced")
-    #         self.axis.plot(t, traj["values_ms"], 'r--', label="Value of Means of Subsistence")
-    #         self.axis.plot(t, traj["cc_vals"], 'b-', label="Value of Constant Capital")
-
-    #         # self.axis.set_ylabel("Hours [t]")
-
-    #     elif dropdown_choice == 6:
-    #         m_w = traj["m_w"]
-    #         m_c = [1-m_wi for m_wi in m_w]
-    #         wages = traj["w"]
-    #         e = traj["e"]
-    #         self.axis.plot(t, e, 'y--', label="Rate of Exploitation")
-    #         self.axis.plot(t, wages, 'b-', label="Hourly Wage")
-    #         self.axis.plot(t, m_w, 'k--', label="Worker savings")
-    #         self.axis.plot(t, m_c, 'r--', label="Capitalist savings")
-
-    #     self.axis.set_xlim(current_xlim)
-    #     self.axis.set_ylim(current_ylim)
-    #     self.axis.legend()
-    #     self.canvas.draw_idle()
-    #     plt.tight_layout()
-
+    def on_release(self, event):
+        if event.button != 1:
+            return
+        self.dragging = False
+        self.snap_marker.set_visible(False)
+        self.snap_annot.set_visible(False)
+        self.canvas.draw_idle()
 
