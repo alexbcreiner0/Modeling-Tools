@@ -9,57 +9,53 @@ from .CapitalistEconomy import *
 def get_trajectories(params):
     economy = CapitalistEconomy(params)
 
-    for i in range(100):
+    e = None
+    for i in range(params.T):
         try:
             economy.step()
-        except ValueError:
+        except Exception as error:
+            e = error
             break
 
     traj, t = economy.traj, economy.t
-    return traj, t
-
-def get_trajectories_supply_probs(params):
-    economy = CapitalistEconomyWithSupplyCrisis(params)
-
-    for i in range(100):
-        try:
-            economy.step()
-        except ValueError:
-            break
-
-    traj, t = economy.traj, economy.t
-    return traj, t
+    return traj, t, e
 
 def get_trajectories_supply_shock(params):
     economy = CapitalistEconomy(params)
 
-    for i in range(100):
+    e = None
+    for i in range(params.T):
         try:
             economy.step()
             if i == 50:
                 s = economy.check_supply()
                 deduction = 0.5*s
                 economy.exo_supply_shock(deduction)
-        except ValueError:
+        except Exception as error:
+            e = error
             break
 
     traj, t = economy.traj, economy.t
-    return traj, t
+    return traj, t, e
 
 def get_trajectories_okishio(params):
     economy = CapitalistEconomyFixedRealWage(params)
 
-    for i in range(100):
+    e = None
+    for i in range(params.T):
         try:
             economy.step()
             if i == 50:
-                l = economy.params.l
-                economy.change_param("l", 0.5*l)
-        except ValueError:
+                q, p, s, l, m_w, L = economy._split_state(economy.y)
+                l *= 0.5
+                y = np.concatenate([q, p, s, l, np.array([m_w]), np.array([L])])
+                economy.y = y
+        except Exception as error:
+            e = error
             break
 
     traj, t = economy.traj, economy.t
-    return traj, t
+    return traj, t, e
 
 
 # def get_trajectories_perturbed(params, rtol=1e-6, atol=1e-9, method="BDF") -> tuple[Dict[str, np.ndarray], np.ndarray]:

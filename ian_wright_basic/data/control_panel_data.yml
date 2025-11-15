@@ -109,13 +109,28 @@ row6:
     scalar_type: "float"
     tooltip: "Constant of integration representing the elasticity of the interest rate with respect to capitalist savings. Essentially, the higher this number is, the more dramatically the interest rate will fall with respect to changes in the total money posessed by capitalists."
 row7:
-  alpha_l:
+  alpha_L:
     param_name: "alpha_L"
     label: '$\alpha_L= $'
     type: "scalar"
-    range: [0,1]
+    range: [-1,1]
     scalar_type: "float"
     tooltip: "Rate of population growth of the working class."
+  alpha_l:
+    param_name: "alpha_l"
+    label: '$\alpha_l= $'
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Rate of increase in the productivity of labor (amounts to a scalar multiple reduction of the living labor vector over time)"
+row8:
+  res:
+    param_name: "res"
+    label: '$\delta= $'
+    type: "scalar"
+    range: [1,100]
+    scalar_type: "int"
+    tooltip: "Number of points to sample per time step. Higher numbers will produce smoother curves at the cost of computation time."
   T:
     param_name: "T"
     label: '$T= $'
@@ -123,7 +138,7 @@ row7:
     range: [10,1000]
     scalar_type: "int"
     tooltip: "Number of periods simulated. Keep in mind larger values of this will slow down simulation speed."
-row8:
+row9:
   p:
     param_name: "p0"
     label: '$\mathbf{p}(0)= $'
@@ -135,10 +150,10 @@ row8:
     label: '$\mathbf{\eta}= $'
     type: "vector"
     dim: 3
-    tooltip: ""
+    tooltip: "Elasticity constants representing how dramatically each price fluctuate in response to changes in supply."
   kappa:
     param_name: "kappa"
     label: '$\mathbf{\kappa}= $'
     type: "vector"
     dim: 3
-    tooltip: ""
+    tooltip: "Elasticity constants representing how dramatically outputs fluctuate in resonse to profitability"

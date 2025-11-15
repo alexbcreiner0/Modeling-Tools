@@ -44,10 +44,9 @@ class NoAliasDumper(yaml.SafeDumper): # ????? i thought yaml was supposed to mak
 
 def load_from_path(filepath, thing):
     spec = importlib.util.spec_from_file_location(thing, filepath)
-    print(spec)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    print(f"Attempting to load {thing} from module")
+    # print(f"Attempting to load {thing} from module")
     cls = getattr(module, thing)
     return cls
 
