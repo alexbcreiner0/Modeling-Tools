@@ -154,6 +154,13 @@ rates_of_profit:
       checkbox_name: "Toggle overall composition of capital"
       toggled: False
       colors: ["brown"]
+    kliman_profit_rate:
+      labels: ["Kliman RoP"]
+      traj_key: "kliman_profit_rate"
+      checkbox_name: "Toggle Kliman profit rate"
+      toggled: True
+      colors: ["brown"]
+      linestyle: "dashed"
 labor_time_distn:
   name: "Distribtion of Labor Time"
   tooltip:
@@ -193,3 +200,15 @@ income_distn:
       toggled: False
       colors: ["orange"]
       linestyles: ["dashed"]
+totals:
+  name: "Other"
+  tooltip:
+  plots:
+    MELT:
+      labels: ["MELT"]
+      traj_key: "MELT"
+      colors: ["red"]
+    TSSI_MELT:
+      labels: ["TSSI MELT"]
+      traj_key: "TSSI_MELT"
+      colors: ["blue"]
