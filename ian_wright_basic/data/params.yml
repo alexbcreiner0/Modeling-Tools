@@ -23,13 +23,8 @@ presets:
       r0: 0.0
       T: 100
   witness_okishio:
-    name: Witness Okishio's Theorem!
-    desc: In the default_settings.yml file, change the simulation_function to get_trajectories_okishio_demo
-      before running and loading this. In this modified simulation, the hourly real wage bundle
-      is fixed and held constant. Thus the workers are not allowed to benefit from the productivity
-      gains at all. Additionally, at the halfway point (e.g. at time T=50), the living labor
-      vector is suddenly halved, e.g. labor productivity doubles all around. Here we see the
-      rate of profit rise, contrary to Marx's predictions.
+    name: Okishio Demo
+    desc:
     params:
       A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
       l: [0.35, 0.3, 0.15]
@@ -54,8 +49,9 @@ presets:
       eps_m: 1.0e-08
       T: 100
   cockshott_vs_kliman:
-    name: Cockshott's Critique of Kliman 
-    desc: These are the parameters Cockshott used in his 3-department model critiquing Kliman's price system and argument for a falling rate of profit
+    name: Cockshott's Critique of Kliman
+    desc: These are the parameters Cockshott used in his 3-department model critiquing Kliman's
+      price system and argument for a falling rate of profit
     params:
       A: [[0.1, 0.2, 0.3], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
       l: [1.0, 1.0, 1.0]
@@ -65,9 +61,9 @@ presets:
       alpha_w: 1.0
       alpha_c: 0.5
       alpha_L: 0.0
-      kappa: [1,1,1]
+      kappa: [1, 1, 1]
       eta_w: 1.0
-      eta: [1,1,1]
+      eta: [1, 1, 1]
       eta_r: 2.0
       L: 1.0
       p0: [1.086877504393617, 1.226722749184043, 1.366567993974469]
