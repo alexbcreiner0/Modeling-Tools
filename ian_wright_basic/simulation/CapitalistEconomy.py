@@ -1,17 +1,21 @@
 # from parameters import Params
 import numpy as np
 from scipy.integrate import solve_ivp
+import sys
 
 class CapitalistEconomy:
     """Basic capitalist economy"""
     def __init__(self, params):
-        self.params = params # number of commodities
+        self.params = params 
         self.n = self.params.A.shape[0]
         self.current_t = 0
         self.t = [0.0]
+        # Simulation solves the equation dy/dt = f(t,y), where y is a vector of every relevant independent quantity dumped into one place
+        # note what y consists of - all other numbers can be considered dependent variables and can be determined from just these
         self.y = np.concatenate([params.q0, params.p0, params.s0, params.l, np.array([params.m_w0]), np.array([params.L])])
-        self.exo_supply_deduction = np.zeros(self.n)
+        self.exo_supply_deduction = np.zeros(self.n) # carries a to-be-applied exogenous shock to supply
 
+        # initialize the table of trajectories
         self.traj = {
             "p": np.array([params.p0]),
             "q": np.array([params.q0]), 
@@ -23,6 +27,7 @@ class CapitalistEconomy:
             "l": np.array([params.l])
         }
 
+        # dependent variables
         self.traj["total_labor_employed"] = np.array([self._get_employment(params.q0, params.l)])
         b, c = self._get_consumption(params.m_w0, params.p0)
         self.traj["b"], self.traj["c"] = np.array([b]), np.array([c])
@@ -39,6 +44,18 @@ class CapitalistEconomy:
         profit_rates = self._get_profit_rates(params.A, params.p0, params.w0, params.l)
         self.traj["profit_rates"] = np.array([profit_rates])
 
+        num = params.l.dot(params.q0) - (params.p0@params.b_bar)*(params.l.dot(params.q0)) 
+        M = params.A+np.linalg.outer(params.b_bar,params.l)
+        den = params.p0.dot(M@params.q0)
+        self.traj["kliman_profit_rate"] = np.array([num/den])
+
+        values = self.traj["values"][0]
+        MELT = params.p0.dot(params.q0) / values.dot(params.q0)
+        self.traj["TSSI_MELT"] = np.array([MELT])
+        self.traj["MELT"] = np.array([MELT])
+ 
+
+        # calculate initial f(t,y) 
         self.dydt = self._get_dydt(self.params)
 
     def step(self):
@@ -47,16 +64,18 @@ class CapitalistEconomy:
                         method= "BDF", rtol= 1e-6, atol=1e-9,
                         t_eval=t_eval, max_step=1.0)
         if not sol.success or not np.all(np.isfinite(sol.y)):
-            # Do something besides this
+            # Do something besides this mb iono
             print("Simulation failed.")
-        self.exo_supply_deduction = np.zeros(self.n)
-        # print(sol.y)
+        self.exo_supply_deduction = np.zeros(self.n) # if there was an exogenous supply shock, it will have been applied by now, so set it back to zero
+
+        # increment all trajectories
         for i in range(self.params.res):
             self.y = sol.y[:,i]
             self._step_traj(self.y)
             self.current_t = t_eval[i]
             self.t.append(float(self.current_t))
 
+        # recalculate f(t,y)
         self.dydt = self._get_dydt(self.params)
 
     def change_param(self, param_name, new_val):
@@ -69,7 +88,7 @@ class CapitalistEconomy:
         self.traj["s"] = np.append(self.traj["s"], [s], axis=0)
         self.traj["m_w"] = np.append(self.traj["m_w"], m_w)
         self.traj["L"] = np.append(self.traj["L"], L)
-        self.traj["l"] = np.append(self.traj["l"], l)
+        self.traj["l"] = np.append(self.traj["l"], [l], axis=0)
 
         w = self._get_hourly_wage(l, q, L)
         self.traj["w"] = np.append(self.traj["w"], w)
@@ -102,14 +121,32 @@ class CapitalistEconomy:
         profit_rates = self._get_profit_rates(self.params.A, p, w, l)
         self.traj["profit_rates"] = np.append(self.traj["profit_rates"], [profit_rates], axis=0)
 
+        MELT = p.dot(q) / values.dot(q)
+        self.traj["MELT"] = np.append(self.traj["MELT"], MELT)
+        OLD_TSSI_MELT = self.traj["TSSI_MELT"][-1]
+        old_l = self.traj["l"][-2]
+        old_p = self.traj["p"][-2]
+        old_epr, old_eqp = self._get_pf_info(self.params.A, old_l, self.params.b_bar)
+        epr, eqp = self._get_pf_info(self.params.A, l, self.params.b_bar)
+        TSSI_MELT = eqp.dot(q) / ((1/OLD_TSSI_MELT) * (self.params.A.T@old_eqp).dot(q) + old_l.dot(q))
+        self.traj["TSSI_MELT"] = np.append(self.traj["TSSI_MELT"], TSSI_MELT)
+
+        hourly_b = w / (p.dot(self.params.b_bar)) * self.params.b_bar
+        num = TSSI_MELT*(l.dot(q)) - old_eqp.dot(hourly_b)*(l.dot(q))
+        M = self.params.A+np.linalg.outer(hourly_b,l)
+        den = old_eqp.dot(M@q)
+        self.traj["kliman_profit_rate"] = np.append(self.traj["kliman_profit_rate"], num/den)
+
     def check_supply(self):
         s = self.y[2*self.n:3*self.n]
         return s
 
     def receive_offer(self):
+        # fill in with whatever seems reasonable
         pass
 
     def make_offer(self):
+        # fill in with whatever seems reasonable
         pass
 
     def exo_supply_shock(self, deduction):
@@ -119,6 +156,7 @@ class CapitalistEconomy:
         self.exo_supply_deduction = deduction
 
     def _trade(self):
+        # fill in with whatever seems reasonable
         pass
 
     def _split_state(self, y):
@@ -146,6 +184,7 @@ class CapitalistEconomy:
         alpha_l = params.alpha_l
 
         # Creates the right hand side of the equation dy/dt = f(t,y)
+        # This is what you will want to make alterations to in order to tweak the dynamics of the system. 
         def rhs(t: float, y: np.ndarray) -> np.ndarray:
             n = self.n
             q = y[0:n]
@@ -155,12 +194,14 @@ class CapitalistEconomy:
             m_w = float(y[4*n])
             L = float(y[4*n+1])
 
+            # self explanatory
             delta_L = alpha_L*L
             delta_l = -1*alpha_l*l
 
             w = self._get_hourly_wage(l, q, L)
             r = self._get_interest_rate(m_w)
 
+            # computing total demand
             p_dot_b = max(p.dot(b_bar), 1e-12)
             p_dot_c = max(p.dot(c_bar), 1e-12)
 
@@ -171,16 +212,20 @@ class CapitalistEconomy:
             c = (c_bar * alpha_c * (1.0 - m_w)) / p_dot_c
             total_demand = A@q + b + c
 
+            # from total demand, we obtain change in supply
             delta_s = q - total_demand - self.exo_supply_deduction
 
+            # from change in supply, we obtain change in prices
             s_safe = np.maximum(s, params.s_floor)
             delta_p = -eta * delta_s * (p / s_safe)
 
+            # compute profit
             unit_cost = A.T@p+w*l
             revenue = p * total_demand # sectoral revenue vector (not a dot product)
             total_cost = unit_cost * (1.0 + r) * q 
             profit = revenue - total_cost # sectoral profit vector
 
+            # from profit, we obtain change in output
             denom = np.maximum(unit_cost * (1.0 + r), 1e-12)
             delta_q = kappa * (profit / denom)
 
@@ -188,6 +233,7 @@ class CapitalistEconomy:
 
         return rhs
 
+    # helper methods of various kinds
     def _get_hourly_wage(self, l: np.ndarray, q: np.ndarray, L: float) -> float:
         """Returns the current hourly wage given the current level of employment and size of reserve army"""
         initial_employment = float(self.params.l.dot(self.params.q0))
@@ -247,7 +293,8 @@ class CapitalistEconomy:
 class CapitalistEconomyFixedRealWage(CapitalistEconomy):
     def __init__(self, params):
         super().__init__(params)
-    
+
+   
     def _get_dydt(self, params):
         A = params.A
         b_bar = params.b_bar
@@ -310,7 +357,7 @@ class CapitalistEconomyFixedRealWage(CapitalistEconomy):
         self.traj["s"] = np.append(self.traj["s"], [s], axis=0)
         self.traj["m_w"] = np.append(self.traj["m_w"], m_w)
         self.traj["L"] = np.append(self.traj["L"], L)
-        self.traj["l"] = np.append(self.traj["l"], l)
+        self.traj["l"] = np.append(self.traj["l"], [l], axis=0)
 
         w = p.dot(self.params.b_bar)
         self.traj["w"] = np.append(self.traj["w"], w)
@@ -343,6 +390,22 @@ class CapitalistEconomyFixedRealWage(CapitalistEconomy):
         profit_rates = self._get_profit_rates(self.params.A, p, w, l)
         self.traj["profit_rates"] = np.append(self.traj["profit_rates"], [profit_rates], axis=0)
 
+        
+        MELT = p.dot(q) / values.dot(q)
+        self.traj["MELT"] = np.append(self.traj["MELT"], MELT)
+        OLD_TSSI_MELT = self.traj["TSSI_MELT"][-1]
+        old_l = self.traj["l"][-2]
+        old_p = self.traj["p"][-2]
+        hourly_b = w / (p.dot(self.params.b_bar)) * self.params.b_bar
+        old_epr, old_eqp = self._get_pf_info(self.params.A, old_l, hourly_b)
+        epr, eqp = self._get_pf_info(self.params.A, l, hourly_b)
+        TSSI_MELT = eqp.dot(q) / ((1/OLD_TSSI_MELT) * (self.params.A.T@old_eqp).dot(q) + old_l.dot(q))
+        self.traj["TSSI_MELT"] = np.append(self.traj["TSSI_MELT"], TSSI_MELT)
+
+        num = TSSI_MELT*(l.dot(q)) - old_eqp.dot(self.params.b_bar)*(l.dot(q))
+        M = self.params.A+np.linalg.outer(self.params.b_bar,l)
+        den = old_eqp.dot(M@q)
+        self.traj["kliman_profit_rate"] = np.append(self.traj["kliman_profit_rate"], num/den)
 
 if __name__ == "__main__":
     pass

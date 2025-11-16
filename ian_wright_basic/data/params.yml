@@ -22,7 +22,7 @@ presets:
       w0: 0.5
       r0: 0.0
       T: 100
-  witness_okishio_s_theorem:
+  witness_okishio:
     name: Witness Okishio's Theorem!
     desc: In the default_settings.yml file, change the simulation_function to get_trajectories_okishio_demo
       before running and loading this. In this modified simulation, the hourly real wage bundle
@@ -49,6 +49,32 @@ presets:
       p0: [1.0, 0.8, 0.5]
       s0: [1.0, 0.1, 0.25]
       m_w0: 0.5
+      s_floor: 1.0e-05
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+  cockshott_vs_kliman:
+    name: Cockshott's Critique of Kliman 
+    desc: These are the parameters Cockshott used in his 3-department model critiquing Kliman's price system and argument for a falling rate of profit
+    params:
+      A: [[0.1, 0.2, 0.3], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+      l: [1.0, 1.0, 1.0]
+      b_bar: [0.0, 0.6, 0.0]
+      c_bar: [0.0, 0.0, 0.6]
+      q0: [200.0, 120.0, 80.0]
+      alpha_w: 1.0
+      alpha_c: 0.5
+      alpha_L: 0.0
+      kappa: [1,1,1]
+      eta_w: 1.0
+      eta: [1,1,1]
+      eta_r: 2.0
+      L: 1.0
+      p0: [1.086877504393617, 1.226722749184043, 1.366567993974469]
+      w0: 0.73603365
+      s0: [100.0, 100.0, 100.0]
+      m_w0: 0.73603365
+      r0: 0.0
       s_floor: 1.0e-05
       eps_u: 1.0e-08
       eps_m: 1.0e-08
