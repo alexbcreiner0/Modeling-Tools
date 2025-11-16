@@ -49,13 +49,16 @@ if __name__ == "__main__":
 
     init_params = params_from_mapping(params_dict["params"], f"{sim_model}/simulation/parameters.py")
 
+    with open(f"demos.yml", "r") as f:
+        demos = yaml.safe_load(f)
+
     with open(f"{sim_model}/data/plotting_data.yml") as f:
         plotting_data = yaml.safe_load(f)
 
     with open(f"{sim_model}/data/control_panel_data.yml") as f:
         panel_data = yaml.safe_load(f)
 
-    window = MainWindow(init_params, get_trajectories, presets, panel_data, plotting_data, sim_model)
+    window = MainWindow(init_params, get_trajectories, presets, panel_data, plotting_data, sim_model, demos)
 
     window.show()
     app.exec()

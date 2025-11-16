@@ -62,4 +62,4 @@ def get_trajectories(params):
     t = np.linspace(0, T, len(ys))
 
     traj = {"y": ys, "Ns": Ns, "Es": Es}
-    return traj, t
+    return traj, t, None
