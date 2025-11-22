@@ -23,8 +23,10 @@ class GraphPanel(qw.QWidget):
 
     def __init__(self, init_traj, init_t, dropdown_choices, T,
                  plotting_data, canvas, figure, axis, toolbar,
-                 entries, save_button, load_button, status_bar):
+                 entries, buttons, status_bar):
         super().__init__()
+        self.entries = entries
+        self.buttons = buttons
         self.start_up = True
         self.data = plotting_data
         layout = qw.QVBoxLayout()
@@ -56,15 +58,15 @@ class GraphPanel(qw.QWidget):
         self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
         self.xlower_entry, self.xupper_entry = entries[0], entries[2]
         self.ylower_entry, self.yupper_entry = entries[1], entries[3]
-        self.xlower_entry.setText(str(self.xlim[0]))
-        self.xupper_entry.setText(str(self.xlim[1]))
-        self.ylower_entry.setText(str(self.ylim[0]))
-        self.yupper_entry.setText(str(self.ylim[1]))
+        self.xlower_entry.setText(f"{self.xlim[0]:g}")
+        self.xupper_entry.setText(f"{self.xlim[1]:g}")
+        self.ylower_entry.setText(f"{self.ylim[0]:g}")
+        self.yupper_entry.setText(f"{self.ylim[1]:g}")
         for entry in entries: 
             entry.setSizePolicy(qw.QSizePolicy.Policy.Fixed,qw.QSizePolicy.Policy.Fixed)
             entry.setFixedWidth(70)
             entry.textChanged.connect(self.edit_axes) 
-        self.save_button, self.load_button = save_button, load_button
+        self.save_button, self.load_button = buttons[0], buttons[1] 
         self.save_button.clicked.connect(self.save_axes)
         self.load_button.clicked.connect(self.load_axes)
         
@@ -77,13 +79,17 @@ class GraphPanel(qw.QWidget):
         self.canvas.mpl_connect("scroll_event", self.on_scroll)
       
         self.camera_controls = qw.QWidget()
-        self.toolbar.pan()
+        # self.toolbar.pan()
 
         layout.addWidget(self.canvas, stretch=5)
         self.setLayout(layout)
         self.T = T
         self.edit_axes()
-        self.make_plot(init_traj, init_t, 0, {})
+        try:
+            self.make_plot(init_traj, init_t, 0, {})
+        except Exception as e:
+            print(f"Problem? {e}")
+            sys.exit()
 
         self.start_up = False
 
@@ -148,7 +154,7 @@ class GraphPanel(qw.QWidget):
 
         for w, v in widgets_and_values:
             w.blockSignals(True)
-            text = f"{v:.3f}"
+            text = f"{v:g}"
             w.setText(text)
             w.blockSignals(False)
 
@@ -186,7 +192,10 @@ class GraphPanel(qw.QWidget):
             self._block_axis_callback = False
 
     def save_axes(self):
-        self.saved_xlim, self.saved_ylim = (float(f"{float(self.xlim[0]):.3f}"), float(f"{float(self.xlim[1]):.3f}")), (float(f"{float(self.ylim[0]):.3f}"), float(f"{float(self.ylim[1]):.3f}"))
+        # xlim_str = f"({self.xlim[0]:g}, {self.xlim[1]:g})"
+        # ylim_str = f"({self.ylim[0]:g}, {self.ylim[1]:g})"
+        self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
+        # self.saved_xlim, self.saved_ylim = (float(f"{float(self.xlim[0]):.3f}"), float(f"{float(self.xlim[1]):.3f}")), (float(f"{float(self.ylim[0]):.3f}"), float(f"{float(self.ylim[1]):.3f}"))
         self.saved_lims_changed.emit(self.saved_xlim, self.saved_ylim)
 
     def load_axes(self):
@@ -202,7 +211,7 @@ class GraphPanel(qw.QWidget):
 
         for w, v in widgets_and_values:
             w.blockSignals(True)
-            w.setText(f"{v:.3f}")   # or str(v)
+            w.setText(f"{v:g}")   # or str(v)
             w.blockSignals(False)
 
         self.edit_axes()
@@ -253,15 +262,12 @@ class GraphPanel(qw.QWidget):
 
         self.axis.set_xlim(current_xlim)
         self.axis.set_ylim(current_ylim)
-        self.axis.legend()
+        self.axis.legend(fontsize= 10)
         self._init_snap_artists()
         self._connect_axis_callbacks()
         self.canvas.draw()
         self.figure.tight_layout()
         self.canvas.draw_idle()
-
-        # with open("log2.txt", "w") as f:
-        #     print(rcParams, file=f)
 
     def on_press(self, event):
         if event.button != 1:
@@ -321,7 +327,7 @@ class GraphPanel(qw.QWidget):
         self.snap_marker.set_visible(True)
 
         self.snap_annot.xy = (x_near, y_near)
-        self.snap_annot.set_text(f"({x_near:0.6g}, {y_near:0.6g})")
+        self.snap_annot.set_text(f"({x_near:g}, {y_near:g})")
         self.snap_annot.set_visible(True)
 
         self.canvas.draw_idle()

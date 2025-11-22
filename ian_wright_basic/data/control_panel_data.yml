@@ -24,6 +24,15 @@ row1:
     type: "vector"
     dim: 3
 row2:
+  button_group:
+    names: ["Random Irreducible Matrix"]
+    tooltips: ["Generate a irreducible productive matrix. (Irreducible means that all sectors are eventually dependent on one another.)"]
+    display: "horizontal"
+    output_targets: ["A"]
+    functions: ["random_irreducible_productive_matrix"]
+    inputs:
+      dim: 3
+row3:
   b:
     param_name: "b_bar"
     label: '$\mathbf{b}= $'
@@ -37,33 +46,33 @@ row2:
     type: "vector"
     dim: 3
   q:
-    param_name: "q0"
+    param_name: "q"
     label: '$\mathbf{q}(0)= $'
     tooltip: "Initial output vector. This one is much less consequential than the initial supply vector found next to this."
     type: "vector"
     dim: 3
   s:
-    param_name: "s0"
+    param_name: "s"
     label: '$\mathbf{s}(0)= $'
     tooltip: "Initial supply vector. Default example has an initial shortage of 'iron'. Try increasing this amount (the second entry) and see what changes."
     type: "vector"
     dim: 3
-row3:
+row4:
   r0:
-    param_name: "r0"
+    param_name: "r"
     label: '$r(0)=$'
     type: "scalar"
     range: [0,1]
     scalar_type: "float"
     tooltip: "Initial interest rate. Capitalists finance all production through borrowing at this rate."
   m_w0:
-    param_name: "m_w0"
+    param_name: "m_w"
     label: '$m_w(0)= $'
     type: "scalar"
     range: [0,1]
     scalar_type: "float"
     tooltip: "Initial worker savings. Total circulating money in the economy is fixed at M=1. Understand that all money in the simulation is possessed by either workers or capitalists. Thus the more money workers have, the less capitalists have, driving up interest rates."
-row4:
+row5:
   L:
     param_name: "L"
     label: '$L= $'
@@ -72,13 +81,13 @@ row4:
     scalar_type: "float"
     tooltip: "Initial total amount of labor available for employment (can be broken into arbitrarily small pieces). Note this stands in for the amount of workers available."
   w:
-    param_name: "w0"
+    param_name: "w"
     label: '$w(0)= $'
     type: "scalar"
     range: [0,1]
     scalar_type: "float"
     tooltip: "Initial hourly wage rate."
-row5:
+row6:
   alpha_w:
     param_name: "alpha_w"
     label: '$\alpha_w= $'
@@ -93,7 +102,7 @@ row5:
     range: [0,1]
     scalar_type: "float"
     tooltip: "Capitalist propensity to consume. Capitalists spend this proportion of their savings each period on consumption."
-row6:
+row7:
   eta_w:
     param_name: "eta_w"
     label: '$\eta_w= $'
@@ -108,7 +117,7 @@ row6:
     range: [0,2]
     scalar_type: "float"
     tooltip: "Constant of integration representing the elasticity of the interest rate with respect to capitalist savings. Essentially, the higher this number is, the more dramatically the interest rate will fall with respect to changes in the total money posessed by capitalists."
-row7:
+row8:
   alpha_L:
     param_name: "alpha_L"
     label: '$\alpha_L= $'
@@ -123,7 +132,7 @@ row7:
     range: [0,1]
     scalar_type: "float"
     tooltip: "Rate of increase in the productivity of labor (amounts to a scalar multiple reduction of the living labor vector over time)"
-row8:
+row9:
   res:
     param_name: "res"
     label: '$\delta= $'
@@ -138,9 +147,9 @@ row8:
     range: [10,1000]
     scalar_type: "int"
     tooltip: "Number of periods simulated. Keep in mind larger values of this will slow down simulation speed."
-row9:
+row10:
   p:
-    param_name: "p0"
+    param_name: "p"
     label: '$\mathbf{p}(0)= $'
     tooltip: "The initial unit price vector. Entry i is the price of a unit of i at the start of the simulation."
     type: "vector"
@@ -157,3 +166,11 @@ row9:
     type: "vector"
     dim: 3
     tooltip: "Elasticity constants representing how dramatically outputs fluctuate in resonse to profitability"
+row11:
+  tssi_melt:
+    param_name: "init_tssi_melt"
+    label: '$\tau(0)= $'
+    type: "scalar"
+    range: [0,5]
+    scalar_type: "float"
+    tooltip: "Initial condition for the TSSI MELT (without a base case, this is not well defined)"

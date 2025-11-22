@@ -25,6 +25,14 @@ prices_vs_values:
       on_startup: True
       colors: ["red", "green", "blue"]
       linestyle: "dashed"
+    MELT_values: 
+      labels: ["MELT corn", "MELT iron", "MELT sugar"]
+      traj_key: "MELT_values"
+      checkbox_name: "Toggle MELT values"
+      toggled: True
+      on_startup: True
+      colors: ["red", "green", "blue"]
+      linestyle: "dotted"
     epr_prices:
       labels: ["Equilibrium Price of Corn", "Equilibrium Price of Iron", "Equilibrium Price of Sugar"]
       traj_key: "epr_prices"
@@ -158,9 +166,16 @@ rates_of_profit:
       labels: ["Kliman RoP"]
       traj_key: "kliman_profit_rate"
       checkbox_name: "Toggle Kliman profit rate"
-      toggled: True
+      toggled: False
       colors: ["brown"]
       linestyle: "dashed"
+    max_rop:
+      labels: ["Maximum Rate of Profit"]
+      traj_key: "max_rop"
+      checkbox_name: "Toggle max rate of profit"
+      toggled: False
+      colors: ["#04b1ef"]
+      linestyle: "dotted"
 labor_time_distn:
   name: "Distribtion of Labor Time"
   tooltip:
@@ -199,9 +214,26 @@ income_distn:
       checkbox_name: "Toggle rate of exploitation"
       toggled: False
       colors: ["orange"]
-      linestyles: ["dashed"]
-totals:
-  name: "Other"
+      linestyle: "dashed"
+compositions:
+  name: "Compositions of Capital"
+  tooltip:
+  plots:
+    sectoral_comps:
+      labels: ["Corn Sector Composition of Capital", "Iron Sector Composition of Capital", "Sugar Sector Composition of Capital"]
+      traj_key: "sectoral_comps"
+      checkbox_name: "Toggle sectoral compositions"
+      toggled: True
+      colors: ["red", "green", "blue"]
+      linsetyle: "dashed"
+    overall_comp:
+      labels: ["Overall Composition of Capital"]
+      checkbox_name: "Toggle overall composition"
+      toggled: False
+      traj_key: "compos_of_capital"
+      colors: ["purple"]
+melts:
+  name: "MELTS"
   tooltip:
   plots:
     MELT:

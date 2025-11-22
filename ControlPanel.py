@@ -9,7 +9,7 @@ from widgets.EntryBlock import EntryBlock
 from widgets.DropdownChoices import DropdownChoices
 from widgets.MatrixEntry import MatrixEntry
 from dataclasses import asdict
-import math
+import math, importlib, inspect
 # import scienceplots
 # plt.style.use(["grid", "notebook"])
 
@@ -26,9 +26,11 @@ class ControlPanel(qw.QWidget):
     plotChoiceChanged = qc.pyqtSignal(int)
     checkStateChanged = qc.pyqtSignal()
 
-    def __init__(self, params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data):
+    def __init__(self, params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data, sim_model):
+        print(sim_model)
         # print(f"Loaded params: {asdict(params)}")
         super().__init__()
+        self.block_signals = True
 
         content = qw.QWidget()
         content.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
@@ -88,6 +90,43 @@ class ControlPanel(qw.QWidget):
 
             for entry in panel_data[row]:
                 info = panel_data[row][entry]
+
+                if entry == "button_group":
+                    widget = qw.QWidget()
+                    if info["display"] == "horizontal":
+                        button_layout = qw.QHBoxLayout(widget)
+                    else:
+                        button_layout = qw.QVBoxLayout(widget)
+                    
+                    names, functions, inputs, targets = info["names"], info["functions"], info["inputs"], info["output_targets"]
+                    for i,name in enumerate(names):
+                        button = qw.QPushButton(name)
+
+                        extra_functions_module = importlib.import_module(f"{sim_model}.simulation.extra_functions")
+
+                        functions_dict = dict(inspect.getmembers(extra_functions_module, inspect.isfunction))
+                        try:
+                            function = functions_dict[functions[i]]
+                        except ValueError:
+                            print(f"Error loading function: {functions[i]}. Skipping button")
+                            continue
+                        
+                        frozen_inputs = inputs
+                        target = targets[i]
+                        def outer_func(_checked= False, inputs= frozen_inputs):
+                            print(inputs)
+                            output = function(inputs)
+                            if self.entry_blocks[target]["is_matrix"]:
+                                self.entry_blocks[target]["widget"].change_values(output)
+                            else:
+                                self.entry_blocks[target]["widget"].entry.setText(str(output))
+
+                        button.clicked.connect(outer_func)
+                        button_layout.addWidget(button)
+                    
+                    wlay.addWidget(widget)
+                    continue
+
                 param_name, label, tooltip = info["param_name"], info["label"], info["tooltip"]
                 init_val = getattr(params, param_name)
                 # print(getattr(params, param_name))
@@ -124,6 +163,7 @@ class ControlPanel(qw.QWidget):
             layout.addWidget(wrapper, alignment= qc.Qt.AlignmentFlag.AlignTop, stretch= 0)
 
         layout.addStretch(1)
+        self.block_signals = False
 
     def new_selection(self, index):
         self.plotChoiceChanged.emit(index)
@@ -138,7 +178,8 @@ class ControlPanel(qw.QWidget):
         return data
 
     def update_plot(self, name, new_val):
-        self.paramChanged.emit(name, new_val)
+        if not self.block_signals:
+            self.paramChanged.emit(name, new_val)
 
     def get_tooltip(self):
         if self.dropdown_tooltips[self.dropdown_widget.dropdown_choices.currentText()] != "":
@@ -147,6 +188,7 @@ class ControlPanel(qw.QWidget):
             self.dropdown_widget.setToolTip("No notes")
 
     def load_new_params(self, params):
+        self.block_signals = True
         params_dict = asdict(params)
         for param in params_dict:
             if param in self.entry_blocks:
@@ -154,3 +196,4 @@ class ControlPanel(qw.QWidget):
                     self.entry_blocks[param]["widget"].change_values(params_dict[param])
                 else:
                     self.entry_blocks[param]["widget"].entry.setText(str(params_dict[param]))
+        self.block_signals = False

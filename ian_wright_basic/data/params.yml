@@ -15,23 +15,191 @@ presets:
       eta_w: 0.25
       L: 1
       eta_r: 2
-      q0: [0.01, 0.1, 0.1]
-      p0: [1.0, 0.8, 0.5]
-      s0: [0.01, 0.1, 0.25]
-      m_w0: 0.5
-      w0: 0.5
-      r0: 0.0
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      init_tssi_melt: 1
+      w: 0.5
+      r: 0.0
       T: 100
-  witness_okishio:
-    name: Witness Okishio's Theorem!
-    desc: In the default_settings.yml file, change the simulation_function to get_trajectories_okishio_demo
-      before running and loading this. In this modified simulation, the hourly real wage bundle
-      is fixed and held constant. Thus the workers are not allowed to benefit from the productivity
-      gains at all. Additionally, at the halfway point (e.g. at time T=50), the living labor
-      vector is suddenly halved, e.g. labor productivity doubles all around. Here we see the
-      rate of profit rise, contrary to Marx's predictions.
+  cockshott_vs_kliman:
+    name: Cockshott's Critique of Kliman
+    desc: These are the parameters Cockshott used in his 3-department model critiquing Kliman's
+      price system and argument for a falling rate of profit
+    params:
+      A: [[0.1, 0.2, 0.3], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+      l: [1.0, 1.0, 1.0]
+      b_bar: [0.0, 0.6, 0.0]
+      c_bar: [0.0, 0.0, 0.6]
+      q: [200.0, 120.0, 80.0]
+      alpha_w: 1.0
+      alpha_c: 0.5
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta_w: 1.0
+      eta: [1, 1, 1]
+      eta_r: 2.0
+      L: 1.0
+      p: [1.086877504393617, 1.226722749184043, 1.366567993974469]
+      w: 0.73603365
+      s: [100.0, 100.0, 100.0]
+      m_w: 0.73603365
+      r: 0.0
+      s_floor: 1.0e-05
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+  calm:
+    name: Calm
+    desc: Already settled system at rest (good for perturbing)
     params:
       A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.8821942047820412
+      r: 0.0
+      q: [0.6447579266283862, 0.6447621548622804, 0.22878225802048402]
+      p: [1.5568341289323422, 3.139738356009642, 0.9859630834152814]
+      s: [0.008014808821486719, 0.05047734981133371, 0.17803014181827115]
+      m_w: 1
+      alpha_l: 0.0
+      s_floor: 1.0e-05
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  to_use:
+    name: To use
+    desc: ''
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.35, 0.3, 0.15]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 36.598479138872506
+      w: 0.00019153973852490408
+      r: 0.0
+      q: [3480.423171108042, 3481.207174518112, 1972.623255432953]
+      p: [0.00026451725826281134, 0.00061606542240906, 0.00016414691783608643]
+      s: [61.48529287673028, 3.6036565532172826, 13.79778371950806]
+      m_w: 0.6125884676205936
+      alpha_l: 0.0
+      s_floor: 1.0e-05
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  falling_rate_of_profit:
+    name: falling rate of profit
+    desc: my version
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.35, 0.3, 0.15]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 1.0
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [1.5052980594873928, 1.5064011127069783, 0.7136569976130549]
+      p: [0.7217453616827404, 1.4189060476015247, 0.4335635307679013]
+      s: [1.177081902401698, 0.07509815275227312, 0.2684705548580668]
+      m_w: 0.6786379328831379
+      alpha_l: 0.0
+      s_floor: 1.0e-05
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  new_economy:
+    name: New economy
+    desc: '1st commodity sole capital good
+
+      2nd commodity pure wage good
+
+      3rd commodity pure luxury good'
+    params:
+      A: [[0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.0, 0.3, 0.2]
+      c_bar: [0.0, 0.3, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.8822007393552731
+      r: 0.03
+      q: [0.17003335420544155, 1.0941547845451816, 0.4376968699055608]
+      p: [0.6902212802007274, 0.5978489636932751, 0.33325333525869905]
+      s: [0.012094870633358058, 0.05783891910144974, 0.39352675015258964]
+      m_w: 1
+      alpha_l: 0.0
+      s_floor: 1.0e-05
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  seems_stable:
+    name: Seems stable
+    desc: ''
+    params:
+      A: [[0.27317073170731704, 0.0, 0.5], [0.27317073170731704, 0.7230363085845303, 0.0],
+        [0.0, 0.4714560250220375, 0.25]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      alpha_l: 0.0
+      s_floor: 1.0e-05
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 1
+  witness_okishio:
+    name: Okishio Demo
+    desc: null
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.4, 0.0], [0.0, 0.1, 0.1]]
       l: [0.35, 0.3, 0.15]
       b_bar: [0.6, 0.0, 0.2]
       c_bar: [0.2, 0.0, 0.4]
@@ -43,39 +211,41 @@ presets:
       eta_w: 0.25
       eta_r: 2.0
       L: 1.0
-      w0: 0.5
-      r0: 0.0
-      q0: [0.01, 0.1, 0.1]
-      p0: [1.0, 0.8, 0.5]
-      s0: [1.0, 0.1, 0.25]
-      m_w0: 0.5
+      w: 0.5
+      r: 0.0
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [1.0, 0.1, 0.25]
+      m_w: 0.5
       s_floor: 1.0e-05
       eps_u: 1.0e-08
       eps_m: 1.0e-08
       T: 100
-  cockshott_vs_kliman:
-    name: Cockshott's Critique of Kliman 
-    desc: These are the parameters Cockshott used in his 3-department model critiquing Kliman's price system and argument for a falling rate of profit
+  falling_rate_of_profit_params:
+    name: falling rate of profit params
+    desc: good set of parameters for testing the system under perturbations relating to productivity
     params:
-      A: [[0.1, 0.2, 0.3], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
-      l: [1.0, 1.0, 1.0]
-      b_bar: [0.0, 0.6, 0.0]
-      c_bar: [0.0, 0.0, 0.6]
-      q0: [200.0, 120.0, 80.0]
-      alpha_w: 1.0
-      alpha_c: 0.5
+      A: [[0.2, 0.0, 0.4], [0.2, 0.4, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.35, 0.3, 0.15]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
       alpha_L: 0.0
-      kappa: [1,1,1]
-      eta_w: 1.0
-      eta: [1,1,1]
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
       eta_r: 2.0
       L: 1.0
-      p0: [1.086877504393617, 1.226722749184043, 1.366567993974469]
-      w0: 0.73603365
-      s0: [100.0, 100.0, 100.0]
-      m_w0: 0.73603365
-      r0: 0.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [1.0, 0.1, 0.25]
+      m_w: 0.5
+      alpha_l: 0.0
       s_floor: 1.0e-05
       eps_u: 1.0e-08
       eps_m: 1.0e-08
       T: 100
+      res: 3

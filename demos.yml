@@ -1,0 +1,29 @@
+ian_wright_basic_3_sector:
+  name: "Ian Wright Dynamical Disequilibrium Model Basic Unrestricted"
+  desc: Starting parameters are based on the example in his PhD thesis.
+  details:
+    simulation_model: ian_wright_basic
+    simulation_function: basic_unrestricted_economy
+    default_preset: default_preset
+    starting_xlim: [0.0, 50.0]
+    starting_ylim: [0.0, 6.0]
+okishio_theorem_3:
+  name: "Okishio's Theorem Demo"
+  desc: "A modified version of Wright's disequilibrium model in which the real wage is held constant. At T=50, the living labor vector is suddenly halved."
+  default: True
+  details:
+    simulation_model: ian_wright_basic
+    simulation_function: periodic_culs_perturbation_basic_unrestricted
+    default_preset: falling_rate_of_profit_params
+    starting_xlim: [0.0, 100.0]
+    starting_ylim: [0.0, 0.5]
+    starting_plots: rates_of_profit 
+constrained_morishima:
+  name: "Constrained Morishima Disproportionality Model With Population Dynamicss"
+  desc: TBA
+  details:
+    simulation_model: constrained_morishima
+    simulation_function: get_trajectories
+    default_preset: default_preset
+    starting_xlim: [1.1439, 23.0682]
+    starting_ylim: [-152.036, 20349.9]

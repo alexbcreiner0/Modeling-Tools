@@ -19,12 +19,13 @@ class Params:
     eta_w: float # controls how dramatically wages change with respect to employment and size of the reserve army
     eta_r: float # controls how dramatically the interest rate changes with respect to capitalist savings
     L: float # initial pool of available labor
-    w0: float # initial hourly wage
-    r0: float # initial interest rate. if set to zero, it will never change, i.e. the model will not have a credit system and capitalists draw their means of production from a free communal pool
-    q0: ndarray # initial output n-vector
-    p0: ndarray # initial price n-vector
-    s0: ndarray # initial supply n-vector
-    m_w0: float # initial worker savings. implicitly, there is a parameter M=1=total money in circulation. All money is posessed by either workers or capitalists. Thus whatever m_w0 is, initial capitalist savings will be 1-m_w
+    w: float # initial hourly wage
+    r: float # initial interest rate. if set to zero, it will never change, i.e. the model will not have a credit system and capitalists draw their means of production from a free communal pool
+    q: ndarray # initial output n-vector
+    p: ndarray # initial price n-vector
+    s: ndarray # initial supply n-vector
+    m_w: float # initial worker savings. implicitly, there is a parameter M=1=total money in circulation. All money is posessed by either workers or capitalists. Thus whatever m_w0 is, initial capitalist savings will be 1-m_w
+    init_tssi_melt: float = 1
     alpha_l: float = 0.0 # rate of technological innovation. Each period the living labor vector will get scaled down by 1-this proportion
     # the remainder of these constants are purely technical in that they don't directly pertain to the economic scenario
     s_floor: float = 1e-5 # this and the next two constants just prevent the model from accidentally dividing by zero, they are not economically relevant
