@@ -1,6 +1,6 @@
 ![Demo](assets/demo.gif)
 
-# Description
+# Tex's Modelling Tools
 
 Model visualization and exploration toolkit. Create Desmos-style interfaces quickly and easily for models of all kinds. Simulation PDE's? Running agent-based simulation? No problem! All you need to do is declare your system parameters, make a single Python function which executes the simulation and returns a dictionary of the plots you want to display, and write up a small yaml file declaring the controls you want to have. The tools will handle the rest and create a display of all of your plots so that you can edit your parameters and view the results in real time. 
 
