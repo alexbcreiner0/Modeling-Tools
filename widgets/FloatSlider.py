@@ -28,6 +28,11 @@ class FloatSlider(qw.QSlider):
         self.setValue(self.tic_pos)
         self.valueChanged.connect(self.update_value)
 
+        self.wheelEvent = self.no_wheel
+
+    def no_wheel(self, event):
+        event.ignore()
+
     def compute_tic_pos(self, val):
         fmin, fmax = self.float_range
         smin, smax = self.slider_range

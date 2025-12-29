@@ -74,6 +74,6 @@ class MatrixEntry(qw.QWidget):
         for i in range(self.dim[0]):
             if self.dim[1] > 1:
                 for j in range(self.dim[1]):
-                    self.entries[i][j].setText(str(array[i][j]))
+                    self.entries[i][j].setText(f"{array[i][j]:.8g}")
             else:
-                self.entries[i][0].setText(str(array[i]))
+                self.entries[i][0].setText(f"{array[i]:.8g}")

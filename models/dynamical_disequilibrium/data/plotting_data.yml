@@ -1,0 +1,1123 @@
+prices_and_values:
+  name: Prices and Values
+  plots:
+    prices:
+      checkbox_name: Unit Prices
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - Price of {c0}
+      - Price of {c1}
+      - Price of {c2}
+      on_startup: true
+      toggled: true
+      traj_key: p
+
+    values:
+      checkbox_name: Unit Values
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - Value of {c0}
+      - Value of {c1}
+      - Value of {c2}
+      linestyle: dashed
+      on_startup: true
+      toggled: true
+      traj_key: wage_values
+
+    epr_prices:
+      checkbox_name: Equilibrium Prices
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - Equilibrium Price of {c0}
+      - Equilibrium Price of {c1}
+      - Equilibrium Price of {c2}
+      linestyle: dotted
+      toggled: false
+      traj_key: epr_prices
+
+    kliman_prices:
+      checkbox_name: TSSI Equilibrium Prices
+      colors:
+        - red
+        - green
+        - blue
+      labels:
+        - TSSI Equilibrium Price of {c0}
+        - TSSI Equilibrium Price of {c1}
+        - TSSI Equilibrium Price of {c2}
+      linestyle: dotted
+      toggled: false
+      traj_key: kliman_prices
+
+    super_values:
+      checkbox_name: Super-Integrated Values
+      colors:
+      - "#600702"
+      - "#02600f"
+      - "#051056"
+      labels:
+      - SI Value of {c0}
+      - SI Value of {c1}
+      - SI Value of {c2}
+      linestyle: dashed
+      toggled: false
+      traj_key: super_integrated_wage_vals
+
+    MELT_values:
+      checkbox_name: MELT Adjusted Values
+      colors:
+        - "#f99b02"
+        - "#0b7c62"
+        - "#02f9f5"
+      labels:
+      - Value of Corn * MELT
+      - Value of Iron * MELT
+      - Value of Sugar * MELT
+      linestyle: dotted
+      toggled: false
+      traj_key: MELT_values
+
+    # rel_price_gradient:
+    #   checkbox_name: Relative Price Gradient
+    #   colors:
+    #     - red
+    #     - green
+    #     - blue
+    #   labels:
+    #     - Rel. Price Gradient Corn
+    #     - Rel. Price Gradient Iron
+    #     - Rel. Price Gradient Sugar
+    #   linestyle: dashed
+    #   toggled: false
+    #   traj_key: relative_price_change
+
+  title: null
+  tooltip: '- All quantities here are measured in dollars.
+
+  - Labor values, super-integrated labor values and SSSI values here are converted into amounts of money via multiplication by the hourly wage for the sake of comparison. If you see values changing despite unchanging technology, this is the sole reason. 
+
+  - Super integrated Values are currently only approximate, asymptotically correct as system settles into equilibrium. Prior to equilibrium they should be considered an underestimate.
+
+  - Equilibrium price vector is automatically normalized to be the same magnitude as the actual price vector. 
+
+  - See the wiki for the GitHub repo for more info.'
+  x_label: null
+  y_label: Dollars [$]
+
+values_and_prices:
+  name: Values and Prices
+  plots:
+    values:
+
+      checkbox_name: Unit Labor Values
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - Value of {c0}
+      - Value of {c1}
+      - Value of {c2}
+      linestyle: dashed
+      toggled: true
+      traj_key: values
+
+    super_integrated_vals:
+      checkbox_name: SI Unit Labor Values
+      colors:
+        - "#600702"
+        - "#02600f"
+        - "#051056"
+      labels:
+      - Super-Integrated Value of {c0}
+      - Super-Integrated Value of {c1}
+      - Super-Integrated Value of {c2}
+      linestyle: dashed
+      toggled: false
+      traj_key: super_integrated_vals
+
+    kliman_values:
+      checkbox_name: TSSI Unit Labor Values (Equilibrium)
+      colors:
+        - red
+        - green
+        - blue
+      labels:
+        - TSSI Equilibrium Value of {c0}
+        - TSSI Equilibrium Value of {c1}
+        - TSSI Equilibrium Value of {c2}
+      linestyle: dotted
+      toggled: false
+      traj_key: kliman_values
+
+    kliman_actual_values:
+      checkbox_name: TSSI Unit Labor Values
+      colors:
+        - red
+        - green
+        - blue
+      labels:
+        - TSSI Value of {c0}
+        - TSSI Value of {c1}
+        - TSSI Value of {c2}
+      linestyle: dashed
+      toggled: false
+      traj_key: kliman_actual_values
+
+    sssi_values:
+      checkbox_name: SSSI Values
+      colors:
+        - "#e22c14"
+        - "#02f971"
+        - "#027af9"
+      labels:
+        - SSSI Value of {c0}
+        - SSSI Value of {c1}
+        - SSSI Value of {c2}
+      linestyle: dashed
+      toggled: false
+      traj_key: SSSI_vals
+
+    MELT_prices:
+      checkbox_name: MELT Adjusted Prices
+      colors:
+        - "#f99b02"
+        - "#0b7c62"
+        - "#02f9f5"
+      labels:
+        - Price of {c0} / MELT
+        - Price of {c1} / MELT
+        - Price of {c2} / MELT
+      linestyle: solid
+      toggled: true
+      traj_key: MELT_prices
+
+    labor_commanded:
+      checkbox_name: Labor Commanded
+      colors:
+        - "#f902e9"
+        - "#02f9c0"
+        - "#4402f9"
+      labels:
+        - Labor Commanded By {c0}
+        - Labor Commanded By {c1} 
+        - Labor Commanded By {c2}
+      linestyle: dotted
+      toggled: false
+      traj_key: labor_commanded
+
+  x_label: null
+  y_label: Hours [t]
+  tooltip: '- This is the same as the prices and values category except that everything here is measured in hours instead of dollars.
+
+  - Prices are converted into hours in two ways - via the MELT, and via the wage (the latter is listed as labor commanded)
+
+  - Super integrated values are approximate for same reasons described in the prices and values category tooltip.
+
+  - See the GitHub wiki page for more info'
+
+output_and_supply:
+  name: Output, Supply and Demand
+  plots:
+    outputs:
+      checkbox_name: Outputs
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Output'
+      - '{c1} Output'
+      - '{c2} Output'
+      linestyle: dashed
+      toggled: true
+      traj_key: q
+
+    supplies:
+      checkbox_name: Supplies
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Supply'
+      - '{c1} Supply'
+      - '{c2} Supply'
+      linestyle: solid
+      toggled: true
+      traj_key: s
+
+    demand:
+      checkbox_name: Demand
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Demand'
+      - '{c1} Demand'
+      - '{c2} Demand'
+      linestyle: dotted
+      toggled: true
+      traj_key: total_demand
+
+    total_output_val:
+      checkbox_name: Total Output Value
+      colors:
+        - "#f2bd2b"
+      labels:
+        - 'Total Output Value'
+      toggled: false
+      traj_key: total_value_out
+
+    sectoral_output_vals:
+      checkbox_name: Sectoral Output Values
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      linestyle: dashed
+      labels:
+        - "{c0} Output Value"
+        - "{c1} Output Value"
+        - "{c2} Output Value"
+      toggled: false
+      traj_key: sectoral_out_vals
+
+    rel_val_out:
+      checkbox_name: Relative Output Value
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      linestyle: dashed
+      labels:
+        - "{c0} Relative Value Output"
+        - "{c1} Relative Value Output"
+        - "{c2} Relative Value Output"
+      toggled: false
+      traj_key: relative_value_out
+
+    total_price_out:
+      checkbox_name: Total Output Price
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      linestyle: solid
+      labels:
+        - "Total Output Price"
+      toggled: false
+      traj_key: total_price_out
+
+    sectoral_output_prices:
+      checkbox_name: Sectoral Output Prices
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      linestyle: solid
+      labels:
+        - "{c0} Output Price"
+        - "{c1} Output Price"
+        - "{c2} Output Price"
+      toggled: false
+      traj_key: sectoral_out_prices
+
+    rel_price_out:
+      checkbox_name: Relative Output Price
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      linestyle: solid
+      labels:
+        - "{c0} Relative Price Output"
+        - "{c1} Relative Price Output"
+        - "{c2} Relative Price Output"
+      toggled: false
+      traj_key: relative_price_out
+
+  tooltip: By relative output value we mean relative to the total value produced.
+
+rates_of_profit:
+  name: Rates of Profit
+  plots:
+
+    equilibrium_rop:
+      checkbox_name: Equilibrium Rate of Profit
+      colors:
+      - orange
+      labels:
+      - Equilibrium Profit Rate
+      linestyle: dashed
+      toggled: true
+      traj_key: epr
+
+    sectoral_rops:
+      checkbox_name: Sectoral Rates of Profit
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Sector Profit Rate'
+      - '{c1} Sector Profit Rate'
+      - '{c2} Sector Profit Rate'
+      toggled: true
+      traj_key: profit_rates
+
+    actual_sectoral_rops:
+      checkbox_name: Sectoral Rates of Profit (Enterprise)
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Sector Profit Rate (Enterprise)'
+      - '{c1} Sector Profit Rate (Enterprise)'
+      - '{c2} Sector Profit Rate (Enterprise)'
+      toggled: false
+      linestyle: dashed
+      traj_key: profit_of_enterprise_rates
+
+    interest_rate:
+      checkbox_name: Interest rate
+      colors:
+      - black
+      labels:
+      - Interest Rate
+      linestyle: dashed
+      toggled: false
+      traj_key: r
+
+    max_rop:
+      checkbox_name: Max. Rate of Profit
+      colors:
+      - '#04b1ef'
+      labels:
+      - Maximum Rate of Profit
+      linestyle: dotted
+      toggled: false
+      traj_key: max_rop
+
+    okishio_numbers:
+      checkbox_name: Okishio Predicted Profit Rates
+      color: orange
+      labels:
+      - Okishio Predicted Profit Rates
+      special: scatter
+      toggled: false
+      traj_key_x: okishio_pts_x
+      traj_key_y: okishio_pts_y
+
+    value_rop:
+      checkbox_name: Value Rate of Profit
+      colors:
+      - teal
+      labels:
+      - Value Rate of Profit
+      linestyle: dashed
+      toggled: false
+      traj_key: value_rops
+
+    SSSI_pi:
+      checkbox_name: SSSI Value Rate of Profit
+      colors:
+      - "#edc31e"
+      labels:
+      - SSSI Value Rate of Profit
+      linestyle: solid
+      toggled: false
+      traj_key: SSSI_rop
+
+    kliman_profit_rate:
+      checkbox_name: TSSI Profit Rate
+      colors:
+      - brown
+      labels:
+      - TSSI Rate of Profit
+      linestyle: dashed
+      toggled: false
+      traj_key: kliman_profit_rate
+
+    exploitation:
+      checkbox_name: Rate of Exploitation
+      colors:
+      - magenta
+      labels:
+      - Rate of Exploitation
+      linestyle: solid
+      toggled: false
+      traj_key: e
+
+    overall_comp:
+      checkbox_name: Overall Composition of Capital
+      colors:
+      - brown
+      labels:
+      - Overall Composition of Capital
+      toggled: false
+      traj_key: compos_of_capital
+
+  tooltip: '- For the sectoral rates of profit, profit and cost are computed without consideration of the interest rate, i.e. these are the *overall* sectoral rates of profit, irrespective of the *type* of profit.
+
+  - Sectoral rates of profit (enterprise) are the actual rates of profit driving the system dynamics, i.e. that which includes interest payments as a cost of production. It is these which tend to zero as the system settles.
+
+  - See the GitHub wiki page on the model for a more comprehensive documentation of every equation being used here.'
+
+wages_and_unemployment:
+  name: Wages and Employment
+  plots:
+
+    employment:
+      checkbox_name: Employment
+      colors:
+      - '#e52af9'
+      labels:
+      - Employment
+      linestyle: solid
+      toggled: true
+      traj_key: total_labor_employed
+
+    reserve_army:
+      checkbox_name: Unemployment
+      colors:
+      - purple
+      labels:
+      - Unemployment
+      toggled: true
+      traj_key: reserve_army_size
+
+    deriv_employment:
+      checkbox_name: Slope of Employment
+      colors:
+        - '#e52af9'
+      labels: 
+        - Slope of Employment
+      linestyle: dashed
+      traj_key: deriv_employment
+      toggled: false
+
+    wage_rate:
+      checkbox_name: Hourly Wage
+      colors:
+      - '#0ace9d'
+      labels:
+      - Hourly Wage
+      linestyle: solid
+      toggled: true
+      traj_key: w
+
+    hourly_wage_value:
+      checkbox_name: Value of Hourly Real Wage
+      colors:
+      - '#f73b41'
+      labels:
+      - Value of Hourly Real Wage
+      linestyle: dashed
+      toggled: false
+      traj_key: hourly_b_val
+
+    real_wage:
+      checkbox_name: Hourly Real Wage
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - Hourly Real Wage ({c0})
+      - Hourly Real Wage ({c1})
+      - Hourly Real Wage ({c2})
+      linestyle: dashed
+      toggled: false
+      traj_key: hourly_b
+
+    hourly_profit:
+      checkbox_name: Hourly Profit Income
+      toggled: false
+      colors: ["green"]
+      labels: ["Hourly Profit Income"]
+      traj_key: "hourly_cap_income"
+      linestyle: solid
+
+    hourly_cap_income_value:
+      checkbox_name: Value of Hourly Capitalist Income
+      colors:
+      - '#07af3f'
+      labels:
+      - Value of Hourly Capitalist Income
+      linestyle: dashed
+      toggled: false
+      traj_key: value_of_hourly_cap_income
+
+    hourly_real_cap_income:
+      checkbox_name: Hourly Real Profit Income
+      toggled: false
+      colors: ["red", "green", "blue"]
+      labels:
+        - Hourly Real Profit Income ({c0})
+        - Hourly Real Profit Income ({c1})
+        - Hourly Real Profit Income ({c2})
+      linestyle: dotted
+      traj_key: "hourly_real_cap_income"
+
+    b:
+      checkbox_name: Total Real Wages
+      toggled: false
+      colors: ["red", "green", "blue"]
+      labels: ["{c0} Consumed by Workers", "{c1} Consumed by Workers", "{c2} Consumed by Workers"]
+      traj_key: "b"
+      linestyle: dashed
+
+    c:
+      checkbox_name: Total Capitalist Consumption
+      toggled: false
+      colors: ["red", "green", "blue"]
+      labels: ["{c0} Consumed by Capitalists", "{c1} Consumed by Capitalists", "{c2} Consumed by Capitalists"]
+      linestyle: dotted
+      traj_key: "c"
+
+    exploitation:
+      checkbox_name: Rate of Exploitation
+      colors:
+      - orange
+      labels:
+      - Rate of Exploitation
+      toggled: false
+      traj_key: e
+
+    # commodity_shares:
+    #   checkbox_name: Commodity Rates of Exploitation
+    #   toggled: false
+    #   colors: ["red", "green", "blue"]
+    #   labels: ["{c0} Rate of Exploitation", "{c1} Rate of Exploitation", "{c2} Rate of Exploitation"]
+    #   traj_key: commodity_shares
+    #   linestyle: solid
+
+    # commodity_surplus:
+    #   checkbox_name: Commodity Rates of Real Surplus
+    #   toggled: false
+    #   colors: ["red", "green", "blue"]
+    #   labels: ["{c0} Rate of Surplus", "{c1} Rate of Surplus", "{c2} Rate of Surplus"]
+    #   traj_key: commodity_surplus
+    #   linestyle: dashed
+
+  tooltip: 'Warning: The y-axis here is *not* unit-normalized. Unlike the Prices and Values category, values are not being converted to prices by any normalization. So the value of the hourly real wage is measured in hours, while the hourly wage itself is measured in dollars. The y-axis is therefore heterogenous in what it represents.
+
+  - Unemployment was previously listed as the size of the reserve army. 
+
+  - See the GitHub wiki page on the model for a more comprehensive documentation of every equation being used here.'
+
+income_distn:
+  name: Distribution of Income and Investment
+  plots:
+
+    capitalist_savings:
+      checkbox_name: Capitalist Savings
+      toggled: true
+      colors:
+      - "#07af3f"
+      labels:
+      - Capitalist Savings
+      traj_key: m_c
+
+    # capitalist_savings_MELT:
+    #   checkbox_name: MELT Adjusted Capitalist Savings
+    #   colors:
+    #   - "#05fc4f"
+    #   labels:
+    #   - Capitalist Savings (As Time)
+    #   linestyle: dashed
+    #   toggled: false
+    #   traj_key: MELT_adjusted_m_c
+
+    wages:
+      checkbox_name: Hourly Wage
+      toggled: true
+      colors:
+      - black
+      labels:
+      - Hourly Wage
+      traj_key: w
+
+    worker_savings:
+      checkbox_name: Worker Savings
+      toggled: true
+      colors:
+      - "#fc05a1"
+      labels:
+      - Worker Savings
+      traj_key: m_w
+
+    total_sectoral_costs:
+      checkbox_name: Total Sectoral Money Investment
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      labels:
+        - "Corn Sector Capital Investment"
+        - "Iron Sector Capital Investment"
+        - "Sugar Sector Capital Investment"
+      linestyle: dashed
+      toggled: false
+      traj_key: total_sectoral_costs
+
+    total_capital_advanced:
+      checkbox_name: Sectoral Capital Advanced
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      labels:
+        - "Corn Sector Capital Advanced"
+        - "Iron Sector Capital Advanced"
+        - "Sugar Sector Capital Advanced"
+      linestyle: dashed
+      toggled: false
+      traj_key: total_capital_advanced
+
+    total_cost:
+      checkbox_name: Total Money Capital Investment
+      colors:
+      - purple
+      labels:
+      - Total Capital Investment
+      toggled: false
+      traj_key: total_cost
+
+    relative_sectoral_costs:
+      checkbox_name: Relative Sectoral Money Investment
+      colors:
+        - "red"
+        - "green"
+        - "blue"
+      labels:
+        - "Corn Sector Relative Investment"
+        - "Iron Sector Relative Investment"
+        - "Sugar Sector Relative Investment"
+      linestyle: solid
+      toggled: false
+      traj_key: relative_costs
+
+#     sectoral_shares:
+#       checkbox_name: Profit-Wage Ratios
+#       colors:
+#       - red
+#       - green
+#       - blue
+#       labels:
+#       - '{c0} Sector Profit-Wage Ratio'
+#       - '{c1} Sector Profit-Wage Ratio'
+#       - '{c2} Sector Profit-Wage Ratio'
+#       linestyle: solid
+#       toggled: false
+#       traj_key: sectoral_shares
+
+    total_money:
+      checkbox_name: Total Money Stock
+      colors:
+      - green
+      labels:
+      - Total money supply
+      toggled: false
+      traj_key: M
+
+  tooltip: '- All quantities here are measured in dollars.'
+
+revenue_split:
+  y_label: Dollars [$]
+  name: Distribution of Revenue
+  plots:
+    interest:
+      checkbox_name: Total Interest
+      colors:
+      - "#04f2ce"
+      labels:
+      - Interest
+      toggled: true
+      traj_key: interest
+    profit_of_enterprise:
+      checkbox_name: Total Profit of Enterprise
+      colors:
+      - "#e56719"
+      labels:
+      - Profit of Enterprise
+      toggled: true
+      traj_key: profit
+
+    total_profit:
+      checkbox_name: Total Capitalist Spending
+      colors:
+      - "#a41eed"
+      labels:
+      - Total Capitalist Expenditure
+      toggled: false
+      linestyle: dashed
+      traj_key: total_capitalist_spending
+
+    total_capitalist_spending:
+      checkbox_name: Total Profit
+      colors:
+      - "#a41eed"
+      labels:
+      - Total Profit
+      toggled: false
+      traj_key: total_profit
+
+    total_melt_adjusted_profit:
+      checkbox_name: Total NI/SSSI Surplus * MELT
+      colors:
+      - "#d808d8"
+      labels:
+      - Total NI/SSSI Surplus * MELT
+      toggled: false
+      linestyle: dashed
+      traj_key: MELT_converted_profit
+
+    revenue:
+      checkbox_name: Total Revenue
+      colors:
+      - pink
+      labels:
+      - Revenue
+      toggled: false
+      traj_key: revenue
+    theory_profit:
+      checkbox_name: Total Theoretical Profit
+      colors:
+      - orange
+      labels:
+      - Theoretical Profit
+      toggled: false
+      traj_key: theoretical_profit
+    total_money:
+      checkbox_name: Total Money Stock
+      colors:
+      - green
+      labels:
+      - Total money supply
+      toggled: false
+      traj_key: M
+
+  tooltip: '- By theoretical profit we mean the total profit on all goods assuming they are sold and that no costs are accrued via interest'
+
+labor_time_distn:
+  name: Distribution of Labor Time
+  plots:
+    cc:
+      checkbox_name: Value of Constant Capital
+      toggled: true
+      colors:
+      - purple
+      labels:
+      - Value of Constant Capital Produced
+      traj_key: cc_vals
+
+    sssi_cc:
+      checkbox_name: SSSI Value of Constant Capital
+      toggled: false
+      colors:
+      - purple
+      labels:
+      - SSSI Value of Constant Capital Produced
+      traj_key: sssi_C
+      linestyle: dashed
+
+    tssi_eq_cc:
+      checkbox_name: TSSI Value of Constant Capital
+      toggled: false
+      colors:
+      - purple
+      labels:
+      - TSSI Equilibrium Value of Constant Capital
+      traj_key: tssi_C
+      linestyle: dotted
+
+    mos:
+      checkbox_name: Value of Means of Subsistence
+      toggled: true
+      colors:
+      - red
+      labels:
+      - Value of Means of Subistence
+      traj_key: values_ms
+
+    NI_mos:
+      checkbox_name: NI Value of Means of Subsistence
+      toggled: false
+      colors:
+      - red
+      labels:
+      - NI Value of Means of Subsistence
+      traj_key: NI_variable
+      linestyle: dashed
+
+    TSSI_mos:
+      checkbox_name: TSSI Value of Means of Subsistence
+      toggled: false
+      colors:
+      - red
+      labels:
+      - TSSI Value of Means of Subsistence
+      traj_key: NI_variable
+      linestyle: dotted
+
+    surplus:
+      checkbox_name: Total Surplus Value
+      toggled: true
+      colors:
+      - "#07af3f"
+      labels:
+      - Surplus Value Produced
+      traj_key: surplus_vals
+
+    ni_surplus:
+      checkbox_name: NI Total Surplus Value
+      toggled: false
+      colors:
+      - "#07af3f"
+      labels:
+      - NI Surplus Value Produced
+      linestyle: dashed
+      traj_key: NI_surplus
+
+    tssi_surplus:
+      checkbox_name: TSSI Total Surplus Value
+      toggled: false
+      colors:
+      - "#07af3f"
+      labels:
+      - TSSI Surplus Value Produced
+      linestyle: dotted
+      traj_key: tssi_S
+
+    exploitation:
+      checkbox_name: Rate of Exploitation
+      toggled: false
+      colors: 
+        - orange
+      labels:
+        - Rate of Exploitation
+      traj_key: e
+
+    ni_exploitation:
+      checkbox_name: NI/SSSI Rate of Exploitation
+      colors:
+      - "#d88508"
+      labels:
+      - NI/SSSI Rate of Exploitation
+      linestyle: dashed
+      toggled: false
+      traj_key: NI_exploitation
+
+    tssi_exploitation:
+      checkbox_name: TSSI Rate of Exploitation
+      toggled: false
+      colors: 
+        - orange
+      labels:
+        - TSSI Rate of Exploitation
+      traj_key: tssi_e
+      linestyle: dotted
+
+    money_exploitation:
+      checkbox_name: Money Rate of Exploitation
+      toggled: false
+      colors: 
+        - orange
+      labels:
+        - Money Rate of Exploitation
+      traj_key: money_rate_of_exploitation
+      linestyle: dashed
+
+    total_val_c:
+      checkbox_name: Total Value of Capitalist Consumption
+      colors: 
+        - green
+      toggled: false
+      labels:
+        - Total Value of Capitalist Consumption
+      traj_key: total_val_c
+      linestyle: solid
+  tooltip: '- By Money Rate of Exploitation we mean the ratio $\frac{\alpha_c m_c}{\alpha_w m_w}$, i.e. the ratio of capitalist spending vs worker spending. Tends to closely track with the rate of exploitation.'
+
+compositions:
+  name: Compositions of Capital
+  tooltip: "By capital intensities we mean the ratio of the value of the means of production for a unit of the commodity divided by the total living labor required. This is a more objective measure of the technical state of an industry since it is not effected by changes in wages. By overall composition we mean the total value of constant capital output divided by the total value of the means of subsistence. Sectoral compositions are the same."
+  plots:
+    capital_intensities:
+      checkbox_name: Capital Intensities
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Sector Technical Composition'
+      - '{c1} Sector Technical Compostion'
+      - '{c2} Sector Technical Composition'
+      linestyle: dotted
+      toggled: true
+      traj_key: capital_intensities
+
+    overall_comp:
+      checkbox_name: Value Composition of Capital
+      colors:
+      - purple
+      labels:
+      - Value Composition of Capital
+      toggled: true
+      linestyle: dashed
+      traj_key: compos_of_capital
+
+    overall_comp_money:
+      checkbox_name: Money Composition of Capital
+      colors:
+      - purple
+      labels:
+      - Money Composition of Capital
+      toggled: false
+      linestyle: solid
+      traj_key: overall_money_composition
+
+    composition_of_capital_advanced:
+      checkbox_name: Composition of Capital Advanced
+      colors:
+      - "#8937e8"
+      labels:
+      - Composition of Capital Advanced
+      linestyle: solid
+      toggled: false
+      traj_key: composition_of_capital_advanced
+
+    sectoral_comps:
+      checkbox_name: Sectoral Compositions (Value)
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Sector Composition of Capital (Value)'
+      - '{c1} Sector Composition of Capital (Value)'
+      - '{c2} Sector Composition of Capital (Value)'
+      linestyle: dashed
+      toggled: false
+      traj_key: sectoral_comps
+
+    sectoral_money_comps:
+      checkbox_name: Sectoral Compositions (Money)
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Sector Composition of Capital (Money)'
+      - '{c1} Sector Composition of Capital (Money)'
+      - '{c2} Sector Composition of Capital (Money)'
+      linestyle: solid
+      toggled: false
+      traj_key: money_compositions
+
+real_costs:
+  name: Real Costs of Production
+  plots:
+    corn_costs:
+      checkbox_name: Materials Costs of {c0}
+      colors:
+      - red
+      - green
+      - blue
+      labels:
+      - '{c0} Cost of {c0}'
+      - '{c1} Cost of {c0}'
+      - '{c2} Cost of {c0}'
+      toggled: true
+      traj_key: a_0
+    iron_costs:
+      checkbox_name: Materials Costs of {c1}
+      colors:
+      - '#fa6055'
+      - '#38ed2b'
+      - '#2b78ed'
+      labels:
+      - '{c0} Cost of {c1}'
+      - '{c1} Cost of {c1}'
+      - '{c2} Cost of {c1}'
+      toggled: true
+      traj_key: a_1
+    labor_costs:
+      checkbox_name: Labor Costs
+      colors:
+      - yellow
+      - orange
+      - purple
+      labels:
+      - Labor Cost of {c0}
+      - Labor Cost of {c1}
+      - Labor Cost of {c2}
+      linestyle: dashed
+      toggled: true
+      traj_key: l
+    spectral_radii:
+      checkbox_name: Spectral Radii
+      colors:
+      - black
+      labels:
+      - Spectral Radius of A
+      linestyle: dashed
+      toggled: false
+      traj_key: spectral_radius_A
+    sugar_costs:
+      checkbox_name: Materials Costs of {c2}
+      colors:
+      - '#570400'
+      - '#02380c'
+      - '#090238'
+      labels:
+      - '{c0} Cost of {c2}'
+      - '{c1} Cost of {c2}'
+      - '{c2} Cost of {c2}'
+      toggled: true
+      traj_key: a_2
+  tooltip: 'For more information see the GitHub Wiki page for the model.'
+melts:
+  name: MELTS
+  plots:
+    MELT:
+      checkbox_name: NI/SSSI MELT
+      colors:
+      - red
+      labels:
+      - MELT
+      toggled: true
+      traj_key: MELT
+    TSSI_MELT:
+      checkbox_name: Equilibrium TSSI MELT
+      colors:
+      - blue
+      labels:
+      - Equilibrium TSSI MELT
+      toggled: true
+      traj_key: TSSI_MELT
+    ACTUAL_TSSI_MELT:
+      checkbox_name: TSSI MELT
+      colors:
+      - green
+      labels:
+      - TSSI MELT
+      toggled: true
+      traj_key: ACTUAL_TSSI_MELT
+
+
+  tooltip: 'For more information on these see the GitHub Wiki page for the model.'
+

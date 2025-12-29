@@ -2,7 +2,18 @@ from PyQt6 import (
     QtCore as qc,
     QtWidgets as qw,
 )
+from widgets.SectionDivider import SectionDivider
 from .HelpButton import HelpButton
+
+class AutoSizingStack(qw.QStackedWidget):
+    
+    def sizeHint(self):
+        w = self.currentWidget()
+        return w.sizeHint() if w else super().sizeHint()
+
+    def minimumSizeHint(self):
+        w = self.currentWidget()
+        return w.minimumSizeHint() if w else super().minimumSizeHint
 
 class DropdownChoices(qw.QWidget):
     infoBoxHovered = qc.pyqtSignal()
@@ -12,17 +23,26 @@ class DropdownChoices(qw.QWidget):
     def __init__(self, parent= None, items_per_row= 3):
         super().__init__(parent)
         root = qw.QVBoxLayout(self) # passing self as parent means don't have to call self.setLayout!
-        top = qw.QHBoxLayout()
-       
+        root.setContentsMargins(0,0,0,0)
+        root.setSpacing(0)
+        dropdown_layout = qw.QHBoxLayout()
+        dropdown_layout.setContentsMargins(8,0,8,0)
+        dropdown_layout.setSpacing(0)
+
         self.dropdown_choices = qw.QComboBox()
         self.info = HelpButton("?")
         self.items_per_row = items_per_row
 
-        self.stack = qw.QStackedWidget()
+        def no_wheel(event):
+            event.ignore()
+        self.dropdown_choices.wheelEvent = no_wheel
+
+        self.stack = AutoSizingStack()
+        root.addWidget(SectionDivider("Plots", alignment= "left"))
         root.addWidget(self.stack)
-        top.addWidget(self.dropdown_choices)
-        top.addWidget(self.info)
-        root.addLayout(top)
+        dropdown_layout.addWidget(self.dropdown_choices)
+        dropdown_layout.addWidget(self.info)
+        root.addLayout(dropdown_layout)
 
         self.pages = {}
         self.grids = {}
@@ -39,7 +59,7 @@ class DropdownChoices(qw.QWidget):
 
         page = qw.QWidget()
         grid = qw.QGridLayout(page)
-        grid.setContentsMargins(0,0,0,0)
+        grid.setContentsMargins(8,0,8,0)
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(8)
         self.pages[name] = page
@@ -80,6 +100,9 @@ class DropdownChoices(qw.QWidget):
         page = self.pages.get(self.dropdown_choices.currentText())
         if page is not None:
             self.stack.setCurrentWidget(page)
+            self.stack.updateGeometry()
+            if self.parentWidget():
+                self.parentWidget().updateGeometry()
         self.currentIndexChanged.emit(index)
 
     def _on_info_hovered(self):

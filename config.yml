@@ -1,0 +1,39 @@
+global_settings:
+  # default_save_dir: "/media/Big-Boy/Nextcloud/Projects/Rate-of-Profit-Paper/assets"
+  default_save_dir: "/home/alex/Nextcloud/Projects/Rate-of-Profit-Paper/assets"
+model_specific_settings:
+  constrained_morishima:
+    commodity_names: ["Commodity 1", "Commodity 2"]
+  dynamical_disequilibrium:
+    commodity_names: ["Corn", "Iron", "Sugar"]
+  morishima_disproportionality_reinvestment:
+demos: 
+  dynamical_disequilibrium:
+    name: "Dynamical Disequilibrium Model"
+    desc: Starting parameters are based on the example in Wright's PhD thesis.
+    default: True
+    details:
+      simulation_model: dynamical_disequilibrium
+      simulation_function: simulate
+      starting_plots: prices_and_values
+      default_preset: default_preset
+      starting_lims: [[0.0, 100.0],[0.0, 12.0]]
+  constrained_morishima:
+    name: "Constrained Morishima Disproportionality Model With Population Dynamicss"
+    desc: TBA
+    details:
+      simulation_model: constrained_morishima
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[1.1439, 23.0682],[-152.036, 20349.9]]
+      starting_xlim: [1.1439, 23.0682]
+      starting_ylim: [-152.036, 20349.9]
+  morishima_disproportionality_reinvestment:
+    name: "Morishima's Material Constrained Reinvestment Model"
+    desc: TBA
+    details:
+      simulation_model: morishima_disproportionality_reinvestment
+      simulation_function: get_trajectories
+      default_preset: nice_example
+      starting_lims: [[0, 14],[-500,1600]]
+

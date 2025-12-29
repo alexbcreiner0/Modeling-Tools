@@ -1,5 +1,6 @@
 row1:
   y1i:
+    control_type: "entry_block"
     param_name: y1i
     label: "$y_1(0)= $"
     tooltip: ""
@@ -8,6 +9,7 @@ row1:
     scalar_type: "float"
     tooltip: 
   y2i:
+    control_type: "entry_block"
     param_name: y2i
     label: "$y_2(0)= $"
     tooltip: ""
@@ -17,6 +19,7 @@ row1:
     tooltip: 
 row2:
   e:
+    control_type: "entry_block"
     param_name: e
     label: "$e= $"
     tooltip: ""
@@ -25,6 +28,7 @@ row2:
     scalar_type: "float"
     tooltip: 
   a:
+    control_type: "entry_block"
     param_name: a
     label: "$a= $"
     tooltip: ""
@@ -34,6 +38,7 @@ row2:
     tooltip: 
 row3:
   k1:
+    control_type: "entry_block"
     param_name: k1
     label: "$k_1= $"
     tooltip: ""
@@ -42,6 +47,7 @@ row3:
     scalar_type: "float"
     tooltip: 
   k2:
+    control_type: "entry_block"
     param_name: k2
     label: "$k_2= $"
     tooltip: ""
@@ -51,6 +57,7 @@ row3:
     tooltip: 
 row4:
   w:
+    control_type: "entry_block"
     param_name: w
     label: "$w= $"
     tooltip: ""
@@ -59,6 +66,7 @@ row4:
     scalar_type: "float"
     tooltip: 
   r:
+    control_type: "entry_block"
     param_name: r
     label: "$r= $"
     tooltip: ""
@@ -68,6 +76,7 @@ row4:
     tooltip: "Rate of reproduction for the employed working class"
 row5:
   s:
+    control_type: "entry_block"
     param_name: s
     label: "$s= $"
     tooltip: ""
@@ -77,6 +86,7 @@ row5:
     tooltip: "Attrition rate for unemployed workers"
   N0:
     param_name: N0
+    control_type: "entry_block"
     label: "$N(0)= $"
     tooltip: ""
     type: "scalar"
@@ -85,6 +95,7 @@ row5:
     tooltip: "Initial number of workers"
 row6:
   T:
+    control_type: "entry_block"
     param_name: T
     label: "$T= $"
     tooltip: ""

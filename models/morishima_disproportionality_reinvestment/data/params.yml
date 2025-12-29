@@ -1,0 +1,36 @@
+presets:
+  default_preset:
+    name: Default
+    desc: ''
+    params:
+      y1i: 100
+      y2i: 100
+      e: 1
+      a: 0.5
+      k1: 1
+      k2: 4
+      w: 1
+      r: 0.02
+      s: 0.8
+      N0: 180
+      T: 50
+      res: 300
+  nice_example:
+    name: Nice examle
+    desc: ''
+    params:
+      y1i: 130.0
+      y2i: 100.0
+      e: 1.0
+      a: 0.5
+      k1: 1.0
+      k2: 4.0
+      w: 1.0
+      r: 0.02
+      s: 0.8
+      N0: 180
+      T: 50
+      res: 1000
+      balanced: false
+      balanced_indep: y1
+      money_reinvestment: false

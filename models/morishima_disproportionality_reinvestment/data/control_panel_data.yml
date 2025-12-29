@@ -1,0 +1,139 @@
+divider1:
+  title: "Parameters"
+row0:
+  money_reinvestment:
+    control_type: "dropdown"
+    param_name: "money_reinvestment"
+    label: "Reinvestment Model"
+    names: ["Fixed Percentage of Surplus", "Fixed Percentage of Profit"]
+    values: [False, True]
+    tooltip:
+  force_balanced:
+    control_type: "dropdown"
+    param_name: "balanced"
+    label: "Balanced Growth"
+    names: ["Force", "Don't Force"]
+    values: [True, False]
+    tooltip:
+  force_balanced_independent:
+    control_type: "dropdown"
+    label: "Independent variable for balancing"
+    param_name: "balanced_indep"
+    names: ["Dept. I independent", "Dept. II independent"]
+    values: ["y1", "y2"]
+    tooltip:
+rowSim:
+  T:
+    control_type: "entry_block"
+    param_name: T
+    label: "$T= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "int"
+    tooltip: 
+  res:
+    control_type: "entry_block"
+    param_name: res
+    label: '$\delta= $'
+    tooltip: ""
+    type: "scalar"
+    range: [100,1000]
+    scalar_type: "int"
+    tooltip: 
+row1:
+  y1i:
+    control_type: "entry_block"
+    param_name: y1i
+    label: "$y_1(0)= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,500]
+    scalar_type: "float"
+    tooltip: 
+  y2i:
+    control_type: "entry_block"
+    param_name: y2i
+    label: "$y_2(0)= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,500]
+    scalar_type: "float"
+    tooltip: 
+row2:
+  e:
+    control_type: "entry_block"
+    param_name: e
+    label: "$e= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,5]
+    scalar_type: "float"
+    tooltip: 
+  a:
+    control_type: "entry_block"
+    param_name: a
+    label: "$a= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: 
+row3:
+  k1:
+    control_type: "entry_block"
+    param_name: k1
+    label: "$k_1= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "float"
+    tooltip: 
+  k2:
+    control_type: "entry_block"
+    param_name: k2
+    label: "$k_2= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,100]
+    scalar_type: "float"
+    tooltip: 
+row4:
+  w:
+    control_type: "entry_block"
+    param_name: w
+    label: "$w= $"
+    tooltip: ""
+    type: "scalar"
+    range: [0,2]
+    scalar_type: "float"
+    tooltip: 
+  # r:
+  #   control_type: "entry_block"
+  #   param_name: r
+  #   label: "$r= $"
+  #   tooltip: ""
+  #   type: "scalar"
+  #   range: [0,1]
+  #   scalar_type: "float"
+  #   tooltip: "Rate of reproduction for the employed working class"
+# row5:
+#   s:
+#     control_type: "entry_block"
+#     param_name: s
+#     label: "$s= $"
+#     tooltip: ""
+#     type: "scalar"
+#     range: [0,1]
+#     scalar_type: "float"
+#     tooltip: "Attrition rate for unemployed workers"
+#   N0:
+#     param_name: N0
+#     control_type: "entry_block"
+#     label: "$N(0)= $"
+#     tooltip: ""
+#     type: "scalar"
+#     range: [0,200]
+#     scalar_type: "int"
+#     tooltip: "Initial number of workers"
+

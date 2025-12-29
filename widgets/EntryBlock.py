@@ -37,6 +37,7 @@ class EntryBlock(qw.QWidget):
         self.label.setText(var_label)
         
         self.entry = qw.QLineEdit()
+        self.entry.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
         self.entry.setText(str(self.current_val))
         self.debounce_timer = qc.QTimer(self)
         self.debounce_timer.setSingleShot(True)
@@ -78,28 +79,25 @@ class EntryBlock(qw.QWidget):
         try:
             val = float(self.entry.text())
         except ValueError:
-            self.entry_text_change = False
+            self.entry_text_changed = False
             return
+
+        if self.num_type == "int":
+            self.current_val = int(val)
+        else:
+            self.current_val = val
         
         if val < self.range[0]:
-            if self.num_type == "int":
-                self.current_val = int(self.range[0])
-            else:
-                self.current_val = self.range[0]
+            slider_val = self.range[0]
         elif val > self.range[1]:
-            if self.num_type == "int":
-                self.current_val = int(self.range[1])
-            else:
-                self.current_val = self.range[1]
+            slider_val = self.range[1]
         else:
-            if self.num_type == "int":
-                self.current_val = int(val)
-            else:
-                self.current_val = val
+            slider_val = val
 
         self.entry_text_changed = True
-        self.slider.change_value(self.current_val)
+        self.slider.change_value(slider_val)
         self.entry_text_changed = False
+
         self.valueChanged.emit(self.name, self.current_val)
 
     def slider_change_prelude(self):
