@@ -1,10 +1,17 @@
 ![Demo](assets/demo.gif)
 
-Model visualization and exploration toolkit. Made primarily for the exploration of dynamic classical gravitation models, in particular that of Ian Wright
+# Description
 
-The model is extremely robust and has a ton of possible applications. It's basically a (classical, e.g. non-probabilistic) capitalist economy in a box. Plug it into whatever you want. See [Ian Wright's PhD thesis](http://pinguet.free.fr/wrightthesis.pdf/) for more information on the model. There is a lot I am planning on adding and doing to this, and by the time you download it it will probably already look different from the screenshot. Have fun!
+Model visualization and exploration toolkit. Create Desmos-style interfaces quickly and easily for models of all kinds. Simulation PDE's? Running agent-based simulation? No problem! All you need to do is declare your system parameters, make a single Python function which executes the simulation and returns a dictionary of the plots you want to display, and write up a small yaml file declaring the controls you want to have. The tools will handle the rest and create a display of all of your plots so that you can edit your parameters and view the results in real time. 
 
-## To run
+# Installation
+This software was primarily developed for the visualization of a few specific models which I am currently writing papers for. If you are just trying to use the accompanying software to those papers, binary releases are available for you which can be simply downloaded and ran to display the relevant model. Just click the appropriate link in the section directly below this one. If you are interested in interacting directly with the tools yourself and making alterations or building your own models, see the instructions below that.
+
+## Binary Releases
+
+FILLMEIN
+
+## Download and Run the Code Yourself
 - Install [https://www.python.org/](Python) if you don't have it, make sure you check the 'add to system path' checkbox in the process if you are a Windows user.
 - Clone the repo onto your computer (either by opening up a terminal and typing `git clone https://github.com/alexbcreiner0/Classical-Dynamic-Equilibrium-Model-Visualization-Tool.git` (must have git installed) or by downloading and extract the zip folder (found by clicking the green code button))
 - Open up a terminal, navigate inside the folder to the folder:
