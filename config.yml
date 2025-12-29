@@ -4,16 +4,16 @@ global_settings:
 model_specific_settings:
   constrained_morishima:
     commodity_names: ["Commodity 1", "Commodity 2"]
-  dynamical_disequilibrium:
+  wright-cross-dual-3-commodity:
     commodity_names: ["Corn", "Iron", "Sugar"]
   morishima_disproportionality_reinvestment:
 demos: 
-  dynamical_disequilibrium:
-    name: "Dynamical Disequilibrium Model"
+  wright-cross-dual-3-commodity:
+    name: "Wright's Cross-Dual Disequilibrium Model (Three Commodities)"
     desc: Starting parameters are based on the example in Wright's PhD thesis.
     default: True
     details:
-      simulation_model: dynamical_disequilibrium
+      simulation_model: wright-cross-dual-3-commodity
       simulation_function: simulate
       starting_plots: prices_and_values
       default_preset: default_preset
