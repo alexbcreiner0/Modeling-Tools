@@ -8,13 +8,12 @@ presets:
       e: 1
       a: 0.5
       k1: 1
-      k2: 4
-      w: 1
+      k2: 1
       r: 0.02
       s: 0.8
       N0: 180
       T: 50
-      res: 300
+      dt: 0.01
   nice_example:
     name: Nice examle
     desc: ''
@@ -25,12 +24,11 @@ presets:
       a: 0.5
       k1: 1.0
       k2: 4.0
-      w: 1.0
       r: 0.02
       s: 0.8
       N0: 180
       T: 50
-      res: 1000
+      dt: 0.01
       balanced: false
       balanced_indep: y1
       money_reinvestment: false

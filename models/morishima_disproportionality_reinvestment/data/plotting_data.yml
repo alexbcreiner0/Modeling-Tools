@@ -11,6 +11,7 @@ outputs:
       - Dept. II Value Output
       linestyle: solid
       toggled: true
+      on_startup: true
       traj_key: y
     total_value:
       checkbox_name: Total Value Output
@@ -52,27 +53,27 @@ outputs:
       linestyle: dashed
       toggled: false
       traj_key: p_out
-      # I think these are Morishima's 'specific prices', not actual prices
-    # specific_prices:
-    #   checkbox_name: Specific Prices
-    #   colors:
-    #   - '#fcdc3a'
-    #   - '#04b8f9'
-    #   labels:
-    #   - Specific Price Dept. I
-    #   - Specific Price Dept. II
-    #   linestyle: dotted
-    #   toggled: false
-    #   traj_key: ps_vec
-    # total_specific_price:
-    #   checkbox_name: Total Specific Price
-    #   colors:
-    #   - green
-    #   labels:
-    #   - Total Specific Price?
-    #   linestyle: solid
-    #   toggled: false
-    #   traj_key: ps_out
+    #   # I think these are Morishima's 'specific prices', not actual prices
+    # # specific_prices:
+    # #   checkbox_name: Specific Prices
+    # #   colors:
+    # #   - '#fcdc3a'
+    # #   - '#04b8f9'
+    # #   labels:
+    # #   - Specific Price Dept. I
+    # #   - Specific Price Dept. II
+    # #   linestyle: dotted
+    # #   toggled: false
+    # #   traj_key: ps_vec
+    # # total_specific_price:
+    # #   checkbox_name: Total Specific Price
+    # #   colors:
+    # #   - green
+    # #   labels:
+    # #   - Total Specific Price?
+    # #   linestyle: solid
+    # #   toggled: false
+    # #   traj_key: ps_out
     total_surplus:
       checkbox_name: Total Surplus Value
       colors:
@@ -82,15 +83,24 @@ outputs:
       linestyle: solid
       toggled: false
       traj_key: total_surplus
-    ni_surplus:
-      checkbox_name: NI Total Surplus Value
-      colors:
-      - red
-      labels:
-      - NI Total Surplus Value
-      linestyle: solid
-      toggled: false
-      traj_key: NI_total_surplus
+    # profit_adjusted_by_melt:
+    #   checkbox_name: MELT adjusted profit
+    #   colors:
+    #   - teal
+    #   labels:
+    #   - MELT Adjusted Profit
+    #   linestyle: solid
+    #   toggled: false
+    #   traj_key: profit_adjusted_by_MELT
+    # ni_surplus:
+    #   checkbox_name: NI Total Surplus Value
+    #   colors:
+    #   - red
+    #   labels:
+    #   - NI Total Surplus Value
+    #   linestyle: dashed
+    #   toggled: false
+    #   traj_key: NI_total_surplus
     total_money_profit:
       checkbox_name: Total Profit
       colors:
@@ -146,15 +156,15 @@ rates:
       linestyle: solid
       toggled: false
       traj_key: e
-    ni_e:
-      checkbox_name: NI Rate of Exploitation
-      colors:
-      - magenta
-      labels:
-      - NI Rate of Exploitation
-      linestyle: dotted
-      toggled: false
-      traj_key: NI_e
+    # ni_e:
+    #   checkbox_name: NI Rate of Exploitation
+    #   colors:
+    #   - magenta
+    #   labels:
+    #   - NI Rate of Exploitation
+    #   linestyle: dotted
+    #   toggled: false
+    #   traj_key: NI_e
     gdp_rate:
       checkbox_name: Rate of Value Added Growth (Value)
       colors:
@@ -164,15 +174,15 @@ rates:
       linestyle: solid
       toggled: false
       traj_key: gdp
-    gdpp:
-      checkbox_name: Rate of Value Added Growth (Money)
-      colors:
-      - red
-      labels:
-      - Total Value Added (Money)
-      linestyle: dashed
-      toggled: false
-      traj_key: gdpp
+    # gdpp:
+    #   checkbox_name: Rate of Value Added Growth (Money)
+    #   colors:
+    #   - red
+    #   labels:
+    #   - Total Value Added (Money)
+    #   linestyle: dashed
+    #   toggled: false
+    #   traj_key: gdpp
     golden_age_value_rop:
       checkbox_name: Money Rate of Profit
       colors:
@@ -202,6 +212,15 @@ rates:
       linestyle: solid
       toggled: false
       traj_key: labor_demand
+    # labor_demand2:
+    #   checkbox_name: Labor Demand
+    #   colors:
+    #   - green
+    #   labels:
+    #   - Demand for Labor
+    #   linestyle: solid
+    #   toggled: false
+    #   traj_key: labor_demand2
     overall_composition:
       checkbox_name: Composition of Capital
       colors:
@@ -229,17 +248,36 @@ rates:
       linestyle: solid
       toggled: false
       traj_key: roav
-    MELT:
-      checkbox_name: MELT
-      colors:
-      - yellow
-      labels:
-      - MELT
-      linestyle: solid
-      toggled: false
-      traj_key: MELT
+    # MELT:
+    #   checkbox_name: MELT
+    #   colors:
+    #   - yellow
+    #   labels:
+    #   - MELT
+    #   linestyle: solid
+    #   toggled: false
+    #   traj_key: MELT
   title: null
   tooltip: null
   x_label: Time [t]
   y_label: null
-
+population:
+  name: Population
+  plots:
+    E:
+      checkbox_name: Total Employment
+      colors:
+        - "green"
+      labels: 
+        - "Total Employment"
+      toggled: true
+      traj_key: E
+    N:
+      checkbox_name: Working Population Size
+      colors:
+        - "red"
+      labels: 
+        - "Working Population Size"
+      toggled: true
+      traj_key: N
+  tooltip: 'These plots currently have no meaning when the simulation mode is set to analytic, since population constraints cannot be implemented on top of the closed-form solution.'

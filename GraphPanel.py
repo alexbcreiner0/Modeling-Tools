@@ -354,34 +354,37 @@ class GraphPanel(qw.QWidget):
 
             if not should_draw: continue
         
-            # plotting
-            # special cases
-            if "special" in plot_dict and plot_dict["special"] == "scatter":
-                axis.scatter(
-                    traj[plot_dict["traj_key_x"]],
-                    traj[plot_dict["traj_key_y"]],
-                    color= plot_dict.get("color", "k"),
-                    label= plot_dict["labels"][0],
-                )
-                continue
-            
-            if n == 1:
-                # scalar trajectory case
-                axis.plot(
-                    t, traj[plot_dict["traj_key"]],
-                    color= plot_dict["colors"][0],
-                    linestyle= plot_dict.get("linestyle", "solid"),
-                    label= plot_dict["labels"][0]
-                )
-            else:
-                # vector trajectory case
-                for i in range(n):
-                    axis.plot(
-                        t, traj[plot_dict["traj_key"]][:,i],
-                        color= plot_dict["colors"][i],
-                        linestyle= plot_dict.get("linestyle", "solid"),
-                        label= plot_dict["labels"][i]
+            try:
+                # plotting
+                # special cases
+                if "special" in plot_dict and plot_dict["special"] == "scatter":
+                    axis.scatter(
+                        traj[plot_dict["traj_key_x"]],
+                        traj[plot_dict["traj_key_y"]],
+                        color= plot_dict.get("color", "k"),
+                        label= plot_dict["labels"][0],
                     )
+                    continue
+                
+                if n == 1:
+                    # scalar trajectory case
+                    axis.plot(
+                        t, traj[plot_dict["traj_key"]],
+                        color= plot_dict["colors"][0],
+                        linestyle= plot_dict.get("linestyle", "solid"),
+                        label= plot_dict["labels"][0]
+                    )
+                else:
+                    # vector trajectory case
+                    for i in range(n):
+                        axis.plot(
+                            t, traj[plot_dict["traj_key"]][:,i],
+                            color= plot_dict["colors"][i],
+                            linestyle= plot_dict.get("linestyle", "solid"),
+                            label= plot_dict["labels"][i]
+                        )
+            except KeyError:
+                print("Error, no key found")
 
     def make_plot(self, traj, t, dropdown_choice, options):
         self.traj = traj

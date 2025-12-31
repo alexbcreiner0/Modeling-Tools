@@ -1,7 +1,39 @@
 import numpy as np
 import sympy as smp
+import copy
+from .Economy import Economy
+import sys
 
 def get_trajectories(params):
+    sim_params = copy.deepcopy(params)
+    e = None
+
+    try:
+        economy = Economy(sim_params)
+    except Exception as error:
+        e = error
+        return {}, np.array([]), e
+
+    for i in range(params.T):
+        try:
+            economy.step()
+        except Exception as error:
+            e = error
+            with open("log.txt", "w") as f:
+                print(economy.traj, file= f)
+            break
+
+    try:
+        economy.get_analytic_curves()
+    except Exception as error:
+        e = error
+        with open("log.txt", "w") as f:
+            print(economy.traj, file= f)
+
+    traj, t = economy.traj, economy.t
+    return traj, t, e
+
+def get_trajectories_bak(params):
 
     traj = {}
 
@@ -107,8 +139,10 @@ def get_trajectories(params):
     if params.balanced and params.balanced_indep == "y1":
         if "money_curves" in include_curves:
             if comp1 == comp2:
+                bep1 = N11/N21*y2i
                 init_y1 = bep1.subs([(y2i,init_y2),(a,accum),(e,exploit),(k1,comp1),(k2,comp2)])
             else:
+                bgp1 = n11/n12*y2i
                 init_y1 = bgp1.subs([(y2i,init_y2),(a,accum),(e,exploit),(k1,comp1),(k2,comp2)])
         else:
             if comp1 == comp2:
@@ -428,3 +462,5 @@ def get_trajectories(params):
         # plt.show()
 
     return traj, t_nums.real, None
+
+

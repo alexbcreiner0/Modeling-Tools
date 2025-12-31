@@ -7,133 +7,136 @@ row0:
     label: "Reinvestment Model"
     names: ["Fixed Percentage of Surplus", "Fixed Percentage of Profit"]
     values: [False, True]
-    tooltip:
+    tooltip: 'Choose whether capitalists are reinvesting a fixed proportion of their surplus value vs whether they are reinvesting a fixed proportion of their money profit (more realistic).'
   force_balanced:
     control_type: "dropdown"
     param_name: "balanced"
     label: "Balanced Growth"
     names: ["Force", "Don't Force"]
     values: [True, False]
-    tooltip:
+    tooltip: "Force one of the initial outputs to a number such that balanced growth is guaranteed. Warning: The balanced growth is only exact in the case of the simulation mode being set to 'exact'. This is because the matrix exponential method is approximate, and cannot maintain itself on the ultra-precise balanced growth path forever."
   force_balanced_independent:
     control_type: "dropdown"
     label: "Independent variable for balancing"
     param_name: "balanced_indep"
     names: ["Dept. I independent", "Dept. II independent"]
     values: ["y1", "y2"]
-    tooltip:
+    tooltip: "If y1 is chosen and balanced growth is being forced, then y2 will be set to what it needs to be to ensure it given y1. If y2 is chosen and balanced growth is forced than y1 is changed."
+rowNew:
+  analytic_soln:
+    control_type: "dropdown"
+    label: "Simulation Type"
+    param_name: "analytic_soln"
+    names: ["Matrix Exponential", "Analytic"]
+    values: [False, True]
+    tooltip: 'The choice of matrix exponential actually makes the curves plotted according to a stepwise computer simulation. Choosing analytic just plots the closed form solution. The former case is only approximate, but lends itself well to alterations and intervention (see the parameters r and s below).'
+  enforce_nonneg:
+    control_type: "dropdown"
+    label: "Enforce Non-negative Value Output"
+    param_name: "enforce_nonneg"
+    names: ["True", "False"]
+    values: [True, False]
+    tooltip: 'Only relevant in the case of the simulation mode set to matrix exponential. Does what it says - prevents any value outputs from becoming negative, which is semantically meaningless.'
+  enforce_employment:
+    control_type: "dropdown"
+    label: "Enforce Full Employment Ceiling"
+    param_name: "enforce_population_constraints"
+    names: ["True", "False"]
+    values: [True, False]
+    tooltip: 'Only relevant in the case of the simulation mode set to matrix exponential. A population slider is present below. This prevents outputs from going so high that employment exceeds the available labor for hire.'
 rowSim:
   T:
     control_type: "entry_block"
     param_name: T
     label: "$T= $"
-    tooltip: ""
     type: "scalar"
     range: [0,100]
     scalar_type: "int"
-    tooltip: 
-  res:
+    tooltip: "How many production periods worth of time to simulate."
+  dt:
     control_type: "entry_block"
-    param_name: res
-    label: '$\delta= $'
-    tooltip: ""
+    param_name: dt
+    label: '$dt= $'
     type: "scalar"
-    range: [100,1000]
-    scalar_type: "int"
-    tooltip: 
+    range: [0,0.1]
+    scalar_type: "float"
+    tooltip: "Resolution of the simulation/plots. Lower numbers mean higher numbers of points sampled. Don't set it with too many zeros or your simulation will go on forever."
 row1:
   y1i:
     control_type: "entry_block"
     param_name: y1i
     label: "$y_1(0)= $"
-    tooltip: ""
     type: "scalar"
     range: [0,500]
     scalar_type: "float"
-    tooltip: 
+    tooltip: "Initial value output for dept. I."
   y2i:
     control_type: "entry_block"
     param_name: y2i
     label: "$y_2(0)= $"
-    tooltip: ""
     type: "scalar"
     range: [0,500]
     scalar_type: "float"
-    tooltip: 
+    tooltip: "Initial value output for dept. II."
+
 row2:
   e:
     control_type: "entry_block"
     param_name: e
     label: "$e= $"
-    tooltip: ""
+    tooltip: "Rate of exploitation. Fixed and constant."
     type: "scalar"
     range: [0,5]
     scalar_type: "float"
-    tooltip: 
   a:
     control_type: "entry_block"
     param_name: a
     label: "$a= $"
-    tooltip: ""
+    tooltip: 'Rate of reinvestment. Capitalists wish to reinvest $a\times 100 \%$ of their surplus value/money profit each period, fully determining the output paths.'
     type: "scalar"
     range: [0,1]
     scalar_type: "float"
-    tooltip: 
 row3:
   k1:
     control_type: "entry_block"
     param_name: k1
     label: "$k_1= $"
-    tooltip: ""
+    tooltip: "Composition of capital for dept. I. Fixed and constant."
     type: "scalar"
     range: [0,100]
     scalar_type: "float"
-    tooltip: 
   k2:
     control_type: "entry_block"
     param_name: k2
     label: "$k_2= $"
-    tooltip: ""
+    tooltip: "Composition of capital for dept. II. Fixed and constant."
     type: "scalar"
     range: [0,100]
     scalar_type: "float"
-    tooltip: 
-row4:
-  w:
+row5:
+  r:
     control_type: "entry_block"
-    param_name: w
-    label: "$w= $"
+    param_name: r
+    label: "$r= $"
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: 'Rate of reproduction for the employed working class. Each period, the employed population will grow at this rate.'
+  s:
+    control_type: "entry_block"
+    param_name: s
+    label: "$s= $"
+    type: "scalar"
+    range: [0,1]
+    scalar_type: "float"
+    tooltip: "Attrition rate for unemployed workers. Each period, this proportion of the unemployed population will 'die', shrinking the available labor force."
+  N:
+    param_name: N0
+    control_type: "entry_block"
+    label: "$N(0)= $"
     tooltip: ""
     type: "scalar"
-    range: [0,2]
-    scalar_type: "float"
-    tooltip: 
-  # r:
-  #   control_type: "entry_block"
-  #   param_name: r
-  #   label: "$r= $"
-  #   tooltip: ""
-  #   type: "scalar"
-  #   range: [0,1]
-  #   scalar_type: "float"
-  #   tooltip: "Rate of reproduction for the employed working class"
-# row5:
-#   s:
-#     control_type: "entry_block"
-#     param_name: s
-#     label: "$s= $"
-#     tooltip: ""
-#     type: "scalar"
-#     range: [0,1]
-#     scalar_type: "float"
-#     tooltip: "Attrition rate for unemployed workers"
-#   N0:
-#     param_name: N0
-#     control_type: "entry_block"
-#     label: "$N(0)= $"
-#     tooltip: ""
-#     type: "scalar"
-#     range: [0,200]
-#     scalar_type: "int"
-#     tooltip: "Initial number of workers"
+    range: [0,200]
+    scalar_type: "int"
+    tooltip: "Initial number of workers in the economy."
 
