@@ -9,11 +9,11 @@ from main import rpath
 
 def load_presets(path):
     try:
-        (rpath(f"models/{path}/data/params.yml"), 'r') as f:
+        with open(rpath(f"models/{path}/data/params.yml"), 'r') as f:
             doc = yaml.safe_load(f)
         return doc["presets"]
     except (FileNotFoundError, KeyError, TypeError):
-        (rpath(f'models/{path}/data/extra_data.yml'), 'r') as f:
+        with open(rpath(f'models/{path}/data/extra_data.yml'), 'r') as f:
             default_presets = yaml.safe_load(f)
         _dump_to_yaml(default_presets, path)
         return default_presets
