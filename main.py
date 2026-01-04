@@ -5,6 +5,15 @@ import yaml
 import sys, os
 from pathlib import Path
 from MainWindow import MainWindow
+from pathlib import Path
+
+def bundle_root() -> Path:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent
+
+def rpath(rel: str) -> Path:
+    return bundle_root() / rel
 
 def apply_dpi_scaled_font(app: qw.QApplication, base_pt: float = 10.0) -> None:
     screen = app.primaryScreen()
@@ -33,11 +42,10 @@ if __name__ == "__main__":
     PROJECT_ROOT = Path(__file__).resolve().parent
     sys.path.insert(0, str(PROJECT_ROOT))
 
-    with open(f"config.yml", "r") as f:
+    with open(rpath(f"config.yml"), "r") as f:
         config = yaml.safe_load(f)
 
     window = MainWindow(config)
 
     window.show()
     app.exec()
-
