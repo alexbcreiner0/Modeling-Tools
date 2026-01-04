@@ -718,7 +718,7 @@ class MainWindow(qw.QMainWindow):
                 print(f"Preset {sys.argv[1]} not found, loading the first thing in params.yaml.")
                 params_dict = presets[next(iter(presets))]
 
-        params = params_from_mapping(params_dict["params"], f"models/{sim_model}/simulation/parameters.py")
+        params = params_from_mapping(params_dict["params"], rpath("models",self.sim_model,"simulation","parameters.py"))
 
         with open(rpath("models",sim_model,"data","plotting_data.yml")) as f:
             plotting_data = yaml.safe_load(f)
