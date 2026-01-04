@@ -48,8 +48,12 @@ datas.append(
 )
 
 # Package-data needed by scienceplots (your earlier error)
-datas += collect_data_files("scienceplots")
+datas = []
+datas.append(Tree(str(ROOT), prefix=".", excludes=EXCLUDES))
 
+sp_datas = collect_data_files("scienceplots")
+sp_datas = [(src, dest) for (src, dest, *rest) in sp_datas]
+datas += sp_datas
 hiddenimports = []
 hiddenimports += collect_submodules("scienceplots")
 
