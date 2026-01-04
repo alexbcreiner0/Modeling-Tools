@@ -1,5 +1,7 @@
 from PyQt6 import (
     QtWidgets as qw,
+    QtGui as qg,
+    QtCore as qc
 ) 
 import yaml
 import sys, os
@@ -24,6 +26,20 @@ if __name__ == "__main__":
     app = qw.QApplication(sys.argv)
     apply_dpi_scaled_font(app)
     app.setStyle("Fusion")
+
+    light_palette = qg.QPalette()
+
+    light_palette.setColor(qg.QPalette.ColorRole.Window, qg.QColor(245, 245, 245))
+    light_palette.setColor(qg.QPalette.ColorRole.WindowText, qc.Qt.GlobalColor.black)
+    light_palette.setColor(qg.QPalette.ColorRole.Base, qg.QColor(255, 255, 255))
+    light_palette.setColor(qg.QPalette.ColorRole.AlternateBase, qg.QColor(240, 240, 240))
+    light_palette.setColor(qg.QPalette.ColorRole.Text, qc.Qt.GlobalColor.black)
+    light_palette.setColor(qg.QPalette.ColorRole.Button, qg.QColor(240, 240, 240))
+    light_palette.setColor(qg.QPalette.ColorRole.ButtonText, qc.Qt.GlobalColor.black)
+    light_palette.setColor(qg.QPalette.ColorRole.Highlight, qg.QColor(76, 163, 224))
+    light_palette.setColor(qg.QPalette.ColorRole.HighlightedText, qc.Qt.GlobalColor.white)
+
+    app.setPalette(light_palette)
 
     # doesn't seem to work
     app.setStyleSheet("""

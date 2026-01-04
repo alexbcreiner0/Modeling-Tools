@@ -16,5 +16,6 @@ Thumbs.db
 
 models/LTE
 models/boltzmann-wealth-distribution
+models/kliman-profit-rate-paper
 log.txt
 dimensions.txt
