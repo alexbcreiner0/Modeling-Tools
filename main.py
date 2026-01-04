@@ -6,14 +6,7 @@ import sys, os
 from pathlib import Path
 from MainWindow import MainWindow
 from pathlib import Path
-
-def bundle_root() -> Path:
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
-    return Path(__file__).resolve().parent
-
-def rpath(rel: str) -> Path:
-    return bundle_root() / rel
+from paths import rpath
 
 def apply_dpi_scaled_font(app: qw.QApplication, base_pt: float = 10.0) -> None:
     screen = app.primaryScreen()
