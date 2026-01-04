@@ -4,7 +4,16 @@ from pathlib import Path
 from PyInstaller.building.datastruct import Tree
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-ROOT = Path(__file__).resolve().parent
+#ROOT = Path(__file__).resolve().parent
+
+import sys
+
+def base_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        # onefile + onefolder both land here
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        return Path(__file__).resolve().parent
 
 APP_NAME = "CrossDualDynamicRoPRelease"
 ENTRYPOINT = str(ROOT / "main.py")
