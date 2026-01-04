@@ -707,7 +707,7 @@ class MainWindow(qw.QMainWindow):
             try:
                 params_dict = presets[default_preset]
             except StopIteration:
-                with open(rpath(f'models/{sim_model}/data/extra_data.yml'), 'r') as f:
+                with open(rpath("models",sim_model,"data","extra_data.yml"), 'r') as f:
                     default_presets = yaml.safe_load(f)
                 _dump_to_yaml(default_presets, sim_model)
                 params_dict = default_presets[next(iter(default_presets))]
@@ -720,10 +720,10 @@ class MainWindow(qw.QMainWindow):
 
         params = params_from_mapping(params_dict["params"], f"models/{sim_model}/simulation/parameters.py")
 
-        with open(rpath(f"models/{sim_model}/data/plotting_data.yml")) as f:
+        with open(rpath("models",sim_model,"data","plotting_data.yml")) as f:
             plotting_data = yaml.safe_load(f)
 
-        with open(rpath(f"models/{sim_model}/data/control_panel_data.yml")) as f:
+        with open(rpath("models",sim_model,"data","control_panel_data.yml")) as f:
             panel_data = yaml.safe_load(f)
 
         return params, sim_function, presets, panel_data, plotting_data, functions, default_dir
