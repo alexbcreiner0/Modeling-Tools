@@ -15,4 +15,6 @@ dist/
 Thumbs.db
 
 models/LTE
+models/boltzmann-wealth-distribution
 log.txt
+dimensions.txt

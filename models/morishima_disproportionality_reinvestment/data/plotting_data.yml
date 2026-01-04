@@ -53,6 +53,30 @@ outputs:
       linestyle: dashed
       toggled: false
       traj_key: p_out
+    ideal_y:
+      checkbox_name: Ideal Growth Paths
+      colors:
+      - blue
+      - red
+      labels:
+      - Dept. I Ideal Value Output
+      - Dept. II Ideal Value Output
+      linestyle: solid
+      toggled: false
+      traj_key: ideal_y
+
+    marx_curves:
+      checkbox_name: "Marx's Reproduction Schema"
+      colors:
+      - blue
+      - red
+      labels:
+      - Dept. I Value Output (Original Schema)
+      - Dept. II Value Output (Original Schema)
+      linestyle: solid
+      toggled: false
+      traj_key: marx_curves
+
     #   # I think these are Morishima's 'specific prices', not actual prices
     # # specific_prices:
     # #   checkbox_name: Specific Prices

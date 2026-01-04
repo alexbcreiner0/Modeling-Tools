@@ -1,8 +1,13 @@
 from matplotlib.backends.backend_qt import NavigationToolbar2QT
 from PyQt6 import QtWidgets as qw
+from PyQt6 import QtCore as qc
 from pathlib import Path
+from typing import Any, Optional
+from matplotlib.backends.qt_editor import figureoptions
 
 class CustomNavigationToolbar(NavigationToolbar2QT):
+    titles_applied = qc.pyqtSignal()
+
     def __init__(self, canvas, parent=None, default_dir=None):
         super().__init__(canvas, parent)
         self.default_dir = Path(default_dir).expanduser() if default_dir else None
@@ -41,7 +46,6 @@ class CustomNavigationToolbar(NavigationToolbar2QT):
             # self.canvas.figure.savefig(fname)
         else:
             super().save_figure(*args)
-
 
     # def save_figure(self, *args):
     #     # 1. Ask where to save

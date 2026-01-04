@@ -185,6 +185,8 @@ class CapitalistEconomy:
         self.traj["NI_surplus"] = np.array([ni_surplus])
         self.traj["NI_exploitation"] = np.array([ni_surplus / ni_variable])
         self.traj["MELT_converted_profit"] = np.array([ni_surplus * MELT])
+        self.traj["TSSI_MELT_converted_profit"] = np.array([tssi_S * params.init_tssi_melt])
+        self.traj["TSSI_MELT_converted_profit_plus_melt_diff"] = np.array([tssi_S * params.init_tssi_melt])
         sssi_C = (params.A.T@params.p).dot(params.q) / MELT
         self.traj["sssi_C"] = np.array([sssi_C])
         sssi_c = params.A.T@params.p / MELT
@@ -641,6 +643,7 @@ class CapitalistEconomy:
         self.traj["kliman_prices"] = np.append(self.traj["kliman_prices"], [new_kliman_prices], axis= 0)
         TSSI_MELT = new_kliman_prices.dot(q) / (tssi_C + employment)
         ACTUAL_TSSI_MELT = p.dot(q) / (actual_tssi_C + employment)
+        tssi_cost_adj = (ACTUAL_TSSI_MELT - ACTUAL_OLD_TSSI_MELT)*(actual_tssi_C + actual_tssi_V)
 
         self.traj["TSSI_MELT"] = np.append(self.traj["TSSI_MELT"], TSSI_MELT)
         self.traj["ACTUAL_TSSI_MELT"] = np.append(self.traj["ACTUAL_TSSI_MELT"], ACTUAL_TSSI_MELT)
@@ -674,6 +677,8 @@ class CapitalistEconomy:
         self.traj["NI_exploitation"] = np.append(self.traj["NI_exploitation"], ni_surplus / ni_variable)
 
         self.traj["MELT_converted_profit"] = np.append(self.traj["MELT_converted_profit"], ni_surplus * MELT)
+        self.traj["TSSI_MELT_converted_profit"] = np.append(self.traj["TSSI_MELT_converted_profit"], actual_tssi_S * ACTUAL_TSSI_MELT)
+        self.traj["TSSI_MELT_converted_profit_plus_melt_diff"] = np.append(self.traj["TSSI_MELT_converted_profit_plus_melt_diff"], tssi_cost_adj + actual_tssi_S * ACTUAL_TSSI_MELT)
         sssi_C = (A.T@p).dot(q) / MELT
         self.traj["sssi_C"] = np.append(self.traj["sssi_C"], sssi_C)
         sssi_c = A.T@p / MELT

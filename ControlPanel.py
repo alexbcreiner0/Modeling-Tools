@@ -139,6 +139,7 @@ class ControlPanel(qw.QWidget):
         self.slot_dropdowns = []
         self.slot_options = []
         self.slot_axes_controls = []
+        self.slot_titles = {}
 
         outer_layout = qw.QVBoxLayout(self)
         outer_layout.addWidget(content)
@@ -193,7 +194,14 @@ class ControlPanel(qw.QWidget):
         if 0 <= slot_index < len(self.slot_axes_controls):
             self.slot_axes_controls[slot_index].set_limits(xlim, ylim)
 
-    def _rebuild_slot_dropdowns(self, rows, cols, old_limits= None, old_dropdown_indices= None):
+    def set_slot_title(self, slot_index: int, title: str) -> None:
+        if title is None or str(title).strip() == "":
+            self.slot_titles.pop(slot_index, None)
+        else:
+            self.slot_titles[slot_index] = str(title)
+        self.slotOptionsChanged.emit(slot_index)
+
+    def _rebuild_slot_dropdowns(self, rows, cols, old_limits= None, old_dropdown_indices= None, old_checked= None, old_slot_settings= None):
         """ Destroy and rebuild all control widgets for individual plots (or build for the first time) """
         for i in reversed(range(self.slot_controls_layout.count())):
             item = self.slot_controls_layout.takeAt(i)
@@ -273,7 +281,6 @@ class ControlPanel(qw.QWidget):
                 for i in range(len(old_limits), len(self.slot_axes_controls)):
                     self.slot_axes_controls[i].set_limits(xlim0, ylim0)
 
-        # --- NEW: restore dropdown choices ---
         if old_dropdown_indices:
             # 1) Restore existing slots
             for i, idx in enumerate(old_dropdown_indices):
@@ -294,8 +301,143 @@ class ControlPanel(qw.QWidget):
                 for i in range(len(old_dropdown_indices), len(self.slot_dropdowns)):
                     self.slot_dropdowns[i].dropdown_choices.setCurrentIndex(last_idx)
 
+        # restore checkbox choices
+        if old_checked:
+            for i, checked in enumerate(old_checked):
+                if i >= len(self.slot_dropdowns):
+                    break
+                if checked is None:
+                    continue
+                dd = self.slot_dropdowns[i]
+                if hasattr(dd, "set_checked_boxes"):
+                    try:
+                        dd.set_checked_boxes(checked)
+                        continue
+                    except Exception:
+                        pass
+                # Otherwise, try common internal shapes: dict name->QCheckBox
+                for attr_name in ("checkboxes", "check_boxes", "checkbox_widgets"):
+                    box_map = getattr(dd, attr_name, None)
+                    if isinstance(box_map, dict):
+                        for name, box in box_map.items():
+                            try:
+                                box.blockSignals(True)
+                                box.setChecked(name in checked)
+                                box.blockSignals(False)
+                            except Exception:
+                                pass
+                        break
+
+            # for new slots, copy from last existing choice
+            last_checked = None
+            for checked in reversed(old_checked):
+                if checked is not None:
+                    last_checked = checked
+                    break
+
+            if last_checked is not None:
+                for i in range(len(old_checked), len(self.slot_dropdowns)):
+                    dd = self.slot_dropdowns[i]
+                    if hasattr(dd, "set_checked_boxes"):
+                        try:
+                            dd.set_checked_boxes(last_checked)
+                            continue
+                        except Exception:
+                            pass
+                    for attr_name in ("checkboxes", "check_boxes", "checkbox_widgets"):
+                        box_map = getattr(dd, attr_name, None)
+                        if isinstance(box_map, dict):
+                            for name, box in box_map.items():
+                                try:
+                                    box.blockSignals(True)
+                                    box.setChecked(name in last_checked)
+                                    box.blockSignals(False)
+                                except Exception:
+                                    pass
+                            break
+
+            if old_slot_settings:
+                for i, settings in enumerate(old_slot_settings):
+                    if i >= len(self.slot_options):
+                        break
+                    if settings is None:
+                        continue
+
+                    w = self.slot_options[i]
+                    # Try a generic setter first if present
+                    if hasattr(w, "set_settings"):
+                        try:
+                            w.set_settings(settings)
+                            continue
+                        except Exception:
+                            pass
+
+                    # Otherwise, set individual controls defensively
+                    s = self._normalize_slot_settings(settings)
+
+                    # legend
+                    if hasattr(w, "legend_visible_check"):
+                        try:
+                            w.legend_visible_check.blockSignals(True)
+                            w.legend_visible_check.setChecked(bool(s.get("legend_visible", True)))
+                            w.legend_visible_check.blockSignals(False)
+                        except Exception:
+                            pass
+
+                    if hasattr(w, "legend_size_spin"):
+                        try:
+                            w.legend_size_spin.blockSignals(True)
+                            w.legend_size_spin.setValue(int(s.get("legend_fontsize", 10)))
+                            w.legend_size_spin.blockSignals(False)
+                        except Exception:
+                            pass
+
+                    if hasattr(w, "legend_loc_dropdown"):
+                        try:
+                            loc = s.get("legend_loc", "upper right")
+                            combo = w.legend_loc_dropdown
+                            combo.blockSignals(True)
+                            # match by text
+                            idx = combo.findText(str(loc))
+                            if idx >= 0:
+                                combo.setCurrentIndex(idx)
+                            combo.blockSignals(False)
+                        except Exception:
+                            pass
+
+                    # title/x/y toggles
+                    for key, attr in (("title", "title_check"), ("xlabel", "xlabel_check"), ("ylabel", "ylabel_check")):
+                        if hasattr(w, attr):
+                            try:
+                                cb = getattr(w, attr)
+                                cb.blockSignals(True)
+                                cb.setChecked(bool(s.get(key)))
+                                cb.blockSignals(False)
+                            except Exception:
+                                pass
+
+
     def _on_info_hovered(self, slot_index: int):
         self.get_tooltip(slot_index)
+
+
+    def _normalize_slot_settings(self, settings: dict) -> dict:
+        if not settings:
+            return {}
+
+        out = dict(settings)
+
+        # Legend settings
+        if "visible" in out:
+            out["legend_visible"] = out.pop("visible")
+
+        if "fontsize" in out:
+            out["legend_fontsize"] = out.pop("fontsize")
+
+        if "loc" in out:
+            out["legend_loc"] = out.pop("loc")
+
+        return out
 
     def _on_dropdown_changed(self, idx: int, slot_index: int):
         self.get_tooltip(slot_index)
@@ -324,9 +466,22 @@ class ControlPanel(qw.QWidget):
 
         old_limits = [w.get_limits() for w in self.slot_axes_controls]
         old_dropdown_indices = [w.dropdown_choices.currentIndex() for w in self.slot_dropdowns]
+        old_checked = [w.get_current_checked_boxes() for w in self.slot_dropdowns]
+        old_slot_settings = []
+        for w in self.slot_options:
+            try:
+                old_slot_settings.append(w.get_settings())
+            except Exception:
+                old_slot_settings.append(None)
 
         self.layoutChanged.emit(rows, cols)
-        self._rebuild_slot_dropdowns(rows, cols, old_limits= old_limits, old_dropdown_indices= old_dropdown_indices)
+        self._rebuild_slot_dropdowns(
+            rows, cols, 
+            old_limits= old_limits, 
+            old_dropdown_indices= old_dropdown_indices,
+            old_checked=old_checked,
+            old_slot_settings=old_slot_settings
+        )
 
         self.layoutChanged.emit(rows, cols)
 
@@ -518,9 +673,10 @@ class ControlPanel(qw.QWidget):
         options = plot_widget.get_current_checked_boxes()
 
         if 0 <= slot_index < len(self.slot_options):
-            slot_settings = self.slot_options[slot_index].get_settings()
+            raw_settings = self.slot_options[slot_index].get_settings()
+            slot_settings = self._normalize_slot_settings(raw_settings)
         else:
-            slot_settings = {"visible": True, "fontsize": 10, "loc": "upper right"}
+            slot_settings = {"legend_visible": True, "legend_fontsize": 10, "legend_loc": "upper right"}
 
         return dropdown_index, options, slot_settings
 

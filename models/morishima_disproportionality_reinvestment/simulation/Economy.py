@@ -251,3 +251,15 @@ class Economy:
 
         gdp_rate = (change_y @ (v + s)) / (y @ (v + s))
         self.traj["gdp"] = gdp_rate
+
+        ideal_y1 = (1+self.params.a*P1[0])**self.t*y1i
+        ideal_y2 = (1+self.params.a*P2[0])**self.t*y2i
+        self.traj["ideal_y"] = np.column_stack((ideal_y1, ideal_y2))
+
+        marx_1 = ideal_y1
+        ideal_extra1 = (1+self.params.a*P1[0])**(self.t - 1)*y1i
+        marx_2l = ((1/c[1])*(1-c[0]-c[0]/(c[0]+v[0])*self.params.a*s[0])*y1i-y2i)*self.t + y2i
+        marx_2r = (1/c[1]*(1-c[0]-c[0]/(c[0]+v[0])*self.params.a*s[0])*ideal_extra1)
+        marx_2 = np.where(self.t < 1, marx_2l, marx_2r)
+        self.traj["marx_curves"] = np.column_stack((marx_1, marx_2))
+

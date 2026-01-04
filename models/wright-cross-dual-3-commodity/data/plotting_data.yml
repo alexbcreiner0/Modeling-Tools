@@ -785,6 +785,26 @@ revenue_split:
       linestyle: dashed
       traj_key: MELT_converted_profit
 
+    total_tssi_melt_adjusted_profit:
+      checkbox_name: Total TSSI Surplus * TSSI MELT
+      colors:
+      - "#d808d8"
+      labels:
+      - Total TSSI Surplus * TSSI MELT
+      toggled: false
+      linestyle: dotted
+      traj_key: TSSI_MELT_converted_profit
+
+    total_tssi_melt_adjusted_profit_plus_diff:
+      checkbox_name: Total TSSI Surplus * MELT + Diff
+      colors:
+      - "#dA08e8"
+      labels:
+      - Total TSSI Surplus * TSSI MELT + Diff
+      toggled: false
+      linestyle: dotted
+      traj_key: TSSI_MELT_converted_profit_plus_melt_diff
+
     revenue:
       checkbox_name: Total Revenue
       colors:

@@ -1,0 +1,65 @@
+divider1:
+  title: Parameters
+row1:
+  A:
+    control_type: "entry_block"
+    param_name: "A"
+    label: "$A= $"
+    tooltip: "The requirements matrix. Rows and columns (for this and the vectors next to this) represent the first, second and third commodities circulating (for sake of example corn, iron, and sugar). The (i,j) entry of this matrix represents the number of units of commodity i needed to produce a unit of commodity j. So the bottom right entry is the amount of 'sugar' needed to make 'sugar'."
+    type: "matrix"
+    dim: [2,2]
+  L:
+    control_type: "entry_block"
+    param_name: "L"
+    label: '$\mathbf{L}(0)= $'
+    tooltip: 
+    type: "vector"
+    dim: 2
+  b:
+    control_type: "entry_block"
+    param_name: "b"
+    label: '$\mathbf{b}= $'
+    tooltip: 
+    type: "vector"
+    dim: 2
+
+row2:
+  output_rate:
+    control_type: "entry_block"
+    param_name: "output_rate"
+    label: '$\alpha_q= $'
+    type: "scalar"
+    range: [0,2]
+    scalar_type: "float"
+    tooltip: 
+
+  labor_rate:
+    control_type: "entry_block"
+    param_name: "labor_rate"
+    label: '$\alpha_l$'
+    type: "scalar"
+    range: [0,2]
+    scalar_type: "float"
+    tooltip: 
+
+  MELT:
+    control_type: "entry_block"
+    param_name: "init_MELT"
+    label: '$\tau(0)= $'
+    type: "scalar"
+    range: [0,2]
+    scalar_type: "float"
+    tooltip: 
+
+row3:
+  stop_halfway:
+    control_type: "dropdown"
+    param_name: stop_halfway
+    label: "Halt Changes Halfway"
+    names: ["Yes", "No"]
+    values: [True, False]
+    tooltip:
+
+
+
+    

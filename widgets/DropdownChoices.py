@@ -118,4 +118,13 @@ class DropdownChoices(qw.QWidget):
             if checkbox.isChecked(): boxes.append(checkbox.text())
         return boxes
 
+    def set_checked_boxes(self, names):
+        names = set(names or [])
+        option = self.dropdown_choices.currentText()
+        boxes = self.boxes.get(option, [])
+
+        for box in boxes:
+            box.blockSignals(True)
+            box.setChecked(box.text() in names)
+            box.blockSignals(False)
 

@@ -267,7 +267,7 @@ if __name__ == "__main__":
     
     # Both arguments optional for both of these
     # new_plots(sim_name, category) <- For adding plots to an existing plotting_data.yaml file
-    # new_plot_file(sim_name, category) <- For creating a brand new file and initial population
+    new_plot_file() 
 
     # new_plots()
     # create_new_model_dir()

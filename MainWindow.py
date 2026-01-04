@@ -114,7 +114,6 @@ class MainWindow(qw.QMainWindow):
         self.main_layout.addWidget(self.control_panel, stretch=3)
         self.main_layout.addWidget(self.graph_panel, stretch=5)
 
-
         self.update_figure_background(use_window_background=True)
 
         qc.QCoreApplication.instance().installEventFilter(self)
@@ -334,8 +333,11 @@ class MainWindow(qw.QMainWindow):
         with open(rpath(f"config.yml"), "r") as f:
             fresh_config = yaml.safe_load(f)
         # extremely lazy and bad way of doing this
-        _, _, _, _, plotting_data, _, _ = self._get_data(fresh_config["global_settings"], self._find_default(fresh_config["demos"]))
-        self.graph_panel.data = format_plot_config(plotting_data, names)
+        # _, _, _, _, plotting_data, _, _ = self._get_data(fresh_config["global_settings"], self._find_default(fresh_config["demos"]))
+        formatted = format_plot_config(plotting_data, names)
+
+        self.graph_panel.data = formatted
+        self.control_panel.plotting_data = formatted
 
     def on_slot_axes_limits_changed(self, slot_index: int, xlim: tuple, ylim: tuple):
         """ Method to update the axis entries of a plot control widget when user pans a plot """

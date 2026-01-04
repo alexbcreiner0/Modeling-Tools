@@ -4,6 +4,7 @@ model_specific_settings:
   wright-cross-dual-3-commodity:
     commodity_names: ["Corn", "Iron", "Sugar"]
   morishima_disproportionality_reinvestment:
+  kliman-profit-rate-paper:
 demos: 
   wright-cross-dual-3-commodity:
     name: "Wright's Cross-Dual Disequilibrium Model (Three Commodities)"
@@ -23,4 +24,13 @@ demos:
       simulation_function: get_trajectories
       default_preset: nice_example
       starting_lims: [[0, 14],[-500,1600]]
+  kliman-profit-rate-paper:
+    name: "TSSI Falling Profit Rate Model"
+    desc: A model of the falling profit rate claim made in Kliman's 1999 paper.
+    details:
+      simulation_model: kliman-profit-rate-paper
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[0, 70],[0.15,0.3]]
+
 

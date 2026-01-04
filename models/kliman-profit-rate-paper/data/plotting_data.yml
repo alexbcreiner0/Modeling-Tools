@@ -1,0 +1,100 @@
+All Plots:
+  name: Stuff
+  plots:
+    L:
+      checkbox_name: Living Labor Vec
+      colors:
+      - blue
+      - red
+      labels:
+      - Unit LL Req for Capital Goods
+      - Unit LL Req for Labor Goods
+      linestyle: dashed
+      toggled: false
+      traj_key: l
+    epr:
+      checkbox_name: Sraffian Profit Rate
+      colors:
+      - green
+      labels:
+      - Sraffian Profit Rate
+      linestyle: solid
+      toggled: true
+      traj_key: epr
+    eqp:
+      checkbox_name: Sraffian Prices
+      colors:
+      - blue
+      - red
+      labels:
+      - Sraffian Price of Capital Good
+      - Sraffian Price of Labor Good
+      linestyle: dashed
+      toggled: false
+      traj_key: eqp
+    l:
+      checkbox_name: Total Labor Employed
+      colors:
+      - blue
+      - red
+      labels:
+      - Total Labor in Capital Goods Sector
+      - Total Labor in Labor Goods Sector
+      linestyle: solid
+      toggled: false
+      traj_key: L
+    p:
+      checkbox_name: TSSI Prices
+      colors:
+      - blue
+      - red
+      labels:
+      - TSSI Price of Capital Good
+      - TSSI Price of Labor Good
+      linestyle: solid
+      toggled: false
+      traj_key: p
+    comps:
+      checkbox_name: Technical Compositions
+      colors:
+        - blue
+        - red
+      labels:
+        - Sector I Technical Composition
+        - Sector II Technical Composition
+      linestyle: dashed
+      toggled: false
+      traj_key: comps
+    q:
+      checkbox_name: Outputs
+      colors:
+      - blue
+      - red
+      labels:
+      - Capital Good Output
+      - Labor Good Output
+      linestyle: solid
+      toggled: false
+      traj_key: q
+    tssi_value_rop:
+      checkbox_name: TSSI Rate of Profit
+      colors:
+      - purple
+      labels:
+      - TSSI Rate of Profit
+      linestyle: solid
+      toggled: true
+      traj_key: tssi_value_rop
+    MELT:
+      checkbox_name: MELT
+      colors: 
+      - orange
+      labels:
+        - MELT
+      linestyle: solid
+      toggled: false
+      traj_key: MELT
+  title: null
+  tooltip: null
+  x_label: Time [t]
+  y_label: null

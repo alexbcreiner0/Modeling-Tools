@@ -23,6 +23,7 @@ if __name__ == "__main__":
 
     app = qw.QApplication(sys.argv)
     apply_dpi_scaled_font(app)
+    app.setStyle("Fusion")
 
     # doesn't seem to work
     app.setStyleSheet("""
