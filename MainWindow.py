@@ -781,7 +781,7 @@ class MainWindow(qw.QMainWindow):
 
     def save_preset(self):
 
-        with open(f"models/{self.sim_model}/data/params.yml", "r") as f:
+        with open(rpath("models",self.sim_model,"data","params.yml"), "r") as f:
             presets = yaml.safe_load(f)["presets"]
 
         params_dict = to_plain(self.params)
@@ -823,7 +823,7 @@ class MainWindow(qw.QMainWindow):
                 break
 
     def rename_preset(self, old_shortname):
-        with open(f"models/{self.sim_model}/data/params.yml", "r") as f:
+        with open(rpath("models",self.sim_model,"data","params.yml"), "r") as f:
             presets = yaml.safe_load(f)["presets"]
         dialog = SaveDialog(presets.keys(), self, name_text= "New Name: ", desc_text= "(Optional) New Description")
         try:
