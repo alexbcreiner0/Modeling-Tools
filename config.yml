@@ -1,5 +1,5 @@
 global_settings:
-  default_save_dir: "/home/alex/Nextcloud/Projects/Rate-of-Profit-Paper/assets"
+  default_save_dir: ""
 model_specific_settings:
   wright-cross-dual-3-commodity:
     commodity_names: ["Corn", "Iron", "Sugar"]
