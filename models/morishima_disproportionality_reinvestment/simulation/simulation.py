@@ -1,5 +1,4 @@
 import numpy as np
-import sympy as smp
 import copy
 from .Economy import Economy
 import sys
