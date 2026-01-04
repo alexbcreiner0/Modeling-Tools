@@ -4,8 +4,7 @@ from pathlib import Path
 from PyInstaller.building.datastruct import Tree
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
-#ROOT = Path(__file__).resolve().parent
-
+ROOT = Path(os.getcwd()).resolve()
 import sys
 
 def base_dir() -> Path:
