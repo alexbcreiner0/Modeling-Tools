@@ -11,7 +11,6 @@ import sys, importlib, yaml, math, inspect
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
 from tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config
-from main import rpath
 
 # from simulation.parameters import params_from_mapping, to_plain
 from widgets.Dialogs import SaveDialog, DescDialog
