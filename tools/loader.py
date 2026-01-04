@@ -37,7 +37,7 @@ def _dump_to_yaml(presets, path):
         width=88
     )
 
-    (f"models/{path}/data/params.yml", "w") as f:
+    with open(f"models/{path}/data/params.yml", "w") as f:
         f.write(text)
 
 class NoAliasDumper(yaml.SafeDumper):
