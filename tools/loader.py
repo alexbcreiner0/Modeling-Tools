@@ -4,7 +4,6 @@ import importlib.util
 from copy import deepcopy
 from dataclasses import fields, is_dataclass, asdict
 from typing import get_origin, get_args
-from main import rpath
 # from parameters import Params, params_from_mapping
 
 def load_presets(path):
