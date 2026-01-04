@@ -4,15 +4,16 @@ import importlib.util
 from copy import deepcopy
 from dataclasses import fields, is_dataclass, asdict
 from typing import get_origin, get_args
+from main import rpath
 # from parameters import Params, params_from_mapping
 
 def load_presets(path):
     try:
-        with open(f"models/{path}/data/params.yml", 'r') as f:
+        (rpath(f"models/{path}/data/params.yml"), 'r') as f:
             doc = yaml.safe_load(f)
         return doc["presets"]
     except (FileNotFoundError, KeyError, TypeError):
-        with open(f'models/{path}/data/extra_data.yml', 'r') as f:
+        (rpath(f'models/{path}/data/extra_data.yml'), 'r') as f:
             default_presets = yaml.safe_load(f)
         _dump_to_yaml(default_presets, path)
         return default_presets
@@ -36,7 +37,7 @@ def _dump_to_yaml(presets, path):
         width=88
     )
 
-    with open(f"models/{path}/data/params.yml", "w") as f:
+    (f"models/{path}/data/params.yml", "w") as f:
         f.write(text)
 
 class NoAliasDumper(yaml.SafeDumper):
