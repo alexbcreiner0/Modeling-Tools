@@ -11,6 +11,7 @@ import sys, importlib, yaml, math, inspect
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
 from tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config
+from main import rpath
 
 # from simulation.parameters import params_from_mapping, to_plain
 from widgets.Dialogs import SaveDialog, DescDialog
@@ -330,7 +331,7 @@ class MainWindow(qw.QMainWindow):
         self.update_plot()
 
     def _update_sector_names(self, names):
-        with open(f"config.yml", "r") as f:
+        with open(rpath(f"config.yml"), "r") as f:
             fresh_config = yaml.safe_load(f)
         # extremely lazy and bad way of doing this
         _, _, _, _, plotting_data, _, _ = self._get_data(fresh_config["global_settings"], self._find_default(fresh_config["demos"]))
@@ -706,7 +707,7 @@ class MainWindow(qw.QMainWindow):
             try:
                 params_dict = presets[default_preset]
             except StopIteration:
-                with open(f'models/{sim_model}/data/extra_data.yml', 'r') as f:
+                with open(rpath(f'models/{sim_model}/data/extra_data.yml'), 'r') as f:
                     default_presets = yaml.safe_load(f)
                 _dump_to_yaml(default_presets, sim_model)
                 params_dict = default_presets[next(iter(default_presets))]
@@ -719,10 +720,10 @@ class MainWindow(qw.QMainWindow):
 
         params = params_from_mapping(params_dict["params"], f"models/{sim_model}/simulation/parameters.py")
 
-        with open(f"models/{sim_model}/data/plotting_data.yml") as f:
+        with open(rpath(f"models/{sim_model}/data/plotting_data.yml")) as f:
             plotting_data = yaml.safe_load(f)
 
-        with open(f"models/{sim_model}/data/control_panel_data.yml") as f:
+        with open(rpath(f"models/{sim_model}/data/control_panel_data.yml")) as f:
             panel_data = yaml.safe_load(f)
 
         return params, sim_function, presets, panel_data, plotting_data, functions, default_dir
