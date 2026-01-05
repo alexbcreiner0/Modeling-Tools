@@ -682,7 +682,7 @@ class MainWindow(qw.QMainWindow):
 
     def load_preset(self, preset):
 
-        self.params = params_from_mapping(self.presets[preset]["params"], f"models/{self.sim_model}/simulation/parameters.py")
+        self.params = params_from_mapping(self.presets[preset]["params"], rpath("models",self.sim_model,"simulation","parameters.py"))
         # self.traj, self.t, e = self.get_trajectories(self.params)
         # options = self.control_panel.dropdown_widget.get_current_checked_boxes()
         # self.graph_panel.make_plot(self.traj, self.t, self.current_dropdown_choice, options)
