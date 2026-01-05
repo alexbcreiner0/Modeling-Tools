@@ -59,17 +59,17 @@ class GraphPanel(qw.QWidget):
 
         self.canvas.set_cursor = custom_set_cursor
 
-        try:
-            with open("dimensions.txt", "r") as f:
-                xlim_str = f.readline().strip().strip('()').split(',')
-                ylim_str = f.readline().strip().strip('()').split(',')
-                self.xlim = tuple([float(i) for i in xlim_str])
-                self.ylim = tuple([float(i) for i in ylim_str])
-        except FileNotFoundError:
-            with open("dimensions.txt", "w") as f:
-                print(str((0,50)),"\n",str((0,50)), file= f)
-            self.xlim, self.ylim = (0,50), (0,50)
-        self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
+        # try:
+        #     with open("dimensions.txt", "r") as f:
+        #         xlim_str = f.readline().strip().strip('()').split(',')
+        #         ylim_str = f.readline().strip().strip('()').split(',')
+        #         self.xlim = tuple([float(i) for i in xlim_str])
+        #         self.ylim = tuple([float(i) for i in ylim_str])
+        # except FileNotFoundError:
+        #     with open("dimensions.txt", "w") as f:
+        #         print(str((0,50)),"\n",str((0,50)), file= f)
+        #     self.xlim, self.ylim = (0,50), (0,50)
+        # self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
        
         self._init_snap_artists()
         self.dragging = False
@@ -159,27 +159,27 @@ class GraphPanel(qw.QWidget):
 
         self.canvas.draw_idle()
 
-    def _on_axis_limits_changed_bak(self, ax):
-        if self._block_axis_callback:
-            return
+    # def _on_axis_limits_changed_bak(self, ax):
+    #     if self._block_axis_callback:
+    #         return
 
-        # Read current limits from the axes
-        self.xlim = ax.get_xlim()
-        self.ylim = ax.get_ylim()
+    #     # Read current limits from the axes
+    #     # self.xlim = ax.get_xlim()
+    #     # self.ylim = ax.get_ylim()
 
-        # Update the QLineEdits without re-triggering edit_axes
-        widgets_and_values = [
-            (self.xlower_entry, self.xlim[0]),
-            (self.xupper_entry, self.xlim[1]),
-            (self.ylower_entry, self.ylim[0]),
-            (self.yupper_entry, self.ylim[1]),
-        ]
+    #     # Update the QLineEdits without re-triggering edit_axes
+    #     widgets_and_values = [
+    #         (self.xlower_entry, self.xlim[0]),
+    #         (self.xupper_entry, self.xlim[1]),
+    #         (self.ylower_entry, self.ylim[0]),
+    #         (self.yupper_entry, self.ylim[1]),
+    #     ]
 
-        for w, v in widgets_and_values:
-            w.blockSignals(True)
-            text = f"{v:g}"
-            w.setText(text)
-            w.blockSignals(False)
+    #     for w, v in widgets_and_values:
+    #         w.blockSignals(True)
+    #         text = f"{v:g}"
+    #         w.setText(text)
+    #         w.blockSignals(False)
 
     def _on_axis_limits_changed(self, ax):
         if getattr(self, "_block_axis_callback", False):
