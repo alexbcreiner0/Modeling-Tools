@@ -15,7 +15,6 @@ dist/
 Thumbs.db
 
 models/LTE
-models/boltzmann-wealth-distribution
-models/kliman-profit-rate-paper
-log.txt
+models/test
+logs
 dimensions.txt

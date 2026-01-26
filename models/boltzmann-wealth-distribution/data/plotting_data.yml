@@ -1,0 +1,23 @@
+all:
+  name: Wealth Distribution
+  title: Wealth distribution
+  tooltip: null
+  x_label: Money
+  y_label: Number of agents
+  plots:
+    wealth_distn:
+      special: hist
+      dist: wealth
+      rwidth: 0.9
+      gradient: true
+      labels: [Agent Wealth]
+gini_coeff:
+  name: Gini Coefficient
+  tooltip: null
+  plots:
+    gini:
+      checkbox_name: Gini Coefficient
+      colors: [purple]
+      labels: [Gini Coefficient]
+      toggled: true
+      traj_key: gini
