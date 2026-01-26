@@ -1,3 +1,9 @@
+import logging
+try:
+    logger = logging.getLogger(__name__)
+except Exception:
+    logger = None
+
 import numpy as np
 from scipy.linalg import eig
 from scipy.integrate import solve_ivp
@@ -262,32 +268,32 @@ class CapitalistEconomy:
             t_eval=t_eval, 
             max_step=1.0
         )
-        if not sol.success or not np.all(np.isfinite(sol.y)):
+        if logger is not None and (not sol.success or not np.all(np.isfinite(sol.y))):
             # Stuff that gets printed when the simulation fails
-            print("Simulation failed.")
-            print(f"  success = {sol.success}")
-            print(f"  status  = {sol.status}")
-            print(f"  message = {sol.message}")
-            print(f"  nfev    = {sol.nfev}, njev = {getattr(sol, 'njev', None)}, nlu = {getattr(sol, 'nlu', None)}")
+            logger.info("Simulation failed.")
+            logger.info(f"  success = {sol.success}")
+            logger.info(f"  status  = {sol.status}")
+            logger.info(f"  message = {sol.message}")
+            logger.info(f"  nfev    = {sol.nfev}, njev = {getattr(sol, 'njev', None)}, nlu = {getattr(sol, 'nlu', None)}")
 
             if sol.t.size > 0:
                 t_last = sol.t[-1]
                 y_last = sol.y[:, -1].copy()
-                print(f"  last t = {t_last}")
-                print(f"  last y = {y_last}")
+                logger.info(f"  last t = {t_last}")
+                logger.info(f"  last y = {y_last}")
 
                 # Evaluate derivative at last state
                 try:
                     f_last = self.dydt(t_last, y_last)
-                    print(f"  |f_last|_inf = {np.max(np.abs(f_last))}")
-                    print(f"  f_last = {f_last}")
+                    logger.info(f"  |f_last|_inf = {np.max(np.abs(f_last))}")
+                    logger.info(f"  f_last = {f_last}")
                 except Exception as e:
-                    print(f"  error evaluating dydt at last state: {e}")
+                    logger.info(f"  error evaluating dydt at last state: {e}")
                     # How far did we get?
                     if sol.t.size > 0:
-                        print(f"  last time reached = {sol.t[-1]}")
+                        logger.info(f"  last time reached = {sol.t[-1]}")
                         y_last = sol.y[:, -1]
-                        print(f"  last state (y_last) = {y_last}")
+                        logger.info(f"  last state (y_last) = {y_last}")
 
             # Where did non-finite values first appear?
             if not np.all(np.isfinite(sol.y)):
@@ -296,8 +302,8 @@ class CapitalistEconomy:
                 first = np.argmin(idx_t)  # earliest time index with a bad value
                 t_bad = sol.t[idx_t[first]]
                 var_bad = idx_var[first]
-                print(f"  first non-finite at t = {t_bad}, variable index = {var_bad}")
-                print(f"  value there = sol.y[{var_bad}, {idx_t[first]}] = {sol.y[var_bad, idx_t[first]]}")
+                logger.info(f"  first non-finite at t = {t_bad}, variable index = {var_bad}")
+                logger.info(f"  value there = sol.y[{var_bad}, {idx_t[first]}] = {sol.y[var_bad, idx_t[first]]}")
 
         # Reset all temporary perturbation variables
         self.exo_supply_deduction = np.zeros(self.n) 
@@ -333,8 +339,14 @@ class CapitalistEconomy:
 
     def cleanup(self):
         """ Stuff to do at the end of the simulation, such as taking derivative plots (would be inefficient to recompute every step) """
-        self.traj["deriv_employment"] = np.gradient(self.traj["total_labor_employed"])
-        self.traj["relative_price_change"] = np.gradient(self.traj["p"], self.t, axis= 0) / self.traj["p"]
+        try:
+            self.traj["deriv_employment"] = np.gradient(self.traj["total_labor_employed"])
+        except (ValueError, IndexError):
+            self.traj["deriv_employment"] = np.array([])
+        try:
+            self.traj["relative_price_change"] = np.gradient(self.traj["p"], self.t, axis= 0) / self.traj["p"]
+        except (ValueError, IndexError):
+            self.traj["relative_price_change"] = np.array([])
 
     def change_param(self, param_name, new_val):
         setattr(self.params, param_name, new_val)

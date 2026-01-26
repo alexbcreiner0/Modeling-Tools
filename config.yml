@@ -1,25 +1,74 @@
 global_settings:
-  default_save_dir: ""
+  default_save_dir: null
 model_specific_settings:
   wright-cross-dual-3-commodity:
-    commodity_names: ["Corn", "Iron", "Sugar"]
-  morishima_disproportionality_reinvestment:
-demos: 
-  wright-cross-dual-3-commodity:
-    name: "Wright's Cross-Dual Disequilibrium Model (Three Commodities)"
-    desc: Starting parameters are based on the example in Wright's PhD thesis. See the GitHub wiki pages for detailed information.
-    default: True
+    commodity_names:
+    - Corn
+    - Iron
+    - Sugar
+  morishima_disproportionality_reinvestment: null
+  kliman-profit-rate-paper: null
+  boltzmann-wealth-distribution: null
+  ivan_4_sector_queueing_model: null
+  ivan_queueing_model_redo: null
+  complex_function_fun: null
+  heat_equation: null
+  test: null
+demos:
+  wright_s_cross_dual_disequilibrium_model_three_commodities:
+    name: Wright's Cross-Dual Disequilibrium Model (Three Commodities)
+    desc: Starting parameters are based on the example in Wright's PhD thesis. See
+      the GitHub wiki pages for detailed information.
     details:
       simulation_model: wright-cross-dual-3-commodity
-      simulation_function: simulate
-      starting_plots: prices_and_values
+      simulation_function: simulate2
       default_preset: default_preset
-      starting_lims: [[0.0, 100.0],[0.0, 12.0]]
-  morishima_disproportionality_reinvestment:
-    name: "Morishima's Material Constrained Reinvestment Model"
+      starting_lims: [[0.0, 100.0], [0.0, 12.0]]
+  morishima_s_material_constrained_reinvestment_model:
+    name: Morishima's Material Constrained Reinvestment Model
     desc: See GitHub wiki pages for detailed information.
     details:
       simulation_model: morishima_disproportionality_reinvestment
       simulation_function: get_trajectories
       default_preset: nice_example
-      starting_lims: [[0, 14],[-500,1600]]
+      starting_lims: [[0.0, 14.0], [-500.0, 1600.0]]
+  tssi_falling_profit_rate_model_rename:
+    name: TSSI Falling Profit Rate Model Rename
+    desc: A model of the falling profit rate claim made in Kliman's 1999 paper.
+    details:
+      simulation_model: kliman-profit-rate-paper
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[0.0, 70.0], [0.15, 0.3]]
+  boltzmann_wealth_distribution_agent_based_model:
+    name: Boltzmann Wealth Distribution Agent-Based Model
+    desc: TBA
+    details:
+      simulation_model: boltzmann-wealth-distribution
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[0.0, 10.0], [10.0, 100.0]]
+  ivan_queueing_system:
+    name: Ivan Queueing System
+    desc: ''
+    details:
+      simulation_model: ivan_queueing_model_redo
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[0.0, 1000.0], [0.0, 20.0]]
+  complex_plotting_test:
+    name: Complex Plotting Test
+    desc: ''
+    details:
+      simulation_model: complex_function_fun
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[-10.0, 10.0], [-10.0, 10.0]]
+  test:
+    name: Test
+    desc: ''
+    details:
+      simulation_model: test
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[-10.0, 10.0], [-2.0, 2.0]]

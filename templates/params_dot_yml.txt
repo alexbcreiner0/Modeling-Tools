@@ -4,5 +4,3 @@ presets:
     name: Default # Name as it appears in the GUI
     desc: '' # A description if there's something special about these
     params:
-      y1i: 100 # List your params like so
-

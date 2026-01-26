@@ -1,22 +1,61 @@
+from __future__ import annotations
 import yaml
 import numpy as np
 import importlib.util
 from copy import deepcopy
-from dataclasses import fields, is_dataclass, asdict
-from typing import get_origin, get_args
+from dataclasses import fields, is_dataclass, asdict, MISSING
+from typing import get_origin, get_args, Any, Optional, Tuple, Type
 from paths import rpath
+from pathlib import Path
+import logging
 # from parameters import Params, params_from_mapping
 
+logger = logging.getLogger(__name__)
+
+def load_parameters_class_from_file(parameters_py: str | Path):
+    """
+    Load the Parameters dataclass from a model's parameters.py without relying on it
+    being importable as a package.
+    """
+    parameters_py = Path(parameters_py)
+    if not parameters_py.exists():
+        raise FileNotFoundError(parameters_py)
+
+    spec = importlib.util.spec_from_file_location(f"model_parameters_{parameters_py.stem}", parameters_py)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load module spec for {parameters_py}")
+
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # executes the user's module
+
+    if not hasattr(mod, "Params"):
+        raise AttributeError(f"{parameters_py} does not define a Parameters class")
+
+    Parameters = getattr(mod, "Params")
+    if not is_dataclass(Parameters):
+        raise TypeError("Parameters exists but is not a dataclass")
+
+    return Parameters
+
+def try_instantiate_with_defaults(Parameters: Type[Any]) -> Tuple[Optional[Any], list[str]]:
+    """
+    Attempt Parameters() using defaults/default_factory.
+    Returns (instance or None, list of missing-required field names).
+    """
+    missing = []
+    for f in fields(Parameters):
+        if f.default is MISSING and f.default_factory is MISSING:
+            missing.append(f.name)
+
+    if missing:
+        return None, missing
+
+    return Parameters(), []
+
 def load_presets(path):
-    try:
-        with open(rpath("models",path,"data","params.yml"), 'r') as f:
-            doc = yaml.safe_load(f)
-        return doc["presets"]
-    except (FileNotFoundError, KeyError, TypeError):
-        with open(rpath("models",path,"data","extra_data.yml"), 'r') as f:
-            default_presets = yaml.safe_load(f)
-        _dump_to_yaml(default_presets, path)
-        return default_presets
+    with open(rpath("models",path,"data","params.yml"), 'r') as f:
+        doc = yaml.safe_load(f)
+    return doc["presets"]
 
 def _dump_to_yaml(presets, path):
     class FlowDumper(yaml.SafeDumper):
@@ -104,9 +143,10 @@ def params_from_mapping(map: dict, dataclass_path: str):
     
     params_fields = fields(Params)
     kwargs = {}
-    for f in params_fields:
-        if f.name in map:
-            kwargs[f.name] = coerce_value(map[f.name], f.type)
+    if map is not None:
+        for f in params_fields:
+            if f.name in map:
+                kwargs[f.name] = coerce_value(map[f.name], f.type)
 
     # field_names = {f.name for f in fields(Params)}
     # filtered = {k: v for k, v in map.items() if k in field_names}

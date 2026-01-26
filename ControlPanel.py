@@ -34,7 +34,7 @@ class ControlPanel(qw.QWidget):
     slotAxesChanged = qc.pyqtSignal(int)
     paramsReplaced = qc.pyqtSignal(object)
 
-    def __init__(self, params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data, sim_model, demo):
+    def __init__(self, params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data, sim_model, demo, current_tab= 0):
         # print(f"Loaded params: {asdict(params)}")
         super().__init__()
         self.params = params
@@ -46,7 +46,7 @@ class ControlPanel(qw.QWidget):
         self.demo = demo
         self.constructing = True
 
-        content = qw.QTabWidget()
+        self.content = qw.QTabWidget()
 
         scroll_main = VScrollArea()
         scroll_main.setWidgetResizable(True)
@@ -61,7 +61,7 @@ class ControlPanel(qw.QWidget):
         # --- Sim Controls Tab ---
         main_controls = qw.QWidget()
         scroll_main.setWidget(main_controls)
-        content.addTab(scroll_main, "Simulation Controls")
+        self.content.addTab(scroll_main, "Simulation Controls")
 
         main_controls.setSizePolicy(
             qw.QSizePolicy.Policy.Expanding,
@@ -73,7 +73,7 @@ class ControlPanel(qw.QWidget):
         main_control_layout.setSpacing(0)
 
         plot_controls = qw.QWidget()
-        content.addTab(scroll_plot, "Plot Controls")
+        self.content.addTab(scroll_plot, "Plot Controls")
         plot_controls.setSizePolicy(
             qw.QSizePolicy.Policy.Expanding,
             qw.QSizePolicy.Policy.Preferred
@@ -141,8 +141,10 @@ class ControlPanel(qw.QWidget):
         self.slot_axes_controls = []
         self.slot_titles = {}
 
+        self.content.setCurrentIndex(current_tab)
+
         outer_layout = qw.QVBoxLayout(self)
-        outer_layout.addWidget(content)
+        outer_layout.addWidget(self.content)
 
         self.dropdown_tooltips = dropdown_tooltips
 
@@ -719,7 +721,9 @@ class ControlPanel(qw.QWidget):
                 value = params_dict[param]
 
                 if widget_info["is_matrix"]:
+                    widget.blockSignals(True)
                     widget.change_values(value)
+                    widget.blockSignals(False)
                 else:
                     try:
                         v_float = float(value)
@@ -727,7 +731,9 @@ class ControlPanel(qw.QWidget):
                     except (TypeError, ValueError):
                         text = str(value)
 
+                    widget.entry.blockSignals(True)
                     widget.entry.setText(text)
+                    widget.entry.blockSignals(False)
 
             if param in self.dropdowns:
                 info = self.dropdowns[param]
@@ -740,7 +746,9 @@ class ControlPanel(qw.QWidget):
                 except ValueError:
                     continue
 
+                dropdown.blockSignals(True)
                 dropdown.setCurrentIndex(idx)
+                dropdown.blockSignals(False)
 
         self.block_signals = False
 

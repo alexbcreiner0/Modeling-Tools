@@ -2,7 +2,9 @@ from PyQt6 import (
     QtWidgets as qw,
     QtGui as qg
 )
-import re
+import re, os
+from tools.modelling_tools import create_new_model_dir
+from paths import rpath
 
 class DescDialog(qw.QDialog):
     def __init__(self, parent= None, display_text= ""):
@@ -27,6 +29,71 @@ class DescDialog(qw.QDialog):
             return  #after that, grab the variables and return them
         return None
  
+class NewModelDialog(qw.QDialog):
+    def __init__(self, parent= None):
+        super().__init__(parent)
+        root = qw.QVBoxLayout()
+        self.resize(520, 200)
+        
+        entry_widget = qw.QWidget()
+        layout = qw.QGridLayout(entry_widget)
+        name_label = qw.QLabel("Name of Model: ")
+        self.name_entry = qw.QLineEdit()
+        layout.addWidget(name_label, 0, 0)
+        layout.addWidget(self.name_entry, 0, 1)
+
+        self.status_bar = qw.QStatusBar()
+        
+        bottom_widget = qw.QWidget()
+        bottom_layout = qw.QHBoxLayout(bottom_widget)
+
+        buttons = qw.QDialogButtonBox()
+        make_button = buttons.addButton("Create Directory", qw.QDialogButtonBox.ButtonRole.ActionRole)
+        buttons.addButton(make_button, qw.QDialogButtonBox.ButtonRole.ActionRole)
+        close_button = buttons.addButton(qw.QDialogButtonBox.StandardButton.Close)
+        make_button.clicked.connect(self._on_save)
+        buttons.rejected.connect(self.reject)
+        bottom_layout.addWidget(buttons)
+
+        self.dialog_label = qw.QLabel()
+        bottom_layout.addWidget(self.dialog_label)
+        
+        root.addWidget(entry_widget)
+        root.addWidget(bottom_widget)
+
+        root.addWidget(self.status_bar)
+
+        self.setLayout(root)
+
+    def _on_save(self):
+        name = self.name_entry.text().strip()
+        if not name:
+            self.dialog_label.setText("Please enter a name.")
+            self.name_entry.setFocus()
+            return
+
+        if os.path.isdir(rpath(make_shortname(name))):
+            self.status_bar.showMessage("Name already in use. Please choose something different.")
+            self.name_entry.setFocus()
+            return
+    
+        # try:
+        create_new_model_dir(make_shortname(name), gui_dialog= True)
+        self.status_bar.showMessage(f"Done! Model Created. Check models directory for a folder named {make_shortname(name)}")
+        # except OSError:
+        #     self.status_bar.showMessage("Error creating model. Check your file permissions.")
+
+    def get_values(self):
+        return (
+            make_shortname(self.name_entry.text().strip()),
+            self.name_entry.text().strip(),
+            self.desc_entry.toPlainText().strip()
+        )
+
+    def bootstrap(self, parent= None):
+        if self.exec() == qw.QDialog.DialogCode.Accepted: # close once the acceptance flag is flagged (in the on_save method)
+            return self.get_values() #after that, grab the variables and return them
+        return None
 
 class SaveDialog(qw.QDialog):
     def __init__(self, preset_names, parent= None, name_text= None, desc_text= None):
