@@ -1,0 +1,1231 @@
+presets:
+  default_preset:
+    name: Default
+    desc: ''
+    params:
+      A: [[0.2, 0.2, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2
+      L: 1
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: none
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 20
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1e-05
+      mu_L: 0.5
+      eps_u: 1e-08
+      eps_m: 1e-08
+      T: 100
+      res: 3
+  figure_4:
+    name: Figure 4
+    desc: basic-shock.png
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: ls
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.5
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 8
+  figure_1:
+    name: Figure 1
+    desc: basic-dynamics
+    params:
+      A: [[0.2, 0.2, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: none
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 20
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1e-05
+      mu_L: 0.5
+      eps_u: 1e-08
+      eps_m: 1e-08
+      T: 100
+      res: 3
+  figure_2a:
+    name: Figure 2a
+    desc: okishio-a
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.4, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [1.0, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: ls
+      change_type: discrete
+      economy_type: fixed_real_wage
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.5
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 0
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  figure_2a_3:
+    name: Figure 2a, 3
+    desc: okishio-b, real-wage-more-detail
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.4, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.0
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [1.0, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: ls
+      change_type: discrete
+      economy_type: fixed_real_wage
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.5
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 0
+      init_tssi_melt: 1.0
+      output_equation: relative
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  figure_5a:
+    name: Figure 5a
+    desc: ls
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: ls
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 20
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 200
+      res: 3
+  figure_6:
+    name: Figure 6
+    desc: pure-labor-saving-approach-to-maximum
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: ls
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 10
+      shock_mag: 0.15
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 1700
+      res: 3
+  figure_7a:
+    name: Figure 7a
+    desc: cts-ls
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: ls
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 10
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 200
+      res: 3
+  figure_7b:
+    name: Figure 7b
+    desc: cts-culs
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 10
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 200
+      res: 3
+  figure_5b_8b:
+    name: Figure 5b, 8b
+    desc: culs, culs-okishio
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 20
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 200
+      res: 3
+  figure_8a:
+    name: Figure 8a
+    desc: falling-maximal-rate
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: culs
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 10
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 500
+      res: 3
+  figure_9a:
+    name: Figure 9a
+    desc: CSLU-basic-demo
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: cslu
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 20
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 200
+      res: 3
+  figure_9b:
+    name: Figure 9b
+    desc: cslu-basic-demo-cts
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: cslu
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 20
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 200
+      res: 3
+  figure_13:
+    name: Figure 13
+    desc: value-system-incongruous
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.4
+      cost_tradeoff: 0.8
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 8
+  figure_10:
+    name: Figure 10
+    desc: 'all-changes
+
+
+      Just change the technical change type to one of the four to see each plot.'
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  figure_11:
+    name: Figure 11
+    desc: falling-rop-dynamics
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.5
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 0
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  figure_12a:
+    name: Figure 12a
+    desc: ls-sloe-emloyment
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: ls
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.3
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  figure_12b:
+    name: Figure 12b
+    desc: culs-sloe-emloyment
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 2.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.3
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  figure_14:
+    name: Figure 14
+    desc: fixed-interest-no-rop
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 0.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: discrete
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.1
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 0
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 100
+      res: 3
+  figure_15:
+    name: Figure 15
+    desc: CULS-cts-fixed-interest-just-iron
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 0.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 200
+      res: 3
+  figure_16:
+    name: Figure 16
+    desc: CULS-cts-fixed-interest
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 0.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1
+      shock_type: culs
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 600
+      res: 3
+  figure_17:
+    name: Figure 17
+    desc: CULS-cts-zero-interest
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 0.0
+      L: 1.0
+      w: 0.5
+      r: 0.0
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: culs
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: 1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 250
+      res: 3
+  figure_18:
+    name: Figure 18
+    desc: 'all-changes-fixed-interest
+
+
+      Just change the technical change to see all four subplots'
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 0.0
+      L: 1.0
+      w: 0.5
+      r: 0.0
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [0.01, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: culs
+      change_type: cts
+      economy_type: unrestricted
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 600
+      res: 3
+  figure_19:
+    name: Figure 19
+    desc: continuous-okishio
+    params:
+      A: [[0.2, 0.0, 0.4], [0.2, 0.4, 0.0], [0.0, 0.1, 0.1]]
+      l: [0.7, 0.6, 0.3]
+      b_bar: [0.6, 0.0, 0.2]
+      c_bar: [0.2, 0.0, 0.4]
+      alpha_w: 0.8
+      alpha_c: 0.7
+      alpha_L: 0.0
+      kappa: [1, 1, 1]
+      eta: [2, 2, 2]
+      eta_w: 0.25
+      eta_r: 0.0
+      L: 1.0
+      w: 0.5
+      r: 0.03
+      q: [0.01, 0.1, 0.1]
+      p: [1.0, 0.8, 0.5]
+      s: [1.0, 0.1, 0.25]
+      m_w: 0.5
+      M: 1.0
+      M_change_type: none
+      money_injection_target: capitalists
+      M_change_interval: 20
+      M_change_duration: 1
+      delta_M: 1.0
+      shock_type: culs
+      change_type: cts
+      economy_type: fixed_real_wage
+      wage_deflation: 0.0
+      gamma_L: 0.3
+      atrophy_with_unemployment: always
+      supply_shock_mag: 0.5
+      supply_shock_interval: 50
+      supply_shock_setting: none
+      change_interval: 50
+      shock_mag: 0.03
+      cost_tradeoff: 0.01
+      stop_cts_changes_halfway: false
+      fix_sector_receiving_change: -1
+      init_tssi_melt: 1.0
+      output_equation: absolute
+      employment_guardrails: false
+      s_floor: 1.0e-05
+      mu_L: 0.5
+      eps_u: 1.0e-08
+      eps_m: 1.0e-08
+      T: 600
+      res: 3

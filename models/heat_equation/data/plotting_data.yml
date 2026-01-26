@@ -1,0 +1,12 @@
+all:
+  name: All
+  plots:
+    thing:
+      special: heatmap
+      traj_key: u
+      checkbox_name: thing
+      colorbar: false
+      origin: lower
+      interpolation: nearest
+      aspect: auto
+      toggled: true
