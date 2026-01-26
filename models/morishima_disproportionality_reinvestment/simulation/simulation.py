@@ -1,34 +1,25 @@
 import numpy as np
 import copy
 from .Economy import Economy
+from typing import Optional, Callable
 import sys
 
-def get_trajectories(params):
+def get_trajectories(params, *, should_stop: Optional[Callable[[], bool]]= None, yield_every: int= 1):
     sim_params = copy.deepcopy(params)
-    e = None
 
-    try:
-        economy = Economy(sim_params)
-    except Exception as error:
-        e = error
-        return {}, np.array([]), e
+    economy = Economy(sim_params)
 
     for i in range(params.T):
-        try:
-            economy.step()
-        except Exception as error:
-            e = error
-            with open("log.txt", "w") as f:
-                print(economy.traj, file= f)
+        if should_stop and should_stop():
             break
 
-    try:
-        economy.get_analytic_curves()
-    except Exception as error:
-        e = error
-        with open("log.txt", "w") as f:
-            print(economy.traj, file= f)
+        economy.step()
+
+        if (i % yield_every) == 0:
+            yield economy.traj, economy.t
+
+    economy.get_analytic_curves()
 
     traj, t = economy.traj, economy.t
-    return traj, t, e
+    yield traj, t
 

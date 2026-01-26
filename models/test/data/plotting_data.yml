@@ -1,0 +1,24 @@
+all:
+  name: All
+  plots:
+    cosine:
+      checkbox_name: Cosine
+      linestyle: solid
+      labels: [Cosine]
+      colors: [blue]
+      traj_key: cos
+      toggled: true
+    sine:
+      checkbox_name: Sine
+      linestyle: solid
+      labels: [Sine]
+      colors: [red]
+      traj_key: sin
+      toggled: false
+    exponential:
+      checkbox_name: Exponential
+      linestyle: solid
+      labels: [$e^x$]
+      colors: [orange]
+      traj_key: e_to_x
+      toggled: true

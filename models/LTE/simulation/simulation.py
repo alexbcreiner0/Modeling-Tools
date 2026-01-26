@@ -11,6 +11,7 @@ def get_trajectories(params: Params) -> Tuple[dict, np.ndarray, Exception]:
     """
     e = None
     try:
+        pass
         # run your simulation
     except Exception as e:
         pass

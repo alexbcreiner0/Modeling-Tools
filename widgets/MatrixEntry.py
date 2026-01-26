@@ -17,6 +17,8 @@ class MatrixEntry(qw.QWidget):
         root.setSpacing(0)
         self.name = name
         self.dim = dim
+        self._bulk_updating = False
+        self._cell_timers = []
 
         left_entries = qw.QWidget()
         left_layout = qw.QVBoxLayout(left_entries)
@@ -42,6 +44,7 @@ class MatrixEntry(qw.QWidget):
         self.entries = []
         for i in range(dim[0]):
             self.entries.append([])
+            self._cell_timers.append([])
             for j in range(dim[1]):
                 entry = qw.QLineEdit()
                 self.entries[i].append(entry)
@@ -50,7 +53,14 @@ class MatrixEntry(qw.QWidget):
 
                 timer = qc.QTimer(entry)
                 timer.setSingleShot(True)
-                entry.textChanged.connect(lambda _=None, t= timer: t.start(300))
+                self._cell_timers[i].append(timer)
+
+                def on_txt(_=None, t=timer):
+                    if self._bulk_updating:
+                        return
+                    t.start(300)
+
+                entry.textChanged.connect(on_txt)
                 timer.timeout.connect(partial(self._on_text_change, i, j))
 
                 # entry.textChanged.connect(partial(self._on_text_change, i, j))
@@ -58,22 +68,40 @@ class MatrixEntry(qw.QWidget):
         root.addWidget(matrix_entries, alignment= qc.Qt.AlignmentFlag.AlignLeft, stretch= 3)
 
     def _on_text_change(self, i, j):
-        new_matrix = zeros(self.dim)
         try:
-            for i in range(self.dim[0]):
-                for j in range(self.dim[1]):
-                    new_matrix[i][j] = float(self.entries[i][j].text())
-            if self.dim[0] != self.dim[1]:
-                new_matrix = new_matrix.reshape(1,-1)[0]
-            self.textChanged.emit(self.name, new_matrix)
+            self.textChanged.emit(self.name, self._current_matrix())
         except ValueError:
             pass
 
+    def _current_matrix(self):
+        new_matrix = zeros(self.dim)
+        for i in range(self.dim[0]):
+            for j in range(self.dim[1]):
+                new_matrix[i][j] = float(self.entries[i][j].text())
+        if self.dim[0] != self.dim[1]:
+            new_matrix = new_matrix.reshape(1, -1)[0]
+        return new_matrix
+
 
     def change_values(self, array):
-        for i in range(self.dim[0]):
-            if self.dim[1] > 1:
+        self._bulk_updating = True
+        try:
+            for i in range(self.dim[0]):
                 for j in range(self.dim[1]):
-                    self.entries[i][j].setText(f"{array[i][j]:.8g}")
-            else:
-                self.entries[i][0].setText(f"{array[i]:.8g}")
+                    self._cell_timers[i][j].stop()
+
+            for i in range(self.dim[0]):
+                if self.dim[1] > 1:
+                    for j in range(self.dim[1]):
+                        with qc.QSignalBlocker(self.entries[i][j]):
+                            self.entries[i][j].setText(f"{array[i][j]:.8g}")
+                else:
+                    with qc.QSignalBlocker(self.entries[i][0]):
+                        self.entries[i][0].setText(f"{array[i]:.8g}")
+        finally:
+            self._bulk_updating = False
+
+        try:
+            self.textChanged.emit(self.name, self._current_matrix())
+        except ValueError:
+            pass
