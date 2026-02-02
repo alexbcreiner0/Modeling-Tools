@@ -1,0 +1,11 @@
+all:
+  name: All
+  title: Weierstrass Function
+  plots:
+    weierstrass_function:
+      checkbox_name: Weierstrass Function
+      linestyle: solid
+      labels: [Weierstrass Function]
+      colors: [purple]
+      traj_key: w
+      toggled: true

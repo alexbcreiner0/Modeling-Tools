@@ -13,8 +13,9 @@ from matplotlib import pyplot as plt
 import sys, importlib, yaml, math, inspect
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
-from tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config
+from tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config, reload_package_folder
 from paths import rpath
+import time
 
 # from simulation.parameters import params_from_mapping, to_plain
 from widgets.Dialogs import SaveDialog, DescDialog, NewModelDialog
@@ -43,13 +44,14 @@ class SimWorker(qc.QObject):
     progress = qc.pyqtSignal(object, object)          # traj, t
     finished = qc.pyqtSignal(object, object, object)  # traj, t, e
 
-    def __init__(self, params, stream_func, *, yield_every=1):
+    def __init__(self, params, stream_func, *, yield_every=1, sleep_time= 0.01):
         super().__init__()
         self.params = params
         self.stream_func = stream_func
         self.yield_every = yield_every
         self._stop = False
         self._pause = False
+        self.sleep_time = sleep_time
 
     @qc.pyqtSlot()
     def request_stop(self):
@@ -69,7 +71,7 @@ class SimWorker(qc.QObject):
         animating = True
 
         try:
-            result = self.stream_func(self.params, should_stop= self._should_stop, yield_every= self.yield_every)
+            result = self.stream_func(self.params)
 
             # if it's a normal function output (i.e. the user is not animating)
             if isinstance(result, tuple) and len(result) == 2:
@@ -79,8 +81,11 @@ class SimWorker(qc.QObject):
                 self.progress.emit(traj, t)
 
             else:
-                # output can now be assumed to be an iterator object
-                for frame in result:
+                for i, frame in enumerate(result):
+                    if self._should_stop():
+                        break
+
+                    time.sleep(self.sleep_time)
                     # stop receiving new outputs if sim is paused
                     while self._pause and not self._should_stop():
                         qc.QThread.msleep(25) # recheck every 25 ms
@@ -89,10 +94,10 @@ class SimWorker(qc.QObject):
                         raise TypeError(f"Streaming sim must yield (traj, t) tuples. Got {type(frame)} {frame!r}")
 
                     latest_traj, latest_t = frame
-                    self.progress.emit(latest_traj, latest_t)
-
-                    if self._should_stop():
-                        break
+                    if latest_traj is None or latest_t is None:
+                        continue
+                    if (i % self.yield_every) == 0:
+                        self.progress.emit(latest_traj, latest_t)
 
         except Exception as ex:
             latest_t_val = latest_t[-1] if latest_t is not None else None
@@ -131,6 +136,7 @@ class MainWindow(qw.QMainWindow):
         self._anim_timer.timeout.connect(self._apply_next_frame)
 
         self.current_demo_name, self.current_demo = self._find_default(self.demos)
+        self._sleep_time = self.current_demo.get("details", {}).get("simulation_speed", 0)
         self.sim_model = self.current_demo["details"]["simulation_model"]
         self.params, self.get_trajectories, self.presets, panel_data, plotting_data, self.functions, self.default_dir = self._get_data(self.settings, self.current_demo)
 
@@ -153,8 +159,8 @@ class MainWindow(qw.QMainWindow):
         # self.saved_labels = [qw.QLabel(), qw.QLabel()]
 
         # make matplotlib stuff, need toolbar for below
-        self.figure, self.axis = plt.subplots()
-        self.figure.set_constrained_layout(True)
+        self.figure, self.axis = plt.subplots(layout= "constrained")
+        # self.figure.set_constrained_layout(True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.toolbar = CustomNavigationToolbar(self.canvas, parent= self, default_dir= self.default_dir)
         self.removeToolBar(self.toolbar)
@@ -203,7 +209,7 @@ class MainWindow(qw.QMainWindow):
         # main_container.setLayout(self.main_layout)
 
         self.setCentralWidget(self.main_splitter)
-        qc.QTimer.singleShot(0, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
+        # qc.QTimer.singleShot(5000, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
 
         self._install_focus_clear_filter()
         self.update_plot()
@@ -451,7 +457,7 @@ class MainWindow(qw.QMainWindow):
                 dropdown_index, options, slot_cfg = cfg
                 self.graph_panel.plot_slot(slot_index, dropdown_index, options, slot_cfg)
 
-        qc.QTimer.singleShot(0, self.tight_layout)
+        # qc.QTimer.singleShot(0, self.tight_layout)
 
     def _find_default(self, demos):
 
@@ -523,6 +529,20 @@ class MainWindow(qw.QMainWindow):
         animate_sim_checkbox.stateChanged.connect(lambda v: setattr(self, "live_animation", v))
         nav_toolbar.addWidget(animate_sim_checkbox)
 
+        nav_toolbar.addSeparator()
+
+        sim_speed_label = qw.QLabel("Sim Speed: ")
+        sim_speed_edit = qw.QLineEdit()
+        if self._sleep_time != 0:
+            sim_speed_edit.setText(str(self._sleep_time))
+        else:
+            sim_speed_edit.setPlaceholderText("0.0 (higher = slower)")
+        sim_speed_edit.setFixedWidth(130)
+        sim_speed_edit.textChanged.connect(self._adjust_sim_speed)
+        nav_toolbar.addWidget(sim_speed_label)
+        nav_toolbar.addWidget(sim_speed_edit)
+
+
         catch_icon = style.standardIcon(qw.QStyle.StandardPixmap.SP_DialogHelpButton)
         tight_layout_action = qg.QAction(catch_icon, "Make the plots adapt to their space better", self)
         tight_layout_action.triggered.connect(self.tight_layout)
@@ -532,12 +552,23 @@ class MainWindow(qw.QMainWindow):
 
         return nav_toolbar #, entries, buttons
 
+    def _adjust_sim_speed(self, text):
+        try:
+            self._sleep_time = float(text)
+        except:
+            return
+
+        if self.thread is not None and self.thread.isRunning():
+            if self.worker:
+                self.worker.sleep_time = self._sleep_time
+
     def _on_figure_background_checkbox_changed(self, state: int) -> None:
         use_window = True if state == 2 else False
         self.update_figure_background(use_window)
 
     def tight_layout(self):
         self.figure.tight_layout()
+        # self.figure.get_constrained_layout()
         self.figure.canvas.draw_idle()
 
     def grab_as_initial(self):
@@ -695,9 +726,13 @@ class MainWindow(qw.QMainWindow):
 
         self._rerun_pending = False
 
+        self._pending_traj = None
+        self._pending_t = None
+        self._anim_timer.stop()
+
         self.thread = qc.QThread(self)
 
-        self.worker = SimWorker(self.params, self.get_trajectories, yield_every=1)
+        self.worker = SimWorker(self.params, self.get_trajectories, yield_every=1, sleep_time= self._sleep_time)
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
@@ -856,8 +891,9 @@ class MainWindow(qw.QMainWindow):
             default_dir = settings["default_save_dir"]
 
             presets = load_presets(sim_model)
-            trajectories_module = importlib.import_module(f"models.{sim_model}.simulation.simulation")
-            trajectories_module = importlib.reload(trajectories_module)
+            module_name = f"models.{sim_model}.simulation.simulation"
+            trajectories_module = importlib.import_module(module_name)
+            reload_package_folder(trajectories_module)
         except Exception as e:
             self.status_bar.showMessage(f"Failed to load data for {demo}, check logs for more info.")
             logger.log(logging.ERROR, f"Failed to load data for {demo}", exc_info= e)
@@ -952,8 +988,10 @@ class MainWindow(qw.QMainWindow):
 
         self.main_splitter.restoreState(saved_state)
 
+        self._sleep_time = demo.get("details", {}).get("simulation_speed", 0)
+
         self.model_label.setText(f"Model: {demo["name"]}")
-        qc.QTimer.singleShot(0, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
+        qc.QTimer.singleShot(1000, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
 
         self.update_plot()
 
@@ -994,6 +1032,8 @@ class MainWindow(qw.QMainWindow):
             self.status_bar.showMessage(f"Failed to reload plotting_data.yml: {e}", msecs= 4000)
             logger.log(logging.ERROR, "Failed to reload plotting_data.yml", exc_info= e)
             return
+
+        rem_dropdown_choice = self.current_dropdown_choice
 
         # If we have sector/commodity names, apply them to plot labels.
         names = None

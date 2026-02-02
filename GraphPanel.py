@@ -1,3 +1,4 @@
+from math import e
 import sys
 from PyQt6 import (
     QtCore as qc,
@@ -7,10 +8,12 @@ from matplotlib import (
     pyplot as plt,
     rcParams
 )
+from matplotlib.patches import Rectangle
 import numpy as np
 from matplotlib.backend_bases import cursors
 import scienceplots
 import logging, json, hashlib
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 plt.style.use(["grid", "notebook"])
 # rcParams["figure.constrained_layout.use"] = False
 # rcParams["figure.autolayout"] = False
@@ -24,82 +27,86 @@ logger = logging.getLogger(__name__)
 class GraphPanel(qw.QWidget):
     saved_lims_changed = qc.pyqtSignal(tuple, tuple)
     slot_axes_limits_changed = qc.pyqtSignal(int, tuple, tuple)
+    slot_axes_limits_changed_3d = qc.pyqtSignal(int, tuple, tuple, tuple)
     slot_title_changed = qc.pyqtSignal(int, str)
 
     def __init__(self, init_traj, init_t, dropdown_choices,
                  plotting_data, canvas, figure, axis, toolbar, status_bar):
         super().__init__()
-        self.start_up = True
+        self.start_up = True # might not be necessary anymore, iono
+
         self.data = plotting_data
-        layout = qw.QVBoxLayout()
         self.dropdown_choices = dropdown_choices
         self.canvas = canvas
         self.figure, self.axis = figure, axis
         self.toolbar = toolbar
         self.status_bar = status_bar
-        self.slot_choice_key = {}
-        self.legend_label_overrides = {}
-        self._sim_run_id = 0
+
+        self._slot_choices: dict[int, str] = {} # slot_index -> dropdown choices
+        self.legend_label_overrides: dict[tuple[int, str], dict[str, str]] = {} # keeps track of legend info for each slot/category choice 
         self._logged_plot_keys: set[tuple] = set()
-        self._slot_images: dict[int, object] = {}     # slot_index -> AxesImage
-        self._slot_cbar: dict[int, object] = {}       # slot_index -> Colorbar (optional)
-        self._slot_state: dict[int, tuple[int, dict, dict | None]] = {}
+        self._slot_images: dict[int, object] = {} # slot_index -> AxesImage
+        self._slot_cbar: dict[int, object] = {} # slot_index -> Colorbar (optional)
+        self._slot_settings: dict[int, tuple[int, dict, dict | None]] = {}
+
+        self._slot_artists: dict[int, dict[str, object]] = {} # slot_index -> {artist_gid -> artist}
+        self._slot_artists_meta: dict[int, dict[str, dict]] = {}
+        self._hist_state: dict[tuple[int, str, str], dict] = {}
+
+        self._slot_dimensions: dict[int, str] = {}
+        self._camera_overrides: dict[tuple[int, str], dict] = {}
 
         self.traj = init_traj
+        self.t = init_t
 
+        # initialize grid of axes
         self.axes_rows = 1
         self.axes_cols = 1
         self.axes = [self.axis]
 
+        # this entire call might be unnecessary at this point, not sure
+        # was meant to persist things like titles after redraws but I think that happens anyway now
         self._cid_draw = self.canvas.mpl_connect(
             "draw_event", self._on_canvas_draw
         )
 
+        # controls the size of the legend fonts based on the grid config
         self.font_vals = {(1,1): 10, (1,2): 8, (1,3): 6, (2,1): 8, (2,2): 8, (3,2): 6, (2,3): 6, (3,3): 0}
 
-        self.snap_artists = {}
+        # snap artists are what we call the coordinate boxes which appear when you click on a curve
+        self.snap_artists: dict[object, tuple[object, object]] = {} # maps axes to their artists + display info
+        self._init_snap_artists()
+
+        # prevent the cursor from changing depending on what mode the user is in, because fuck that
         self._orig_canvas_set_cursor = self.canvas.set_cursor
         def custom_set_cursor(cursor):
             if cursor == cursors.MOVE:
                 self.canvas.unsetCursor()
             else:
                 self._orig_canvas_set_cursor(cursor)
-
         self.canvas.set_cursor = custom_set_cursor
 
-        # try:
-        #     with open("dimensions.txt", "r") as f:
-        #         xlim_str = f.readline().strip().strip('()').split(',')
-        #         ylim_str = f.readline().strip().strip('()').split(',')
-        #         self.xlim = tuple([float(i) for i in xlim_str])
-        #         self.ylim = tuple([float(i) for i in ylim_str])
-        # except FileNotFoundError:
-        #     with open("dimensions.txt", "w") as f:
-        #         print(str((0,50)),"\n",str((0,50)), file= f)
-        #     self.xlim, self.ylim = (0,50), (0,50)
-        # self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
-       
-        self._init_snap_artists()
+        # start an initial sim
+        self._sim_run_id: int = 0
+        self.plot_slot(0,0, {}, slot_config= None)
         self.dragging = False
 
-        self.canvas.mpl_connect("button_press_event", self.on_press)
+        self.canvas.mpl_connect("button_press_event", self._on_press)
         self.canvas.mpl_connect("motion_notify_event", self.on_motion)
         self.canvas.mpl_connect("button_release_event", self.on_release)
-        self.canvas.mpl_connect("scroll_event", self.on_scroll)
+        self.canvas.mpl_connect("scroll_event", self._on_scroll)
       
         self.camera_controls = qw.QWidget()
 
+        layout = qw.QVBoxLayout()
         layout.addWidget(self.canvas, stretch=5)
         self.setLayout(layout)
-        # self.T = T
-        self.make_plot(init_traj, init_t, 0, {})
 
         self.start_up = False
 
         self._connect_axis_callbacks()
 
-        # Compute and store the base box aspect (height / width) from
-        # the initial single-axes layout so we can reuse it for grids.
+        # trying to get the axes to cooperate with the size of the window (spoilers: they do not)
         try:
             fig_w, fig_h = self.figure.get_size_inches()
             dpi = self.figure.dpi
@@ -115,18 +122,34 @@ class GraphPanel(qw.QWidget):
             # fallback: a reasonable wide-ish plot
             self._base_box_aspect = 0.6
 
-       # Optional: also enforce it on the initial single axes
-        # try:
-        #     self.axis.set_box_aspect(self._base_box_aspect)
-        # except AttributeError:
-        #     # set_box_aspect requires Matplotlib >= 3.3
-        #     pass
-
         self._block_axis_callback = False
 
-    def on_scroll(self, event):
+    def _on_scroll(self, event) -> None:
+        """ controls zooming and other scroll related stuff """
         ax = event.inaxes
+        if ax is None:
+            return
 
+        # Matplotlib gives 'up'/'down' strings for wheel on many backends
+        zoom_in = (event.button == "up")
+        base = 0.9 if zoom_in else 1.1
+
+        if hasattr(ax, "get_zlim3d"):   # 3D axes
+            self._block_axis_callback = True
+            try:
+                self._scale_3d_limits(ax, base)
+            finally:
+                self._block_axis_callback = False
+            self._clamp_3d_view(ax)
+            self.canvas.draw_idle()
+            return
+
+        # fall back to your existing 2D zoom logic
+        self._zoom_2d(ax, event)
+
+    def _zoom_2d(self, ax, event) -> None:
+        """ 2D helper for _on_scroll """
+        # ax = event.inaxes
         if ax is None or ax not in self.axes:
             return
         if event.xdata is None or event.ydata is None:
@@ -167,25 +190,132 @@ class GraphPanel(qw.QWidget):
 
         self.canvas.draw_idle()
 
+    def _scale_3d_limits(self, ax, scale: float):
+        """ 3D helper for _on_scroll """
+        # scale < 1 zoom in, scale > 1 zoom out
+        x0, x1 = ax.get_xlim3d()
+        y0, y1 = ax.get_ylim3d()
+        z0, z1 = ax.get_zlim3d()
+
+        xm = 0.5 * (x0 + x1); xr = 0.5 * (x1 - x0)
+        ym = 0.5 * (y0 + y1); yr = 0.5 * (y1 - y0)
+        zm = 0.5 * (z0 + z1); zr = 0.5 * (z1 - z0)
+
+        xr *= scale; yr *= scale; zr *= scale
+
+        ax.set_xlim3d(xm - xr, xm + xr)
+        ax.set_ylim3d(ym - yr, ym + yr)
+        ax.set_zlim3d(zm - zr, zm + zr)
+
+    def _clamp_3d_view(self, ax, elev_min=-85, elev_max=85):
+        if not hasattr(ax, "elev"):
+            return
+        if ax.elev is None:
+            return
+        ax.elev = max(elev_min, min(elev_max, float(ax.elev)))
+
+    def _rebuild_slot_artists_inventory(self, slot_index: int) -> None:
+        ax = self.axes[slot_index]
+        choice_name = self._slot_choices.get(slot_index)
+
+        bucket = {}
+        meta = {}
+
+        is_3d = hasattr(ax, "get_zlim")
+
+        for ln in ax.lines:
+            gid = ln.get_gid()
+            if gid:
+                bucket[gid] = ln
+                meta[gid] = {
+                    "choice_name": choice_name,
+                    "kind": "line",
+                    "dim": 3 if is_3d else 2
+                }
+
+        # things like heatmaps and cplots are images
+        for j, im in enumerate(ax.images):
+            gid = getattr(im, "get_gid", lambda: None)()
+            key = gid or f"{choice_name}::image::{j}"
+            bucket[key] = im
+            meta[key] = {
+                "choice_name": choice_name,
+                "kind": "image",
+                "dim": 3 if is_3d else 2
+            }
+
+        # scatter plots and surfaces are stored as collections
+        for j, coll in enumerate(ax.collections):
+            gid = coll.get_gid() if hasattr(coll, "get_gid") else None
+            key = gid or f"{choice_name}::collection::{j}"
+            bucket[key] = coll
+
+            if gid and gid.endswith("::surface"):
+                kind = "surface"
+            elif isinstance(coll, Poly3DCollection):
+                kind = "surface"
+            else:
+                kind = "collection"
+
+            meta[key] = {
+                "choice_name": choice_name,
+                "kind": kind,
+                "dim": 3 if is_3d else 2
+            }
+
+        # histogram bars are patches
+        for j, p in enumerate(ax.patches):
+            gid = p.get_gid() if hasattr(p, "get_gid") else None
+            key = gid or f"{choice_name}::patch::{j}"
+            bucket[key] = p
+            meta[key] = {
+                "choice_name": choice_name, 
+                "kind": "patch",
+                "dim": 3 if is_3d else 2
+            }
+
+        cb = getattr(self, "_slot_cbar", {}).get(slot_index)
+        if cb is not None:
+            gid = cb.get_gid() if hasattr(cb, "get_gid") else None
+            key = gid or f"{choice_name}::colorbar"
+            bucket[key] = cb
+            meta[key] = {
+                "choice_name": choice_name, 
+                "kind": "colorbar",
+                "dim": 3 if is_3d else 2
+            }
+
+        self._slot_artists[slot_index] = bucket
+        self._slot_artists_meta[slot_index] = meta
+
     def _on_axis_limits_changed(self, ax):
         if getattr(self, "_block_axis_callback", False):
             return
 
         # Read current limits from the axes
-        self.xlim = ax.get_xlim()
-        self.ylim = ax.get_ylim()
+        # self.xlim = ax.get_xlim()
+        # self.ylim = ax.get_ylim()
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
 
         try:
             slot_index = self.axes.index(ax)
         except ValueError:
             slot_index = 0
 
-        self.slot_axes_limits_changed.emit(slot_index, self.xlim, self.ylim)
+        if hasattr(ax, "get_zlim"):
+            zlim = ax.get_zlim()
+            self.slot_axes_limits_changed_3d.emit(slot_index, xlim, ylim, zlim)
+        else:
+            self.slot_axes_limits_changed.emit(slot_index, xlim, ylim)
 
     def _connect_axis_callbacks(self):
+        """ Wire axis camera positions to the appropriate functions of the app """
         for ax in self.axes:
             ax.callbacks.connect("xlim_changed", self._on_axis_limits_changed)
             ax.callbacks.connect("ylim_changed", self._on_axis_limits_changed)
+            if hasattr(ax, "callbacks") and hasattr(ax, "get_zlim"):
+                ax.callbacks.connect("zlim_changed", self._on_axis_limits_changed)
 
     def _init_snap_artists(self):
         self.snap_artists = {}
@@ -204,6 +334,7 @@ class GraphPanel(qw.QWidget):
             annot.set_visible(False)
 
             self.snap_artists[ax] = (marker, annot)
+
 
     def set_axes_layout(self, rows, cols):
         if rows < 1 or cols < 1:
@@ -235,10 +366,30 @@ class GraphPanel(qw.QWidget):
             except Exception:
                 fallback_xlim = fallback_ylim = None
 
-        self.figure.clear()
-        axes_array = self.figure.subplots(rows, cols, squeeze=False)
+        # infer dimensionality
+        proj = {}
+        for i in range(rows * cols):
+            state = self._slot_settings.get(i)
+            if state:
+                dropdown_choice, options, _slot_cfg = state
+                dropdown_name = self._choice_name_from_index(dropdown_choice)
+                proj[i] = "3d" if self.data[dropdown_name].get("projection", "2d") == "3d" else "2d"
+        self._slot_dimensions = proj
 
-        self.axes = [ax for row in axes_array for ax in row]
+        self.figure.clear()
+
+        self._slot_artists.clear()
+        self._slot_artists_meta.clear()
+        self._slot_images.clear()
+        self._slot_cbar.clear()
+
+        # axes_array = self.figure.subplots(rows, cols, squeeze=False)
+
+        self.axes = []
+        for i in range(rows * cols):
+            want_3d = (proj.get(i) == "3d")
+            ax = self.figure.add_subplot(rows, cols, i + 1, projection=("3d" if want_3d else None))
+            self.axes.append(ax)
         self.axis = self.axes[0]
 
         self._init_snap_artists()
@@ -263,13 +414,20 @@ class GraphPanel(qw.QWidget):
                 ax.set_xlim(xlim)
                 ax.set_ylim(ylim)
 
-            try:
+            if not hasattr(ax, "get_zlim"):   # 2D
                 ax.set_box_aspect(self._base_box_aspect)
-            except AttributeError:
-                pass
+            else:
+                # 3D: either leave default, or use equal-ish scaling
+                try:
+                    ax.set_box_aspect((1, 1, 1))
+                except Exception:
+                    pass
+            # try:
+            #     ax.set_box_aspect(self._base_box_aspect)
+            # except AttributeError:
+            #     pass
 
         self._block_axis_callback = False
-
         self.canvas.draw_idle()
 
     def edit_slot_axes(self, slot_index, xlim, ylim):
@@ -331,258 +489,272 @@ class GraphPanel(qw.QWidget):
         except Exception:
             self._base_box_aspect = 0.6
 
-    def edit_axes(self):
-        try:
-            new_xlim = (float(self.xlower_entry.text()), float(self.xupper_entry.text()))
-            new_ylim = (float(self.ylower_entry.text()), float(self.yupper_entry.text()))
+    def _plot_on_axis(self, ax, slot_index, choice_name, traj, t, dropdown_choice, options):
+        choice, plots = self._choice_and_plots(dropdown_choice)
+        t = np.asarray(t)
 
-            self._block_axis_callback = True
-            self.axis.set_xlim(new_xlim)
-            self.axis.set_ylim(new_ylim)
-            self.canvas.draw_idle()
-            self._block_axis_callback = False
+        for plot_name, plot_dict in plots.items():
+            if not self._plot_enabled(plot_dict, options):
+                continue
 
-            self.xlim, self.ylim = new_xlim, new_ylim
-
-        except ValueError:
-            self._block_axis_callback = False
-
-    # def save_axes(self):
-    #     self.saved_xlim, self.saved_ylim = self.xlim, self.ylim
-    #     self.saved_lims_changed.emit(self.saved_xlim, self.saved_ylim)
-
-    # def load_axes(self):
-    #     self.xlim, self.ylim = self.saved_xlim, self.saved_ylim
-
-    #     widgets_and_values = [
-    #         (self.xlower_entry, self.xlim[0]),
-    #         (self.xupper_entry, self.xlim[1]),
-    #         (self.ylower_entry, self.ylim[0]),
-    #         (self.yupper_entry, self.ylim[1]),
-    #     ]
-
-    #     for w, v in widgets_and_values:
-    #         w.blockSignals(True)
-    #         w.setText(f"{v:g}")   # or str(v)
-    #         w.blockSignals(False)
-
-    #     self.edit_axes()
-
-    def _plot_on_axis(self, axis, slot_index, choice_name, traj, t, dropdown_choice, options):
-
-        dropdown_list = list(self.data.keys())
-        choice = self.data[dropdown_list[dropdown_choice]]
-        plots = choice["plots"]
-
-        for plot in plots:
-            plot_dict = plots[plot]
-            n = len(plot_dict.get("labels", [0]))
-
-            # deciding whether to plot
-            should_draw = True
-            if "checkbox_name" in plot_dict:
-                name = plot_dict["checkbox_name"]
-                if name not in options and not (self.start_up and "on_startup" in plot_dict):
-
-                    should_draw = False
-
-            if not should_draw: continue
-        
             try:
-                # plotting
-                # special cases
-                if "special" in plot_dict:
-                    if plot_dict["special"] == "scatter":
-                        axis.scatter(
-                            traj[plot_dict["traj_key_x"]],
-                            traj[plot_dict["traj_key_y"]],
-                            color= plot_dict.get("color", "k"),
-                            label= plot_dict["labels"][0],
-                        )
-                        continue
-                    elif plot_dict["special"] == "cplot":
-                        print(f"{traj["x"]=}")
-                        xmin, xmax = traj["x"][0], traj["x"][-1]
-                        ymin, ymax = traj["y"][0], traj["y"][-1]
+                special = plot_dict.get("special")
 
-                        im = axis.imshow(
-                            traj["rgb"],
-                            origin= "lower",
-                            extent= (xmin, xmax, ymin, ymax),
-                            interpolation= "nearest",
-                            aspect= "auto"
-                        )
+                if special == "scatter":
+                    self._build_scatter(ax, choice_name, plot_name, plot_dict, traj)
+                    continue
 
-                        if plot_dict.get("contours", False):
-                            X, Y = np.meshgrid(traj["x"], traj["y"], indexing= "xy")
-                            abs_levels = np.logspace(-2,2,9)
-                            arg_levels = [-np.pi, -np.pi/2, 0, np.pi/2, np.pi]
-                            axis.contour(X, Y, traj["abs_sin"], levels= abs_levels, antialiased= True, alpha = 0.35, linewidths= 0.9)
-                            axis.contour(X, Y, traj["arg_sin"], levels= arg_levels, antialiased= True, alpha= 0.45, linewidths= 1.2)
-                        continue
-                    elif plot_dict["special"] == "heatmap":
-                        continue
-                    elif plot_dict["special"] == "hist":
-                        data = traj[plot_dict["dist"]]
-                        edge_color = plot_dict.get("edgecolor", "black")
-                        rwidth = plot_dict.get("rwidth", 1)
+                if special == "surface":
+                    self._build_surface(ax, slot_index, choice_name, plot_name, plot_dict, traj)
+                    continue
 
-                        if "bins" not in plot_dict:
-                            bins = len(set(data))
-                        else:
-                            bins = plot_dict["bins"]
+                if special == "cplot":
+                    self._build_cplot(ax, choice_name, plot_name, plot_dict, traj)
+                    continue
 
-                        counts, bins, patches = axis.hist(
-                            data,
-                            bins= bins,
-                            edgecolor= edge_color,
-                            rwidth= rwidth
-                        )
-                        axis.set_xlim(0, data.max())
-                        if "gradient" in plot_dict:
-                            if plot_dict["gradient"]:
-                                norm = plt.Normalize(counts.min(), counts.max())
-                                cmap = plt.cm.magma  # or plasma, magma, cividis, etc.
+                if special == "heatmap":
+                    self._build_heatmap(ax, slot_index, choice_name, plot_name, plot_dict, traj)
+                    continue
 
-                                for c, p in zip(counts, patches):
-                                    p.set_facecolor(cmap(norm(c)))
-                        continue
-                
+                if special == "hist":
+                    self._build_hist(ax, slot_index, choice_name, plot_name, plot_dict, traj)
+                    continue
+
+                key = plot_dict.get("traj_key")
+                if not key or key not in traj:
+                    raise KeyError(key)
+
+                y = np.asarray(traj[key])
+                n = len(plot_dict.get("labels", [0]))
+
+                alt_t_name = plot_dict.get("traj_key_x", None)
+                if alt_t_name is not None:
+                    t = traj.get(alt_t_name, t)
                 if n == 1:
-                    # scalar trajectory case
-                    default_label_list = plot_dict.get("labels", [""])
-                    default_label = default_label_list[0]
-                    gid = f"{choice_name}::{plot}::0"
-
-                    over = self.legend_label_overrides.get((slot_index, choice_name), {})
-                    label = over.get(gid, default_label)
-
-                    line = axis.plot(
-                        t, traj[plot_dict["traj_key"]],
-                        color= plot_dict["colors"][0],
-                        linestyle= plot_dict.get("linestyle", "solid"),
-                        label= label
-                    )[0]
-                    line.set_gid(gid)
+                    tt, yy = self._safe_align_xy(t, y)
+                    self._plot_line_scalar(ax, slot_index, choice_name, plot_name, plot_dict, tt, yy)
                 else:
-                    # vector trajectory case
-                    over = self.legend_label_overrides.get((slot_index, choice_name), {})
-                    for i in range(n):
-                        default_label = plot_dict["labels"][i]
-                        gid = f"{choice_name}::{plot}::{i}"
-                        label = over.get(gid, default_label)
+                    # y expected shape (T, n)
+                    tt = t
+                    Y = y
+                    if Y.shape[0] != len(t):
+                        # align on time dimension
+                        m = min(Y.shape[0], len(t))
+                        tt = t[:m]
+                        Y = Y[:m, :]
+                    self._plot_line_vector(ax, slot_index, choice_name, plot_name, plot_dict, tt, Y)
 
-                        line = axis.plot(
-                            t, traj[plot_dict["traj_key"]][:,i],
-                            color= plot_dict["colors"][i],
-                            linestyle= plot_dict.get("linestyle", "solid"),
-                            label= label
-                        )[0]
-                        line.set_gid(gid)
             except KeyError as e:
                 self.status_bar.showMessage(f"Error, no key found: {e}")
                 self._log_exception(
                     logging.ERROR,
                     "Missing key in traj dict.",
-                    extra= {
+                    extra={
                         "choice_name": choice_name,
-                        "plot_name": plot,
+                        "plot_name": plot_name,
                         "traj_key": plot_dict.get("traj_key"),
-                        "sim_run_id": self._sim_run_id
+                        "sim_run_id": self._sim_run_id,
                     },
-                    exc_info= True,
-                    key= (self._sim_run_id, "plot_fail", choice_name, plot_dict.get("traj_key"), type(e).__name__, str(e))
+                    exc_info=True,
+                    key=(self._sim_run_id, "plot_fail", choice_name, plot_dict.get("traj_key"), type(e).__name__, str(e)),
                 )
-            except ValueError as e:
-                if str(e)[0:7] == "x and y":
-                    self.status_bar.showMessage(f"Truncating the plot to the length of the x-axis")
-                    self._log_exception(
-                        logging.ERROR,
-                        "Shape mismatch between traj and t. Truncating the plot to the length of the x-axis.",
-                        extra= {
-                            "choice_name": choice_name,
-                            "plot_name": plot,
-                            "traj_key": plot_dict.get("traj_key"),
-                            "sim_run_id": self._sim_run_id
-                        },
-                        exc_info= True,
-                        key= (self._sim_run_id, "plot_fail", choice_name, plot_dict.get("traj_key"), type(e).__name__)
-                    )
-                    plot = traj[plot_dict["traj_key"]][0:len(t)]
-                    if n == 1:
-                        # scalar trajectory case
-                        default_label = plot_dict["labels"][0]
-                        gid = f"{choice_name}::{plot}::0"
 
-                        over = self.legend_label_overrides.get((slot_index, choice_name), {})
-                        label = over.get(gid, default_label)
-
-                        line = axis.plot(
-                            t, plot,
-                            color= plot_dict["colors"][0],
-                            linestyle= plot_dict.get("linestyle", "solid"),
-                            label= label
-                        )[0]
-                        line.set_gid(gid)
-                    else:
-                        # vector trajectory case
-                        over = self.legend_label_overrides.get((slot_index, choice_name), {})
-
-                        for i in range(n):
-                            default_label = plot_dict["labels"][i]
-                            gid = f"{choice_name}::{plot}::{i}"
-                            label = over.get(gid, default_label)
-
-                            line = axis.plot(
-                                t, plot[:,i],
-                                color= plot_dict["colors"][i],
-                                linestyle= plot_dict.get("linestyle", "solid"),
-                                label= label
-                            )[0]
-                            line.set_gid(gid)
-                else:
-                    self.status_bar.showMessage(f"Value error: {e}")
-                    self._log_exception(
-                        logging.ERROR,
-                        "Value error when plotting.",
-                        exc_info= True,
-                        key= (self._sim_run_id, "plot_fail", choice_name, plot_dict.get("traj_key"), type(e).__name__)
-                    )
             except Exception as e:
                 self.status_bar.showMessage(f"Error: {e}")
                 self._log_exception(
                     logging.ERROR,
                     "Unexpected error when plotting.",
-                    exc_info= True,
-                    key= (self._sim_run_id, "plot_fail", choice_name, plot_dict.get("traj_key"), type(e).__name__)
+                    exc_info=True,
+                    key=(self._sim_run_id, "plot_fail", choice_name, plot_dict.get("traj_key"), type(e).__name__),
                 )
 
-    def make_plot(self, traj, t, dropdown_choice, options):
-        self.traj = traj
-        self.t = t
+    # helpers for _plot_on_axis
+    def _plot_enabled(self, plot_dict: dict, options: dict) -> bool:
+        if "checkbox_name" in plot_dict:
+            name = plot_dict["checkbox_name"]
+            if name not in options and not (self.start_up and "on_startup" in plot_dict):
+                return False
+        return True
 
-        for i,ax in enumerate(self.axes):
-            ax.clear()
+    def _choice_and_plots(self, dropdown_choice: int):
+        choice = self._choice_dict_from_index(dropdown_choice)
+        return choice, choice.get("plots", {})
 
-            current_xlim = ax.get_xlim()
-            current_ylim = ax.get_ylim()
+    def _build_scatter(self, ax, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
+        xk, yk = plot_dict.get("traj_key_x"), plot_dict.get("traj_key_y")
+        pc = ax.scatter(
+            traj[xk], traj[yk],
+            color=plot_dict.get("color", "k"),
+            label=plot_dict["labels"][0],
+            marker=plot_dict.get("marker", 'o'),
+            edgecolors=plot_dict.get("edgecolors", 'none')
+        )
+        pc.set_gid(f"{choice_name}::{plot_name}::scatter")
 
-            dropdown_list = list(self.data.keys())
-            choice_name = dropdown_list[dropdown_choice]
+    def _build_cplot(self, ax, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
+        xmin, xmax = traj["x"][0], traj["x"][-1]
+        ymin, ymax = traj["y"][0], traj["y"][-1]
 
-            # TODO: replace time with a plotting file specification
+        im = ax.imshow(
+            traj["rgb"],
+            origin="lower",
+            extent=(xmin, xmax, ymin, ymax),
+            interpolation="nearest",
+            aspect="auto",
+        )
+        im.set_gid(f"{choice_name}::{plot_name}::cplot")
 
-            self._plot_on_axis(ax, i, choice_name, traj, t, dropdown_choice, options)
+        if plot_dict.get("contours", False):
+            X, Y = np.meshgrid(traj["x"], traj["y"], indexing="xy")
+            abs_levels = np.logspace(-2, 2, 9)
+            arg_levels = [-np.pi, -np.pi/2, 0, np.pi/2, np.pi]
+            ax.contour(X, Y, traj["abs_sin"], levels=abs_levels, antialiased=True, alpha=0.35, linewidths=0.9)
+            ax.contour(X, Y, traj["arg_sin"], levels=arg_levels, antialiased=True, alpha=0.45, linewidths=1.2)
 
-            ax.set_xlim(current_xlim)
-            ax.set_ylim(current_ylim)
-            ax.legend(fontsize= 10)
+    def _build_heatmap(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
+        frame2d = self._heatmap_frame_from_dict(plot_dict, traj)
+        if frame2d is None:
+            return
 
-        self._init_snap_artists()
-        self._connect_axis_callbacks()
-        self.canvas.draw()
-        self.figure.tight_layout()
-        self.canvas.draw_idle()
+        extent = None
+        if "x" in traj and "y" in traj:
+            xmin, xmax = float(traj["x"][0]), float(traj["x"][-1])
+            ymin, ymax = float(traj["y"][0]), float(traj["y"][-1])
+            extent = (xmin, xmax, ymin, ymax)
+
+        im = ax.imshow(
+            frame2d,
+            origin=plot_dict.get("origin", "lower"),
+            interpolation=plot_dict.get("interpolation", "nearest"),
+            aspect=plot_dict.get("aspect", "auto"),
+            extent=extent,
+        )
+        im.set_gid(f"{choice_name}::{plot_name}::heatmap")
+
+        # keep legacy teardown support for now
+        self._slot_images[slot_index] = im
+
+        if plot_dict.get("colorbar", False):
+            cb = self.figure.colorbar(im, ax=ax)
+            self._slot_cbar[slot_index] = cb
+
+        vmin = plot_dict.get("vmin", None)
+        vmax = plot_dict.get("vmax", None)
+        if vmin is not None or vmax is not None:
+            im.set_clim(vmin=vmin, vmax=vmax)
+        else:
+            im.autoscale()
+
+    def _build_hist(self, ax, slot_index, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
+        data = traj[plot_dict["dist"]]
+        edge_color = plot_dict.get("edgecolor", "black")
+        rwidth = plot_dict.get("rwidth", 1)
+        histtype = plot_dict.get("histtype", 'bar')
+        density = plot_dict.get("density", False)
+        color = plot_dict.get("color", "black")
+        label = plot_dict.get("label", "")
+        weights = plot_dict.get("weights", None)
+
+        if weights is not None:
+            weights = traj[weights]
+
+        bins = plot_dict.get("bins", None)
+        if isinstance(bins, str):
+            bins = traj[plot_dict["bins"]]
+        if bins is None:
+            bins = self._desired_hist_edges(data, plot_dict)
+
+        counts, edges, patches = ax.hist(
+            data, bins=bins, edgecolor=edge_color, rwidth=rwidth, histtype= histtype, density= density, color= color, label= label, weights= weights
+        )
+        for k, rect in enumerate(patches):
+            rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
+        self._hist_state[(slot_index, choice_name, plot_name)] = {"edges": np.asarray(edges, dtype=float)}
+
+        # try:
+        #     ax.set_xlim(0, float(np.max(data)))
+        # except Exception:
+        #     pass
+
+        if plot_dict.get("gradient", False):
+            norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)))
+            cmap = plt.cm.magma
+            for c, p in zip(counts, patches):
+                p.set_facecolor(cmap(norm(c)))
+
+    
+    def _build_surface(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
+        """Build a 3D surface plot.
+
+        Supports either:
+          - precomputed meshgrids in traj via traj_key_X / traj_key_Y (+ traj_key_Z)
+          - 1D coordinate vectors in traj via traj_key_x / traj_key_y (+ traj_key_z), in which case we meshgrid them.
+
+        The created Poly3DCollection gets a stable GID so the rest of the slot/artist inventory system can reason about it.
+        """
+        # Prefer explicit meshgrid keys if provided.
+        key_X = plot_dict.get("traj_key_X") or plot_dict.get("traj_key_x")
+        key_Y = plot_dict.get("traj_key_Y") or plot_dict.get("traj_key_y")
+        key_Z = plot_dict.get("traj_key_Z") or plot_dict.get("traj_key_z")
+
+        X = traj.get(key_X) if key_X else None
+        Y = traj.get(key_Y) if key_Y else None
+        Z = traj.get(key_Z) if key_Z else None
+
+        if Z is None:
+            return
+
+        X = np.asarray(X) if X is not None else None
+        Y = np.asarray(Y) if Y is not None else None
+        Z = np.asarray(Z)
+
+        # If X/Y are 1D, build a meshgrid.
+        if X is not None and Y is not None and X.ndim == 1 and Y.ndim == 1:
+            X, Y = np.meshgrid(X, Y, indexing="xy")
+
+        # If X/Y are missing but we have "x"/"y" in traj, try those.
+        if X is None or Y is None:
+            if "x" in traj and "y" in traj:
+                xx = np.asarray(traj["x"])
+                yy = np.asarray(traj["y"])
+                if xx.ndim == 1 and yy.ndim == 1:
+                    X, Y = np.meshgrid(xx, yy, indexing="xy")
+
+        if X is None or Y is None:
+            return
+
+        # Basic shape sanity: allow Z to be (ny, nx) matching meshgrid.
+        try:
+            if Z.ndim == 2 and X.shape != Z.shape:
+                # common mismatch: X/Y are (ny, nx) but Z is transposed
+                if X.shape == Z.T.shape:
+                    Z = Z.T
+        except Exception:
+            pass
+
+        kwargs = {}
+        for k in ("rstride", "cstride", "linewidth", "antialiased", "alpha", "cmap", "shade"):
+            if k in plot_dict:
+                kwargs[k] = plot_dict[k]
+
+        # vmin/vmax support (useful when Z values drift over time)
+        vmin = plot_dict.get("vmin", None)
+        vmax = plot_dict.get("vmax", None)
+        if vmin is not None:
+            kwargs["vmin"] = vmin
+        if vmax is not None:
+            kwargs["vmax"] = vmax
+
+        surf = ax.plot_surface(X, Y, Z, **kwargs)
+        surf.set_gid(f"{choice_name}::{plot_name}::surface")
+
+        # Optional colorbar support (mirrors heatmap bookkeeping)
+        if plot_dict.get("colorbar", False):
+            try:
+                cb = self.figure.colorbar(surf, ax=ax, shrink=plot_dict.get("cb_shrink", 0.7), pad=plot_dict.get("cb_pad", 0.08))
+                self._slot_cbar[slot_index] = cb
+            except Exception:
+                pass
 
     def _on_canvas_draw(self, event):
         """
@@ -601,7 +773,29 @@ class GraphPanel(qw.QWidget):
 
         # capture legend/line labels after toolbar Apply/OK
         for slot_index, ax in enumerate(self.axes):
-            choice_name = self.slot_choice_key.get(slot_index)
+            choice_name = self._slot_choices.get(slot_index)
+            if not choice_name:
+                continue
+
+            current = (ax.get_title() or "").strip()
+
+            try:
+                # Find the choice dict by name
+                choice = self.data.get(choice_name, {})
+                default_title = (choice.get("title") or choice.get("name") or "").strip()
+            except Exception:
+                default_title = ""
+
+            key = (slot_index, choice_name)
+
+            if current and current != default_title:
+                self.title_overrides[key] = current
+            else:
+                self.title_overrides.pop(key, None)
+
+
+        for slot_index, ax in enumerate(self.axes):
+            choice_name = self._slot_choices.get(slot_index)
             if not choice_name:
                 continue
 
@@ -614,34 +808,105 @@ class GraphPanel(qw.QWidget):
                 if lab and str(lab).strip():
                     bucket[gid] = str(lab)
 
-    def plot_slot(self, slot_index, dropdown_choice, options, slot_config= None):
-        """ Apply a plot to a slot """
-        dropdown_list = list(self.data.keys())
-        choice_name = dropdown_list[dropdown_choice]
-        self.slot_choice_key[slot_index] = choice_name
-        self._slot_state[slot_index] = (dropdown_choice, options, slot_config)
-        
-        if self.traj is None or self.t is None: return
-        if slot_index < 0 or slot_index >= len(self.axes): return
+    def _plot_line_scalar(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, t: np.ndarray, y: np.ndarray):
+        default_label = (plot_dict.get("labels", [""]) or [""])[0]
+        gid = f"{choice_name}::{plot_name}::0"
 
+        over = self.legend_label_overrides.get((slot_index, choice_name), {})
+        label = over.get(gid, default_label)
+
+        ln = ax.plot(
+            t, y,
+            color=plot_dict["colors"][0],
+            linestyle=plot_dict.get("linestyle", "solid"),
+            label=label,
+        )[0]
+        ln.set_gid(gid)
+
+    def _plot_line_vector(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, t: np.ndarray, Y: np.ndarray):
+        n = len(plot_dict.get("labels", [0]))
+        over = self.legend_label_overrides.get((slot_index, choice_name), {})
+
+        for i in range(n):
+            default_label = plot_dict["labels"][i]
+            gid = f"{choice_name}::{plot_name}::{i}"
+            label = over.get(gid, default_label)
+
+            ln = ax.plot(
+                t, Y[:, i],
+                color=plot_dict["colors"][i],
+                linestyle=plot_dict.get("linestyle", "solid"),
+                label=label,
+            )[0]
+            ln.set_gid(gid)
+
+    def _safe_align_xy(self, t: np.ndarray, y: np.ndarray):
+        n = min(len(t), len(y))
+        return t[:n], y[:n]
+
+    def plot_slot(self, slot_index, dropdown_choice, options, slot_config=None):
+        """ apply plots to a slot """
+        if self.traj is None or self.t is None:
+            self.canvas.draw_idle()
+            return
+        if slot_index < 0 or slot_index >= len(self.axes):
+            return
+
+        # populate slot data 
+        choice_name = self._choice_name_from_index(dropdown_choice)
+        self._slot_choices[slot_index] = choice_name
+        self._slot_settings[slot_index] = (dropdown_choice, options, slot_config)
+
+        # decide if the slot is meant to be 3D (defaults to 2D unless data says not to)
+        want_3d = (self.data.get(choice_name, {}).get("projection", "2d") == "3d") 
+        # if the slot is supposed to be 3d and isn't, blow it up and remake it (or vice versa)
+        self._ensure_slot_projection(slot_index, want_3d, preserve_limits=True)
+
+        # grab relevant slot data and objects
         ax = self.axes[slot_index]
+
+        # snapshot current camera pos
         current_xlim = ax.get_xlim()
         current_ylim = ax.get_ylim()
+        current_zlim = ax.get_zlim() if hasattr(ax, "get_zlim") else None
 
+        legend_font_size = self._get_legend_font()
+
+        self._clear_slot(slot_index) # die
+
+        # build all artists for the slot
+        self._plot_on_axis(ax, slot_index, choice_name, self.traj, self.t, dropdown_choice, options)
+
+        # self explanatory
+        self._restore_limits(ax, current_xlim, current_ylim, current_zlim)
+        self._apply_slot_config(ax, slot_index, dropdown_choice, slot_config, legend_font_size)
+
+        self._rebuild_slot_artists_inventory(slot_index)
+        self._init_snap_artists()
+        self.canvas.draw_idle()
+
+    def _get_legend_font(self) -> int:
         try:
             default_font = self.font_vals[(self.axes_rows, self.axes_cols)]
         except KeyError:
             default_font = 10
 
+        return default_font
+
+    def _clear_slot(self, slot_index: int) -> None:
+        """ blows up a slot axis and also perform any necessary clean up """
+        ax = self.axes[slot_index]
         ax.clear()
 
-        old_im = getattr(self, "_slot_images", {}).pop(slot_index, None)
-        if old_im is not None:
-            try:
-                old_im.remove()
-            except Exception:
-                pass
+        # heatmap bookkeeping (legacy; keep until heatmap moves into _plot_on_axis)
+        # old_im = getattr(self, "_slot_images", {}).pop(slot_index, None)
+        # if old_im is not None:
+        #     try:
+        #         old_im.remove()
+        #     except Exception:
+        #         pass
 
+        # if there is a colorbar, delete it
         old_cb = getattr(self, "_slot_cbar", {}).pop(slot_index, None)
         if old_cb is not None:
             try:
@@ -649,103 +914,176 @@ class GraphPanel(qw.QWidget):
             except Exception:
                 pass
 
-        # --- NEW: draw heatmap on full redraw path (fixes "blank after finish") ---
-        hm_name, hm_dict = self._has_heatmap(dropdown_choice, options)
-        if hm_dict is not None:
-            frame2d = self._heatmap_frame_from_dict(hm_dict, self.traj)
-            if frame2d is not None:
-                extent = None
-                if "x" in self.traj and "y" in self.traj:
-                    xmin, xmax = float(self.traj["x"][0]), float(self.traj["x"][-1])
-                    ymin, ymax = float(self.traj["y"][0]), float(self.traj["y"][-1])
-                    extent = (xmin, xmax, ymin, ymax)
+        self._slot_artists.pop(slot_index, None)
+        self._slot_artists_meta.pop(slot_index, None)
 
-                im = ax.imshow(
-                    frame2d,
-                    origin=hm_dict.get("origin", "lower"),
-                    interpolation=hm_dict.get("interpolation", "nearest"),
-                    aspect=hm_dict.get("aspect", "auto"),
-                    extent=extent,
-                )
-                self._slot_images[slot_index] = im
-
-                if hm_dict.get("colorbar", False):
-                    # (re)create colorbar tied to this axes
-                    self._slot_cbar[slot_index] = self.figure.colorbar(im, ax=ax)
-
-                vmin = hm_dict.get("vmin", None)
-                vmax = hm_dict.get("vmax", None)
-                if vmin is not None or vmax is not None:
-                    im.set_clim(vmin=vmin, vmax=vmax)
-                else:
-                    im.autoscale()
-
-
-        self._plot_on_axis(ax, slot_index, choice_name, self.traj, self.t, dropdown_choice, options)
-
-        self._block_axis_callback = True
-        ax.set_xlim(current_xlim)
-        ax.set_ylim(current_ylim)
-        self._block_axis_callback = False
-
+    def _apply_slot_config(self, ax, slot_index: int, dropdown_choice: int, slot_config: dict | None, default_font: int) -> None:
         if slot_config is None:
-            ax.legend(fontsize= default_font)
+            ax.legend(fontsize=default_font)
+            return
+
+        legend_visible = slot_config.get("legend_visible", True)
+        # fontsize = slot_config.get("legend_fontsize", default_font)
+        fontsize = default_font
+        loc = slot_config.get("legend_loc", "upper right")
+        legend_title = slot_config.get("legend_title", None)
+
+        if legend_visible:
+            handles, labels = ax.get_legend_handles_labels()
+
+            overrides = slot_config.get("legend_label_overrides", slot_config.get("legend_labels", None))
+            if overrides:
+                if isinstance(overrides, dict):
+                    labels = [str(overrides.get(lbl, lbl)) for lbl in labels]
+                elif isinstance(overrides, (list, tuple)):
+                    labels = [str(overrides[i]) if i < len(overrides) else lbl for i, lbl in enumerate(labels)]
+
+            ax.legend(handles, labels, fontsize=fontsize, loc=loc, title=legend_title)
         else:
-            legend_visible = slot_config.get("legend_visible", True)
-            fontsize = slot_config.get("legend_fontsize", default_font)
-            loc = slot_config.get("legend_loc", "upper right")
-            legend_title = slot_config.get("legend_title", None)
+            leg = ax.get_legend()
+            if leg is not None:
+                leg.remove()
 
-            if legend_visible:
-                handles, labels = ax.get_legend_handles_labels()
+        display_title = slot_config.get("title", False)
+        display_x_title = slot_config.get("xlabel", True)
+        display_y_title = slot_config.get("ylabel", False)
 
-                overrides = slot_config.get("legend_label_overrides", slot_config.get("legend_labels", None))
-                if overrides:
-                    if isinstance(overrides, dict):
-                        labels = [str(overrides.get(lbl, lbl)) for lbl in labels]
-                    elif isinstance(overrides, (list, tuple)):
-                        labels = [str(overrides[i]) if i < len(overrides) else lbl for i, lbl in enumerate(labels)]
+        choice = self._choice_dict_from_index(dropdown_choice)
+        title = choice.get("title") or choice.get("name", "")
+        x_title = choice.get("x_label") or "Time [t]"
+        y_title = choice.get("y_label") or ""
 
-                ax.legend(handles, labels, fontsize=fontsize, loc=loc, title=legend_title)
-            else:
-                leg = ax.get_legend()
-                if leg is not None:
-                    leg.remove()
+        if display_title:
+            choice_name = self._choice_name_from_index(dropdown_choice)  # or derive however you prefer
+            override = getattr(self, "title_overrides", {}).get((slot_index, choice_name))
+            ax.set_title(override if override else title)
+        if display_x_title:
+            ax.set_xlabel(x_title)
+        if display_y_title:
+            ax.set_ylabel(y_title)
 
-            # if slot_config.get("legend_visible", True):
-            #     fontsize = slot_config.get("legend_fontsize", default_font)
-            #     loc = slot_config.get("legend_loc", "upper right")
-            #     ax.legend(fontsize= fontsize, loc= loc)
-            # else:
-            #     leg = ax.get_legend()
-            #     if leg is not None:
-            #         leg.remove()
+    
+    def _restore_limits(self, ax, xlim, ylim, zlim=None) -> None:
+        self._block_axis_callback = True
+        try:
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
+            if zlim is not None and hasattr(ax, "set_zlim"):
+                ax.set_zlim(zlim)
+        finally:
+            self._block_axis_callback = False
 
-            display_title = slot_config.get("title", False)
-            display_x_title = slot_config.get("xlabel", True)
-            display_y_title = slot_config.get("ylabel", False)
+    def _ensure_slot_projection(self, slot_index: int, want_3d: bool, *, preserve_limits: bool = True) -> None:
+        """Ensure the axes for this slot has the requested projection (2D vs 3D).
 
-            dropdown_list = list(self.data.keys())
-            choice = self.data[dropdown_list[dropdown_choice]]
+        Matplotlib cannot "toggle" an existing Axes between 2D and 3D in-place. The safe approach is:
+          - delete the old axes
+          - re-create the subplot at the same grid position with the desired projection
+          - re-wire callbacks + snap artists
+        """
+        if slot_index < 0 or slot_index >= len(self.axes):
+            return
 
-            title = choice.get("title") or choice["name"]
-            x_title = choice.get("x_label") or "Time [t]"
-            y_title = choice.get("y_label") or ""
+        old_ax = self.axes[slot_index]
+        is_3d = hasattr(old_ax, "get_zlim")
 
-            title_fs = default_font+8
-            label_fs = default_font+4
+        if want_3d == is_3d:
+            self._slot_dimensions[slot_index] = "3d" if want_3d else "2d"
+            return
 
-            if display_title: 
-                override = self.title_overrides.get(slot_index)
-                if override:
-                    ax.set_title(override)
-                else:
-                    ax.set_title(title)
-            if display_x_title: ax.set_xlabel(x_title)
-            if display_y_title: ax.set_ylabel(y_title)
+        # Snapshot camera/limits from the old axes.
+        xlim = ylim = zlim = None
+        if preserve_limits:
+            try:
+                xlim = old_ax.get_xlim()
+                ylim = old_ax.get_ylim()
+                if is_3d:
+                    zlim = old_ax.get_zlim()
+            except Exception:
+                pass
 
-        self._init_snap_artists()
-        self.canvas.draw_idle()
+        # Remove old snap artists (marker/annotation) for this axes.
+        try:
+            snap = self.snap_artists.pop(old_ax, None)
+            if snap:
+                for artist in snap:
+                    try:
+                        artist.remove()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        # Delete and recreate the subplot with the correct projection.
+        try:
+            self.figure.delaxes(old_ax)
+        except Exception:
+            pass
+
+        new_ax = self.figure.add_subplot(
+            self.axes_rows, self.axes_cols, slot_index + 1,
+            projection=("3d" if want_3d else None),
+        )
+        self.axes[slot_index] = new_ax
+        if slot_index == 0:
+            self.axis = new_ax
+
+        # Re-add snap artists for the new axes.
+        try:
+            marker, = new_ax.plot([], [], "o", ms=6)
+            marker.set_visible(False)
+
+            annot = new_ax.annotate(
+                "",
+                xy=(0, 0),
+                xytext=(10, 10),
+                textcoords="offset points",
+                bbox=dict(boxstyle="round,pad=0.3", fc="w", ec="k", lw=0.5),
+            )
+            annot.set_visible(False)
+
+            self.snap_artists[new_ax] = (marker, annot)
+        except Exception:
+            pass
+
+        # Wire callbacks for the new axes.
+        try:
+            new_ax.callbacks.connect("xlim_changed", self._on_axis_limits_changed)
+            new_ax.callbacks.connect("ylim_changed", self._on_axis_limits_changed)
+            if want_3d:
+                new_ax.callbacks.connect("zlim_changed", self._on_axis_limits_changed)
+        except Exception:
+            pass
+
+        # Restore limits if we had them.
+        if preserve_limits and xlim is not None and ylim is not None:
+            self._block_axis_callback = True
+            try:
+                new_ax.set_xlim(xlim)
+                new_ax.set_ylim(ylim)
+                if want_3d and zlim is not None:
+                    new_ax.set_zlim(zlim)
+            finally:
+                self._block_axis_callback = False
+
+        # Keep your aspect behavior consistent for 2D; for 3D this is optional.
+        if not hasattr(new_ax, "get_zlim"):   # 2D
+            new_ax.set_box_aspect(self._base_box_aspect)
+        else:
+            # 3D: either leave default, or use equal-ish scaling
+            try:
+                new_ax.set_box_aspect((1, 1, 1))
+            except Exception:
+                pass
+        # try:
+        #     new_ax.set_box_aspect(self._base_box_aspect)
+        # except Exception:
+        #     pass
+
+        self._slot_dimensions[slot_index] = "3d" if want_3d else "2d"
+
+
+
 
     # ----------------------------
     # Live-update (no axis clear)
@@ -755,13 +1093,13 @@ class GraphPanel(qw.QWidget):
         dropdown_list = list(self.data.keys())
         return dropdown_list[dropdown_choice]
 
-    def _choice_spec(self, dropdown_choice: int):
+    def _choice_dict_from_index(self, dropdown_choice: int):
         dropdown_list = list(self.data.keys())
         return self.data[dropdown_list[dropdown_choice]]
 
     def _has_special_plots(self, dropdown_choice: int, options: dict) -> bool:
         """Return True if the active selection includes any plot types that we can't update in-place."""
-        choice = self._choice_spec(dropdown_choice)
+        choice = self._choice_dict_from_index(dropdown_choice)
         plots = choice.get("plots", {})
         for _plot_name, plot_dict in plots.items():
             # skip hidden plots
@@ -774,35 +1112,110 @@ class GraphPanel(qw.QWidget):
                     return True
         return False
 
-    def _expected_line_gids(self, dropdown_choice: int, options: dict) -> list[str]:
-        """List the expected Line2D gids for the current dropdown choice and options.
-
-        Only includes standard line plots (no 'special' plots).
+    def _expected_artist_gids(self, slot_index: int, dropdown_choice: int, options: dict) -> list[str]:
         """
-        choice_name = self._choice_name_from_index(dropdown_choice)
-        choice = self._choice_spec(dropdown_choice)
-        plots = choice.get("plots", {})
+        Returns a list of the expected artist gids for the current dropdown choice and options.
 
-        gids: list[str] = []
-        for plot_name, plot_dict in plots.items():
-            # deciding whether to plot
+        Includes:
+          - standard line plots:  choice::plot::i
+          - scatter:              choice::plot::scatter
+          - cplot image:          choice::plot::cplot
+          - heatmap image:        choice::plot::heatmap
+          - histogram bars:       choice::plot::hist::patch::k
+          - surfaces:             choice::plot::surface  
+        """
+        dropdown_list = list(self.data.keys())
+        choice_name = dropdown_list[dropdown_choice]
+        choice_dict = self._choice_dict_from_index(dropdown_choice) 
+        plots = choice_dict.get("plots", {})
+
+        expected: list[str] = []
+
+        def is_enabled(plot_dict: dict) -> bool:
             if "checkbox_name" in plot_dict:
                 name = plot_dict["checkbox_name"]
                 if name not in options and not (self.start_up and "on_startup" in plot_dict):
-                    continue
+                    return False
+            return True
 
-            # skip special plots entirely (handled by redraw path)
-            if "special" in plot_dict:
+        slot_bucket = self._slot_artists.get(slot_index, {})
+        # Pattern: "{choice}::{plot}::hist::patch::{k}"
+        for plot_name, plot_dict in plots.items():
+            if not is_enabled(plot_dict):
                 continue
 
+            special = plot_dict.get("special")
+
+            # we're adding these because the artists need GIDs prior to having them actually assigned
+            if special == "scatter":
+                expected.append(f"{choice_name}::{plot_name}::scatter")
+                continue
+
+            if special == "cplot":
+                expected.append(f"{choice_name}::{plot_name}::cplot")
+                continue
+
+            if special == "heatmap":
+                # you set this in plot_slot via: im.set_gid(f"{choice_name}::{hm_name}::heatmap")
+                expected.append(f"{choice_name}::{plot_name}::heatmap")
+                continue
+
+            if special == "surface":
+                expected.append(f"{choice_name}::{plot_name}::surface")
+                continue
+
+            if special == "hist":
+                # infer patch keys from whatever currently exists in the slot inventory
+                dist_key = plot_dict.get("dist", "dist")
+                data = self.traj.get(dist_key, None)
+
+                if data is None:
+                    continue
+
+                bins_spec = plot_dict.get("bins", None)
+
+
+                if isinstance(bins_spec, int):
+                    nbins = bins_spec
+                elif isinstance(bins_spec, str):
+                    try:
+                        nbins = len(self.traj[plot_dict[bins_spec]])
+                    except Exception:
+                        nbins = int(np.unique(data).size)
+                elif bins_spec is None:
+                    nbins = int(np.unique(data).size)
+                else:
+                    edges = np.asarray(bins_spec, dtype= float).ravel()
+                    nbins = max(0, edges.size - 1)
+
+                expected.extend([f"{choice_name}::{plot_name}::hist::patch::{k}" for k in range(nbins)])
+                continue
+                # prefix = f"{choice_name}::{plot_name}::hist::patch"
+                # patch_gids = [gid for gid in slot_bucket.keys() if isinstance(gid, str) and gid.startswith(prefix)]
+                # # Stable numeric ordering by the trailing index if possible
+                # def patch_index(g: str) -> int:
+                #     try:
+                #         return int(g.rsplit("::", 1)[-1])
+                #     except Exception:
+                #         return 10**9
+
+                # patch_gids.sort(key=patch_index)
+
+                # # If we have none yet, we *can't* predict how many patches will exist (that’s the point of A),
+                # # so we return empty here and let the caller decide to redraw.
+                # expected.extend(patch_gids)
+                # continue
+
+            # ---- normal line plots
             labels = plot_dict.get("labels", [])
             n = len(labels) if isinstance(labels, (list, tuple)) else 1
             if n <= 1:
-                gids.append(f"{choice_name}::{plot_name}::0")
+                expected.append(f"{choice_name}::{plot_name}::0")
             else:
                 for i in range(n):
-                    gids.append(f"{choice_name}::{plot_name}::{i}")
-        return gids
+                    expected.append(f"{choice_name}::{plot_name}::{i}")
+
+        return expected
 
     def _ydata_for_gid(self, gid: str, traj: dict):
         """Return y-data array for a given Line2D gid."""
@@ -838,9 +1251,340 @@ class GraphPanel(qw.QWidget):
             return None
         return None
 
+    def _xdata_for_gid(self, gid, traj, t):
+        if t is None:
+            return None
+        
+        x_default = np.asarray(t)
+        _choice_name, _plot_name, plot_dict = self._get_spec_from_gid(gid)
+        if not plot_dict:
+            return x_default
+
+        key_x = plot_dict.get("traj_key_x")
+        if not key_x or key_x not in traj:
+            return x_default
+
+        try:
+            x = np.asarray(traj[key_x])
+        except Exception:
+            return x_default
+
+        return x
+
+    def _get_spec_from_gid(self, gid: str) -> tuple[str | None, str | None, dict | None]:
+        """ Attempts to retrieve and return all the required plot info from a gid """
+        try:
+            choice_name, plot_name, _rest = gid.split("::", 2)
+        except Exception:
+            return None, None, None
+
+        if choice_name not in self.data:
+            return choice_name, plot_name, None
+
+        plot_dict = self.data[choice_name].get("plots", {}).get(plot_name)
+        return choice_name, plot_name, plot_dict
+
+    def _get_artist_type_from_gid(self, slot_index: int, gid: str) -> str:
+        metadata = self._slot_artists_meta.get(slot_index, {}).get(gid)
+        if metadata and "kind" in metadata:
+            return metadata["kind"]
+
+        if gid.endswith("::scatter"): return "collection"
+        if gid.endswith("::surface"): return "surface"
+        if gid.endswith("::cplot") or gid.endswith("::heatmap"): return "image"
+        if "::hist::patch" in gid: return "patch"
+        return "line"
+
+    def _update_line_artist(self, line, gid: str, t: np.ndarray, traj: dict, slot_index: int) -> None:
+        y = self._ydata_for_gid(gid, traj)
+        x = self._xdata_for_gid(gid, traj, t)
+        if y is None:
+            return
+
+        y = np.asarray(y)
+        n = min(len(x), len(y))
+        line.set_data(x[:n], y[:n])
+
+        over = self.legend_label_overrides.get((slot_index, self._slot_choices.get(slot_index)), {})
+        if gid in over:
+            line.set_label(over[gid])
+
+    def _update_scatter_artist(self, coll, gid: str, traj: dict) -> None:
+        choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
+
+        if not plot_dict:
+            return
+
+        xk, yk = plot_dict.get("traj_key_x"), plot_dict.get("traj_key_y")
+        if not xk or not yk or xk not in traj or yk not in traj:
+            return
+
+        x, y = np.asarray(traj[xk]), np.asarray(traj[yk])
+        n = min(x.shape[0], y.shape[0])
+        if n <= 0:
+            coll.set_offsets(np.empty((0,2), dtype= float))
+            return
+
+        offsets = np.column_stack((x[:n], y[:n]))
+        coll.set_offsets(offsets)
+
+    def _update_surface_artist(self, ax, slot_index: int, gid: str, traj: dict) -> None:
+        choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
+        if not plot_dict:
+            return
+
+        # Remove any existing surface collection(s) with this gid.
+        for coll in list(getattr(ax, "collections", [])):
+            try:
+                if getattr(coll, "get_gid", lambda: None)() == gid:
+                    try:
+                        coll.remove()
+                    except Exception:
+                        try:
+                            ax.collections.remove(coll)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+        # Remove any colorbar owned by this slot (surface colorbars tend to be per-slot).
+        cb = getattr(self, "_slot_cbar", {}).get(slot_index)
+        if cb is not None:
+            try:
+                cb.remove()
+            except Exception:
+                pass
+            try:
+                self._slot_cbar.pop(slot_index, None)
+            except Exception:
+                pass
+
+        self._build_surface(ax, slot_index, choice_name, plot_name, plot_dict, traj)
+
+    def _update_cplot_image(self, im, traj: dict) -> None:
+        if "rgb" not in traj:
+            return
+
+        im.set_data(np.asarray(traj["rgb"]))
+
+        if "x" in traj and "y" in traj:
+            xmin, xmax = float(traj["x"][0]), float(traj["x"][-1])
+            ymin, ymax = float(traj["y"][0]), float(traj["y"][-1])
+            im.set_extent((xmin, xmax, ymin, ymax))
+
+    def _update_heatmap_image(self, im, gid: str, traj: dict) -> None:
+        choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
+
+        if not plot_dict:
+            return
+
+        frame2d = self._heatmap_frame_from_dict(plot_dict, traj)
+        if frame2d is None:
+            return
+
+        im.set_data(frame2d)
+
+        if "x" in traj and "y" in traj:
+            xmin, xmax = float(traj["x"][0]), float(traj["x"][-1])
+            ymin, ymax = float(traj["y"][0]), float(traj["y"][-1])
+            im.set_extent((xmin, xmax, ymin, ymax))
+
+        vmin = plot_dict.get("vmin", None)
+        vmax = plot_dict.get("vmax", None)
+        if vmin is not None or vmax is not None:
+            im.set_clim(vmin= vmin, vmax= vmax)
+        else:
+            im.autoscale()
+
+    # def _desired_hist_edges(self, data: np.ndarray, plot_dict: dict) -> np.ndarray:
+    #     bins = plot_dict.get("bins", None)
+    #     if bins is None:
+    #         # your current behavior; consider capping for perf
+    #         nbins = int(np.unique(data).size)
+    #         nbins = max(1, min(nbins, plot_dict.get("max_bins", 200)))
+    #         return np.histogram_bin_edges(data, bins=nbins)
+    #     if isinstance(bins, int):
+    #         return np.histogram_bin_edges(data, bins=bins)
+    #     # assume array-like edges
+    #     edges = np.asarray(bins, dtype=float)
+
+
+    #     # If values are basically integers, center bins on integers.
+    #     # (This prevents bars from looking shifted right.)
+    #     if data.size and np.all(np.isfinite(data)) and plot_dict.get("integer_bins", False) == True:
+    #         rounded = np.rint(data)
+    #         if np.allclose(data, rounded, atol=1e-12, rtol=0):
+    #             imin = int(rounded.min())
+    #             imax = int(rounded.max())
+    #             # edges: imin-0.5, imin+0.5, ..., imax+0.5  (step 1)
+    #             return np.arange(imin - 0.5, imax + 1.5, 1.0)
+
+    #     return edges
+
+    def _desired_hist_edges(self, data: np.ndarray, plot_dict: dict) -> np.ndarray:
+        data = np.asarray(data)
+        bins = plot_dict.get("bins", None)
+
+        if isinstance(bins, str):
+            return self.traj[plot_dict["bins"]]
+
+        if plot_dict.get("integer_bins", False):
+            if data.size == 0:
+                return np.array([0.0, 1.0])
+
+            lo = np.nanmin(data)
+            hi = np.nanmax(data)
+
+            # Snap to integer range (so 0.0/1.0 etc works)
+            ilo = int(np.floor(lo))
+            ihi = int(np.ceil(hi))
+
+            # edges: ilo-0.5, ilo+0.5, ..., ihi+0.5
+            return np.arange(ilo - 0.5, ihi + 1.5, 1.0, dtype=float)
+            # or as ndarray:
+            # return np.arange(ilo - 0.5, ihi + 1.5, 1.0, dtype=float)
+
+        # existing behavior
+        if bins is None:
+            nbins = int(np.unique(data).size)
+            nbins = max(1, min(nbins, plot_dict.get("max_bins", 200)))
+            return np.histogram_bin_edges(data, bins=nbins)
+
+        if isinstance(bins, int):
+            return np.histogram_bin_edges(data, bins=bins)
+
+        return bins
+
+    def _rebuild_hist_plot(self, ax, slot_index, choice_name, plot_name, plot_dict, data):
+        # remove only this histogram's patches
+        prefix = f"{choice_name}::{plot_name}::hist::patch::"
+        for p in list(ax.patches):
+            gid = getattr(p, "get_gid", lambda: None)()
+            if isinstance(gid, str) and gid.startswith(prefix):
+                try: p.remove()
+                except Exception: pass
+
+        edge_color = plot_dict.get("edgecolor", "black")
+        color = plot_dict.get("color", "black")
+        rwidth = plot_dict.get("rwidth", 1)
+        density = plot_dict.get("density", False)
+        align = plot_dict.get("align", "mid")
+        histtype = plot_dict.get("histtype", 'bar')
+
+        edges = self._desired_hist_edges(data, plot_dict)
+        counts, edges, patches = ax.hist(data, bins=edges, edgecolor=edge_color, rwidth=rwidth, density= density, color= color, align= align, histtype= histtype)
+
+        for k, rect in enumerate(patches):
+            rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
+
+        self._hist_state[(slot_index, choice_name, plot_name)] = {"edges": np.asarray(edges, dtype=float)}
+
+        ax.set_xlim(float(edges[0]), float(edges[-1]))
+
+        if plot_dict.get("gradient", False):
+            norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
+            cmap = plt.cm.magma
+            for c, p in zip(counts, patches):
+                p.set_facecolor(cmap(norm(c)))
+
+    def _update_hist(self, slot_index, choice_name, plot_name, plot_dict, traj):
+        dist_key = plot_dict.get("dist")
+        if not dist_key or dist_key not in traj:
+            return
+        data = np.asarray(traj[dist_key])
+        if data.size == 0:
+            return
+
+        ax = self.axes[slot_index]
+        key = (slot_index, choice_name, plot_name)
+
+        desired_edges = self._desired_hist_edges(data, plot_dict)
+        state = self._hist_state.get(key)
+        stored_edges = state.get("edges") if state else None
+
+        # decide whether to rebuild
+        if stored_edges is None or stored_edges.shape != desired_edges.shape or not np.allclose(stored_edges, desired_edges, rtol=0, atol=0):
+            self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+            return
+
+        # update heights using the true edges
+        counts, _ = np.histogram(data, bins=stored_edges)
+
+        # collect rects in stable k order from inventory (or from ax.patches)
+        bucket = self._slot_artists.get(slot_index, {})
+        prefix = f"{choice_name}::{plot_name}::hist::patch::"
+        rects = []
+        for gid, artist in bucket.items():
+            if isinstance(gid, str) and gid.startswith(prefix):
+                try: k = int(gid.rsplit("::", 1)[-1])
+                except Exception: k = 10**9
+                rects.append((k, artist))
+        rects.sort(key=lambda kv: kv[0])
+        rects = [r for _, r in rects]
+
+        # if count mismatch, rebuild
+        if len(rects) != len(counts):
+            self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+            return
+
+        for rect, c in zip(rects, counts):
+            if not isinstance(rect, Rectangle):
+                self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+                return
+            rect.set_height(float(c))
+
+        ax.set_xlim(float(stored_edges[0]), float(stored_edges[-1]))
+
+        if plot_dict.get("gradient", False):
+            norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
+            cmap = plt.cm.magma
+            for c, p in zip(counts, rects):
+                p.set_facecolor(cmap(norm(c)))
+
+    # def _update_hist(self, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, traj: dict) -> None:
+    #     dist_key = plot_dict.get("dist")
+    #     if not dist_key or dist_key not in traj:
+    #         return
+
+    #     data = np.asarray(traj[dist_key])
+    #     if data.size == 0:
+    #         return
+
+    #     bucket = self._slot_artists.get(slot_index, {})
+    #     prefix = f"{choice_name}::{plot_name}::hist::patch::"
+    #     patches = []
+    #     for gid, artist in bucket.items():
+    #         if isinstance(gid, str) and gid.startswith(prefix):
+    #             try:
+    #                 k = int(gid.rsplit("::", 1)[-1])
+    #             except Exception:
+    #                 k = 10**9
+    #             patches.append((k, artist))
+
+    #     if not patches:
+    #         return
+
+    #     patches.sort(key= lambda kv: kv[0])
+    #     rects = [p for _k, p in patches]
+
+    #     lefts = [float(r.get_x()) for r in rects]
+    #     rights = [float(r.get_x() + r.get_width()) for r in rects]
+    #     edges = np.array(lefts + [rights[-1]], dtype=float)
+
+    #     if not np.all(np.isfinite(edges)) or np.any(np.diff(edges) <= 0):
+    #         return
+
+    #     counts, edges = np.histogram(data, bins= edges)
+
+    #     for rect, c in zip(rects, counts):
+    #         rect.set_height(float(c))
+
+    #     ax = self.axes[slot_index]
+    #     ax.set_xlim(edges[0], edges[-1])
+
     def _has_heatmap(self, dropdown_choice: int, options: dict):
         """Return (plot_name, plot_dict) for the first enabled heatmap plot in the choice, or (None, None)."""
-        choice = self._choice_spec(dropdown_choice)
+        choice = self._choice_dict_from_index(dropdown_choice)
         plots = choice.get("plots", {})
         for plot_name, plot_dict in plots.items():
             if "checkbox_name" in plot_dict:
@@ -870,142 +1614,84 @@ class GraphPanel(qw.QWidget):
         return None
 
     def update_slot_frame(self, slot_index: int, dropdown_choice: int, options: dict, slot_cfg: dict | None = None) -> None:
-        """Fast path for live animation: update existing Line2D artists in-place.
+        """ This method is called when a SimWorker makes progress. It updates plots in order to animate progress """
 
-        Falls back to a full redraw via plot_slot() if:
-          - the plot selection implies special plots (hist/scatter/etc),
-          - the current artists don't match what we *should* have, or
-          - the axes haven't been initialized for this slot yet.
-        """
-        if self.traj is None or self.t is None:
-            return
-        if slot_index < 0 or slot_index >= len(self.axes):
-            return
+        # step 1: compare current artists with expected ones
+        expected = self._expected_artist_gids(slot_index, dropdown_choice, options)
+        current = list(self._slot_artists.get(slot_index, {}).keys())
 
-        # Remember which choice this slot is displaying
-        choice_name = self._choice_name_from_index(dropdown_choice)
-        self.slot_choice_key[slot_index] = choice_name
-        self._slot_state[slot_index] = (dropdown_choice, options, slot_cfg)
-
-        ax = self.axes[slot_index]
-
-        # If this selection includes special plots, redraw (safe + correct)
-        if self._has_special_plots(dropdown_choice, options):
-            self.plot_slot(slot_index, dropdown_choice, options, slot_cfg)
-            return
-
-        hm_name, hm_dict = self._has_heatmap(dropdown_choice, options)
-        if hm_dict is not None:
-            frame2d = self._heatmap_frame_from_dict(hm_dict, self.traj)
-            if frame2d is None:
-                # fallback
-                self.plot_slot(slot_index, dropdown_choice, options, slot_cfg)
-                return
-
-            current_xlim = ax.get_xlim()
-            current_ylim = ax.get_ylim()
-
-            im = self._slot_images.get(slot_index)
-
-            if im is None or (not ax.images):
-                old = self._slot_images.pop(slot_index, None)
-                if old is not None:
-                    old.remove()
-                extent = None
-                if "x" in self.traj and "y" in self.traj:
-                    xmin, xmax = float(self.traj["x"][0]), float(self.traj["x"][-1])
-                    ymin, ymax = float(self.traj["y"][0]), float(self.traj["y"][-1])
-                    extent = (xmin, xmax, ymin, ymax)
-                
-                im = ax.imshow(
-                    frame2d,
-                    origin= hm_dict.get("origin", "lower"),
-                    interpolation= hm_dict.get("interpolation", "nearest"),
-                    aspect= hm_dict.get("aspect", "auto"),
-                    extent= extent
-                )
-                self._slot_images[slot_index] = im
-
-            if hm_dict.get("colorbar", False) and slot_index not in self._slot_cbar:
-                self._slot_cbar[slot_index] = self.figure.colorbar(im, ax=ax)
-
-            else:
-                # Update in place
-                im.set_data(frame2d)
-
-                # If extent can change (unlikely), you can refresh it:
-                if "x" in self.traj and "y" in self.traj:
-                    xmin, xmax = float(self.traj["x"][0]), float(self.traj["x"][-1])
-                    ymin, ymax = float(self.traj["y"][0]), float(self.traj["y"][-1])
-                    im.set_extent((xmin, xmax, ymin, ymax))
-
-            # Optional: stable color scaling or autoscaling
-            vmin = hm_dict.get("vmin", None)
-            vmax = hm_dict.get("vmax", None)
-            if vmin is not None or vmax is not None:
-                im.set_clim(vmin=vmin, vmax=vmax)
-            else:
-                # autoscale to current frame
-                im.autoscale()
-
-            # Re-apply view limits (avoid autoscale surprises)
-            self._block_axis_callback = True
-            ax.set_xlim(current_xlim)
-            ax.set_ylim(current_ylim)
-            self._block_axis_callback = False
-
-
-            self.canvas.draw_idle()
-            return
-
-        # returns a list of the lines which currently exist on the axis
-        expected = self._expected_line_gids(dropdown_choice, options)
-        # internal ids list
-        current = [ln.get_gid() for ln in ax.lines if ln.get_gid()]
-
-        # If we don't have the right set of lines yet, redraw
+        # if anything expected is missing, (re)draw it (potentially for first time)
         if not expected or set(current) != set(expected):
             self.plot_slot(slot_index, dropdown_choice, options, slot_cfg)
             return
 
-        # Update line data in-place (no clearing)
+        # Update line data in-place 
         t = np.asarray(self.t)
-        t_len = len(t)
+        ax = self.axes[slot_index]
 
-        # Maintain the current view limits (do not autoscale during animation)
+        is_3d = hasattr(ax, "get_zlim")
         current_xlim = ax.get_xlim()
         current_ylim = ax.get_ylim()
+        current_zlim = ax.get_zlim() if is_3d else None
 
-        # Update in expected order (so legend order is stable)
+        bucket = self._slot_artists.get(slot_index, {})
+
+        choice_dict = self._choice_dict_from_index(dropdown_choice)
+        choice_name = self._choice_name_from_index(dropdown_choice)
+
+        # update settings as provided by the main window
+        self._slot_choices[slot_index] = choice_name
+        self._slot_settings[slot_index] = (dropdown_choice, options, slot_cfg)
+
+        for plot_name, plot_dict in choice_dict.get("plots", {}).items():
+            if "checkbox_name" in plot_dict:
+                name = plot_dict["checkbox_name"]
+                if name not in options and not (self.start_up and "on_startup" in plot_dict):
+                    continue
+            if plot_dict.get("special") == "hist":
+                # histograms are a little different because they are multiple artists (one per rectangle)
+                # so we must handle as a special case
+                self._update_hist(slot_index, choice_name, plot_name, plot_dict, self.traj)
+
+        for gid in expected:
+            artist = bucket.get(gid)
+            if artist is None:
+                continue
+
+            kind = self._get_artist_type_from_gid(slot_index, gid)
+            
+            if kind == "line":
+                self._update_line_artist(artist, gid, t, self.traj, slot_index)
+            
+            elif kind == "collection":
+                if gid.endswith("::scatter"):
+                    self._update_scatter_artist(artist, gid, self.traj)
+
+            elif kind == "surface":
+                self._update_surface_artist(ax, slot_index, gid, self.traj)
+
+            elif kind == "image":
+                if gid.endswith("::cplot"):
+                    self._update_cplot_image(artist, self.traj)
+                elif gid.endswith("::heatmap"):
+                    self._update_heatmap_image(artist, gid, self.traj)
+
+            elif kind == "patch":
+                pass # histogram case, adressed in a special way above
+
+            else:
+                pass
+
         gid_to_line = {ln.get_gid(): ln for ln in ax.lines if ln.get_gid()}
         for gid in expected:
             line = gid_to_line.get(gid)
             if line is None:
                 continue
 
-            y = self._ydata_for_gid(gid, self.traj)
-            if y is None:
-                continue
-
-            y = np.asarray(y)
-            if len(y) != t_len:
-                n = min(len(y), t_len)
-                line.set_data(t[:n], y[:n])
-            else:
-                line.set_data(t, y)
-
-            # Respect legend-label overrides if present
             over = self.legend_label_overrides.get((slot_index, choice_name), {})
             if gid in over:
                 line.set_label(over[gid])
 
-        # Re-apply limits (avoid matplotlib autoscale surprises)
-        self._block_axis_callback = True
-        ax.set_xlim(current_xlim)
-        ax.set_ylim(current_ylim)
-        self._block_axis_callback = False
-
-        # Update legend text in-place (avoid full legend rebuild cost)
         leg = ax.get_legend()
         if leg is not None:
             texts = leg.get_texts()
@@ -1017,22 +1703,32 @@ class GraphPanel(qw.QWidget):
                 except Exception:
                     pass
 
+        self._block_axis_callback = True
+        ax.set_xlim(current_xlim)
+        ax.set_ylim(current_ylim)
+        if is_3d and current_zlim is not None:
+            ax.set_zlim(current_zlim)
+        self._block_axis_callback = False
+
+        # Legend text update (keep your existing code if desired)
+        self._rebuild_slot_artists_inventory(slot_index)
         self.canvas.draw_idle()
 
-    def update_all_slots_frame(self, traj: dict, t, control_panel) -> None:
-        """Convenience: update all slots using the current control-panel slot configs."""
-        self.traj = traj
-        self.t = t
+    # def update_all_slots_frame(self, traj: dict, t, control_panel) -> None:
+    #     """Convenience: update all slots using the current control-panel slot configs."""
+    #     self.traj = traj
+    #     self.t = t
 
-        num_slots = len(self.axes)
-        for slot_index in range(num_slots):
-            cfg = control_panel.get_slot_config(slot_index)
-            if cfg is None:
-                continue
-            dropdown_index, options, slot_cfg = cfg
-            self.update_slot_frame(slot_index, dropdown_index, options, slot_cfg)
+    #     num_slots = len(self.axes)
+    #     for slot_index in range(num_slots):
+    #         cfg = control_panel.get_slot_config(slot_index)
+    #         if cfg is None:
+    #             continue
+    #         dropdown_index, options, slot_cfg = cfg
+    #         self.update_slot_frame(slot_index, dropdown_index, options, slot_cfg)
 
-    def on_press(self, event):
+    def _on_press(self, event) -> None:
+        """ Decides what to do when the user clicks on an axis """
         if event.button != 1:
             return
         ax = event.inaxes
@@ -1042,7 +1738,11 @@ class GraphPanel(qw.QWidget):
         self.dragging = True
         self._update_snap(event, ax)
 
-    def _update_snap(self, event, ax):
+    def _update_snap(self, event, ax) -> None:
+        """ 
+        displays coordinate info (the snap artist) when the user clicks while not in panning mode
+        also updates it simultaneously
+        """
         if ax is None or ax not in self.axes: return
         if event.xdata is None or event.ydata is None: return
 
@@ -1082,6 +1782,8 @@ class GraphPanel(qw.QWidget):
             marker.set_visible(False)
             annot.set_visible(False)
             self.canvas.draw_idle()
+            if hasattr(ax, "get_zlim3d"):
+                self._clamp_3d_view(ax)
             return
 
         color = best_line.get_color()
@@ -1143,7 +1845,7 @@ class GraphPanel(qw.QWidget):
         self._slot_cbar.clear()
 
         for slot_index, ax in enumerate(self.axes):
-            state = self._slot_state.get(slot_index)
+            state = self._slot_settings.get(slot_index)
             if not state:
                 continue
             dropdown_choice, options, slot_cfg = state

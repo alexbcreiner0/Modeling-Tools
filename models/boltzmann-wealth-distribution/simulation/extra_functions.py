@@ -1,6 +1,7 @@
 import mesa
 from typing import Tuple
 import numpy as np
+import sys
 
 def compute_gini(model):
     agent_wealths = [agent.wealth for agent in model.agents]
@@ -12,10 +13,10 @@ def compute_gini(model):
 class MoneyAgent(mesa.Agent):
     def __init__(self, model, rand_starting_wealth= False):
         super().__init__(model)
-        if rand_starting_wealth:
-            self.wealth = self.random.randint(0,10)
-        else:
-            self.wealth = 1
+        # if rand_starting_wealth:
+        #     self.wealth = self.random.randint(0,10)
+        # else:
+        #     self.wealth = 1
 
     def exchange(self):
         if self.wealth > 0:
@@ -37,10 +38,15 @@ class MoneyModel(mesa.Model):
         )
 
         MoneyAgent.create_agents(model= self, n= n)
+        for agent in self.agents:
+            agent.wealth = 1
+        self.datacollector.collect(self)
 
     def step(self):
+        a = self.agents.shuffle().select(at_most= 1)
+        a.shuffle_do("exchange")
+        # self.agents.shuffle_do("exchange")
         self.datacollector.collect(self)
-        self.agents.shuffle_do("exchange")
 
     def get_traj(self):
         traj = {}

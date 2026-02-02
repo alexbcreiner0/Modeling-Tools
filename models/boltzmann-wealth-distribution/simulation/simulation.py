@@ -4,15 +4,17 @@ import numpy as np
 import mesa
 from .parameters import Params
 from .extra_functions import MoneyModel
+import time
 
-def get_trajectories(params: Params, *, should_stop: Optional[Callable[[], bool]]= None, yield_every: int= 1):
+def get_trajectories(params: Params):
     model = MoneyModel(params.n_agents)
+    t = []
     for i in range(params.T):
+        traj = model.get_traj()
         model.step()
-    traj = model.get_traj()
-    t = np.linspace(0,params.T,params.T)
+        t.append(i)
 
-    return traj, t
+        yield dict(traj), np.array(t)
 
 if __name__ == "__main__":
     model = MoneyModel(10)

@@ -29,6 +29,13 @@ class SlotControlsWidget(qw.QWidget):
         self.legend_pos_combo.addItems(["upper right", "upper left",
                                  "lower left", "lower right"])
 
+        self.lazy_legend_convert_dict = {
+            "upper right": 0,
+            "upper left": 1,
+            "lower left": 2,
+            "lower right": 3
+        }
+
         self.title_checkbox = qw.QCheckBox("Plot Title")
         self.title_checkbox.setChecked(True)
 
@@ -66,3 +73,34 @@ class SlotControlsWidget(qw.QWidget):
             "xlabel": self.xlabel_checkbox.isChecked(),
             "ylabel": self.ylabel_checkbox.isChecked(),
         }
+
+    def set_settings(self, settings: dict) -> None:
+        if 'legend_visible' in settings:
+            if settings['legend_visible'] == True:
+                self.legend_checkbox.setChecked(True)
+            else:
+                self.legend_checkbox.setChecked(False)
+
+        if 'legend_fontsize' in settings:
+            self.legend_size_spin.setValue(settings['legend_fontsize'])
+
+        if 'legend_loc' in settings:
+            self.legend_pos_combo.setCurrentIndex(self.lazy_legend_convert_dict[settings['legend_loc']])
+
+        if 'title' in settings:
+            if settings['title'] == True:
+                self.title_checkbox.setChecked(True)
+            else:
+                self.title_checkbox.setChecked(False)
+
+        if 'xlabel' in settings:
+            if settings['xlabel'] == True:
+                self.xlabel_checkbox.setChecked(True)
+            else:
+                self.xlabel_checkbox.setChecked(False)
+
+        if 'ylabel' in settings:
+            if settings['ylabel'] == True:
+                self.ylabel_checkbox.setChecked(True)
+            else:
+                self.ylabel_checkbox.setChecked(False)

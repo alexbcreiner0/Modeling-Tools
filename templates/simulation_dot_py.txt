@@ -1,11 +1,10 @@
 from .parameters import Params
-from typing import Optional, Callable
 import numpy as np
 
 MODEL_READY = False # Set this to True when you think it's ready.
 HEAVY_COMPUTE = False # Set true if some sims are compute-heavy (app will attempt to boost performance in various ways).
 
-def get_trajectories(params: Params, *, should_stop: Optional[Callable[[], bool]]= None, yield_every: int= 1):
+def get_trajectories(params: Params):
     """
         Run a simulation, get a trajectories dictionary (keys are strings, values are numpy arrays)
         (we'll call it traj) as well as another numpy array (we'll call it t) representing the independent
@@ -18,17 +17,10 @@ def get_trajectories(params: Params, *, should_stop: Optional[Callable[[], bool]
     # example iterative template
     T = params.T
     for i in range(T):
-        # necessary for allowing your sim to be paused or stopped 
-        if should_stop and should_stop():
-            break
+        # step your trajectories, append i to t
+        yield dict(traj), t.copy() # <- Protip: return copies to avoid mutability shenanigans
 
-        # append values to each trajectory
-        t = np.append(t, i+1)
-
-        if (i % yield_every) == 0:
-            yield dict(traj), t.copy()
-
-    # final output
-    yield dict(traj), t.copy()
-    # or, if you aren't yielding
-    # return dict(traj), t.copy()
+    # example static template
+    # run your code, create your traj dictionary and your t dictionary
+    # return dict(traj) t.copy() 
+    

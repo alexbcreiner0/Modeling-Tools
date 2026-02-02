@@ -8,9 +8,10 @@ all:
     wealth_distn:
       special: hist
       dist: wealth
-      rwidth: 0.9
+      rwidth: 1
       gradient: true
       labels: [Agent Wealth]
+      integer_bins: True
 gini_coeff:
   name: Gini Coefficient
   tooltip: null

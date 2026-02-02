@@ -92,5 +92,5 @@ if __name__ == "__main__":
 
     window = MainWindow(config)
 
-    window.show()
+    window.showMaximized()
     app.exec()

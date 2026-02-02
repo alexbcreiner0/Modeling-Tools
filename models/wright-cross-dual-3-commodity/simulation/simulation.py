@@ -41,7 +41,7 @@ def simulate(params):
     traj, t = economy.traj, economy.t
     return traj, t, e
 
-def simulate2(params, *, should_stop: Optional[Callable[[], bool]]= None, yield_every: int= 1):
+def simulate2(params: Params):
     """ Unchanged dynamics, nothing special happening """
     sim_params = copy.deepcopy(params)
     if sim_params.economy_type == "unrestricted":
@@ -59,13 +59,8 @@ def simulate2(params, *, should_stop: Optional[Callable[[], bool]]= None, yield_
         economy = CapitalistEconomy(sim_params)
 
     for i in range(params.T):
-        if should_stop and should_stop():
-            break
-
         economy.step()
-
-        if (i % yield_every) == 0:
-            yield economy.traj, economy.t
+        yield economy.traj, economy.t
 
     economy.cleanup()
     yield economy.traj, economy.t

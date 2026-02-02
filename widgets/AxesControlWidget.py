@@ -114,6 +114,9 @@ class AxesControlWidget(qw.QWidget):
             return None
         return (x0, x1), (y0, y1)
 
+    def get_saved_limits(self):
+        return self._saved_xlim, self._saved_ylim
+
     def set_limits(self, xlim, ylim):
         """
         Programmatically update the line edits to match given limits.

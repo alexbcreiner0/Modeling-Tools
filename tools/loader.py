@@ -8,6 +8,7 @@ from typing import get_origin, get_args, Any, Optional, Tuple, Type
 from paths import rpath
 from pathlib import Path
 import logging
+import sys
 # from parameters import Params, params_from_mapping
 
 logger = logging.getLogger(__name__)
@@ -187,3 +188,25 @@ def format_plot_config(cfg: dict, commodities: list[str]) -> dict:
         return x
 
     return rec(deepcopy(cfg))
+
+def reload_package_folder(anchor_module):
+    """
+    Reload all modules located in the same directory as anchor_module.
+    """
+    anchor_file = Path(anchor_module.__file__).resolve()
+    folder = anchor_file.parent
+
+    to_reload = []
+    for name, mod in list(sys.modules.items()):
+        if not mod or not hasattr(mod, "__file__") or not mod.__file__:
+            continue
+        try:
+            mod_path = Path(mod.__file__).resolve()
+        except Exception:
+            continue
+        if mod_path.parent == folder:
+            to_reload.append(name)
+
+    # Reload dependencies first, anchor last
+    for name in sorted(to_reload):
+        importlib.reload(sys.modules[name])

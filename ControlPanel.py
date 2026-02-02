@@ -203,7 +203,7 @@ class ControlPanel(qw.QWidget):
             self.slot_titles[slot_index] = str(title)
         self.slotOptionsChanged.emit(slot_index)
 
-    def _rebuild_slot_dropdowns(self, rows, cols, old_limits= None, old_dropdown_indices= None, old_checked= None, old_slot_settings= None):
+    def _rebuild_slot_dropdowns(self, rows, cols, old_limits= None, old_dropdown_indices= None, old_checked= None, old_slot_settings= None, old_saved_limits= None):
         """ Destroy and rebuild all control widgets for individual plots (or build for the first time) """
         for i in reversed(range(self.slot_controls_layout.count())):
             item = self.slot_controls_layout.takeAt(i)
@@ -261,7 +261,7 @@ class ControlPanel(qw.QWidget):
             options_widget.settingsChanged.connect(lambda s=slot_index: self.slotOptionsChanged.emit(s))
             axes_widget.settingsChanged.connect(lambda s=slot_index: self.slotAxesChanged.emit(s))
     
-        if old_limits:
+        if old_limits is not None:
             for i, lims in enumerate(old_limits):
                 if i >= len(self.slot_axes_controls):
                     break
@@ -283,7 +283,7 @@ class ControlPanel(qw.QWidget):
                 for i in range(len(old_limits), len(self.slot_axes_controls)):
                     self.slot_axes_controls[i].set_limits(xlim0, ylim0)
 
-        if old_dropdown_indices:
+        if old_dropdown_indices is not None:
             # 1) Restore existing slots
             for i, idx in enumerate(old_dropdown_indices):
                 if i >= len(self.slot_dropdowns):
@@ -304,7 +304,7 @@ class ControlPanel(qw.QWidget):
                     self.slot_dropdowns[i].dropdown_choices.setCurrentIndex(last_idx)
 
         # restore checkbox choices
-        if old_checked:
+        if old_checked is not None:
             for i, checked in enumerate(old_checked):
                 if i >= len(self.slot_dropdowns):
                     break
@@ -358,66 +358,19 @@ class ControlPanel(qw.QWidget):
                                     pass
                             break
 
-            if old_slot_settings:
-                for i, settings in enumerate(old_slot_settings):
-                    if i >= len(self.slot_options):
-                        break
-                    if settings is None:
-                        continue
+        if old_slot_settings is not None:
+            for i, settings in enumerate(old_slot_settings):
+                if i >= len(self.slot_options):
+                    break
+                if settings is None:
+                    continue
 
-                    w = self.slot_options[i]
-                    # Try a generic setter first if present
-                    if hasattr(w, "set_settings"):
-                        try:
-                            w.set_settings(settings)
-                            continue
-                        except Exception:
-                            pass
-
-                    # Otherwise, set individual controls defensively
-                    s = self._normalize_slot_settings(settings)
-
-                    # legend
-                    if hasattr(w, "legend_visible_check"):
-                        try:
-                            w.legend_visible_check.blockSignals(True)
-                            w.legend_visible_check.setChecked(bool(s.get("legend_visible", True)))
-                            w.legend_visible_check.blockSignals(False)
-                        except Exception:
-                            pass
-
-                    if hasattr(w, "legend_size_spin"):
-                        try:
-                            w.legend_size_spin.blockSignals(True)
-                            w.legend_size_spin.setValue(int(s.get("legend_fontsize", 10)))
-                            w.legend_size_spin.blockSignals(False)
-                        except Exception:
-                            pass
-
-                    if hasattr(w, "legend_loc_dropdown"):
-                        try:
-                            loc = s.get("legend_loc", "upper right")
-                            combo = w.legend_loc_dropdown
-                            combo.blockSignals(True)
-                            # match by text
-                            idx = combo.findText(str(loc))
-                            if idx >= 0:
-                                combo.setCurrentIndex(idx)
-                            combo.blockSignals(False)
-                        except Exception:
-                            pass
-
-                    # title/x/y toggles
-                    for key, attr in (("title", "title_check"), ("xlabel", "xlabel_check"), ("ylabel", "ylabel_check")):
-                        if hasattr(w, attr):
-                            try:
-                                cb = getattr(w, attr)
-                                cb.blockSignals(True)
-                                cb.setChecked(bool(s.get(key)))
-                                cb.blockSignals(False)
-                            except Exception:
-                                pass
-
+                w = self.slot_options[i]
+                # Try a generic setter first if present
+                if hasattr(w, "set_settings"):
+                    w.blockSignals(True)
+                    w.set_settings(settings)
+                    w.blockSignals(False)
 
     def _on_info_hovered(self, slot_index: int):
         self.get_tooltip(slot_index)
@@ -467,6 +420,7 @@ class ControlPanel(qw.QWidget):
         cols = self.cols_spinner.value()
 
         old_limits = [w.get_limits() for w in self.slot_axes_controls]
+        old_saved_limits = [w.get_saved_limits() for w in self.slot_axes_controls]
         old_dropdown_indices = [w.dropdown_choices.currentIndex() for w in self.slot_dropdowns]
         old_checked = [w.get_current_checked_boxes() for w in self.slot_dropdowns]
         old_slot_settings = []
@@ -476,15 +430,18 @@ class ControlPanel(qw.QWidget):
             except Exception:
                 old_slot_settings.append(None)
 
+        self._layout_rebuild_in_progress = True
         self.layoutChanged.emit(rows, cols)
         self._rebuild_slot_dropdowns(
             rows, cols, 
             old_limits= old_limits, 
             old_dropdown_indices= old_dropdown_indices,
             old_checked=old_checked,
-            old_slot_settings=old_slot_settings
+            old_slot_settings=old_slot_settings,
+            old_saved_limits=old_saved_limits
         )
 
+        self._layout_rebuild_in_progress = False
         self.layoutChanged.emit(rows, cols)
 
     def make_widget(self, info, params):
@@ -751,4 +708,3 @@ class ControlPanel(qw.QWidget):
                 dropdown.blockSignals(False)
 
         self.block_signals = False
-
