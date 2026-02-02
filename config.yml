@@ -59,6 +59,7 @@ demos:
       simulation_function: get_trajectories
       default_preset: default_preset
       starting_lims: [[0.0, 1000.0], [0.0, 20.0]]
+    default: true
   complex_plotting_test:
     name: Complex Plotting Test
     desc: ''
@@ -99,4 +100,3 @@ demos:
       simulation_function: get_trajectories
       default_preset: default_preset
       simulation_speed: 0.01
-    default: true
