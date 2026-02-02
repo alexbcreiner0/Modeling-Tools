@@ -13,6 +13,8 @@ import logging.config
 from logging.handlers import RotatingFileHandler
 import threading
 
+# Hi
+
 LOG_DIR = rpath("logs")
 LOG_DIR.mkdir(exist_ok= True)
 
