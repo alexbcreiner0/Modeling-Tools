@@ -16,5 +16,6 @@ Thumbs.db
 
 models/LTE
 models/test
+models/ivan_queueing_model_redo
 logs
 dimensions.txt

@@ -7,6 +7,14 @@ from typing import Generator
 
 logger = logging.getLogger(__name__)
 
+def get_discrete_entropy(data):
+    
+    _, counts = np.unique(data, return_counts= True)
+    probs = counts / counts.sum()
+
+    H = -np.sum(probs * np.log2(probs))
+    return H
+
 class EconAgent(mesa.Agent):
     def __init__(self, model):
         super().__init__(model)
@@ -111,12 +119,26 @@ class Economy(mesa.Model):
         for agent in self.agents:
             agent.m = self.M // self.N
 
+        wealths = [agent.m for agent in self.agents]
+        sorted_wealths = sorted(wealths)
+        B = sum(m_i * (self.N-i) for i, m_i in enumerate(sorted_wealths)) / (self.N * sum(sorted_wealths))
+        self.traj["gini_coeff"] = np.array([1+(1/self.N) - 2*B])
+
+        self.traj["entropy_wealth"] = np.array([get_discrete_entropy(wealths)])
+        self.traj["N_capitalists_bins"] = self._get_discrete_bins(self.traj["N_capitalists"])
+        self.traj["N_workers_bins"] = self._get_discrete_bins(self.traj["N_workers"])
+        print(self.traj["entropy_wealth"])
+
         self.traj["money_distn"] = np.array([agent.m for agent in self.agents])
         self.traj["money_distn_workers"] = np.array([agent.m for agent in self.agents if self._is_worker(agent)])
         self.traj["money_distn_capitalists"] = np.array([agent.m for agent in self.agents if self._is_employer(agent)])
         # self.traj["money_distn_unemployed"] = np.array([agent.m for agent in self.agents if self._is_unemployed(agent)])
 
         self.datacollector.collect(self)
+
+    def _get_discrete_bins(self, data):
+        lo, hi = data.min(), data.max()
+        return np.arange(lo, hi+1, 1)
 
     def my_step(self) -> Generator[int]:
         """ Step for an entire month. """
@@ -216,15 +238,19 @@ class Economy(mesa.Model):
     def _update_traj(self):
         N_caps = len(self.agents.select(filter_func= self._is_employer))
         self.traj["N_capitalists"] = np.append(self.traj["N_capitalists"], N_caps)
+        lo, hi = self.traj["N_capitalists"].min(), self.traj["N_capitalists"].max()
+        self.traj["N_capitalists_bins"] = np.arange(lo, hi+1, 1)
 
         N_workers = len(self.agents.select(filter_func= self._is_worker))
         self.traj["N_workers"] = np.append(self.traj["N_workers"], N_workers)
+        lo, hi = self.traj["N_workers"].min(), self.traj["N_workers"].max()
+        self.traj["N_workers_bins"] = np.arange(lo, hi+1, 1)
 
         N_unemployed = len(self.agents.select(filter_func= self._is_unemployed))
         self.traj["N_unemployed"] = np.append(self.traj["N_unemployed"], N_unemployed)
 
         money_distn = np.array([agent.m for agent in self.agents])
-        self.traj["money_distn"] = money_distn
+        self.traj["money_distn"] = money_distn 
 
         money_distn_workers = np.array([agent.m for agent in self.agents if self._is_worker(agent) or self._is_unemployed(agent)])
         self.traj["money_distn_workers"] = money_distn_workers
@@ -242,6 +268,10 @@ class Economy(mesa.Model):
         ccdf_y = 1 - np.arange(1, n+1) / n
         self.traj["sorted_money_distn"] = sorted_money_distn
         self.traj["ccdf_y"] = ccdf_y
+
+        B = sum(m_i * (self.N-i) for i, m_i in enumerate(sorted_money_distn)) / (self.N * sum(money_distn))
+        self.traj["gini_coeff"] = np.append(self.traj["gini_coeff"], 1+1/self.N - 2*B) 
+        self.traj["entropy_wealth"] = np.append(self.traj["entropy_wealth"], get_discrete_entropy(money_distn))
 
         money_distn_caps = np.array([agent.m for agent in self.agents if self._is_employer(agent)])
         n = len(money_distn_caps) 

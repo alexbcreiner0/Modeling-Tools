@@ -1,22 +1,30 @@
 histograms:
   name: Historical Aggregate Data
+  x_label: Counts
   plots:
     capitalists:
       special: hist
       checkbox_name: Number of Capitalists
       toggled: true
       dist: N_capitalists
-      color: green
       density: true
       label: Distn of Capitalists
+      color: green
+      edgecolor: '#000000'
+      histtype: bar
+      gradient: None
+      align: mid
     workers:
       special: hist
       checkbox_name: Number of Workers
       toggled: true
-      color: red
       dist: N_workers
       density: true
       label: Distn of Workers
+      color: red
+      histtype: bar
+      gradient: None
+      align: left
     unemployed:
       special: hist
       checkbox_name: Number of Unemployed
@@ -60,6 +68,7 @@ histograms:
       label: Duration of Recessions
 time_series:
   name: Time-Series Data
+  x_label: Time [Months]
   plots:
     capitalists:
       checkbox_name: Capitalists
@@ -89,28 +98,50 @@ time_series:
       colors: [magenta]
       traj_key: gdp
       toggled: false
+    gini_coefficient:
+      checkbox_name: Gini Coefficient
+      linestyle: solid
+      labels: [Gini Coefficient]
+      colors: ['#ff7de1']
+      traj_key: gini_coeff
+      toggled: false
+    wealth_entropy:
+      checkbox_name: Wealth Entropy
+      linestyle: solid
+      labels: [Entropy of Wealth]
+      colors: ['#02c4ff']
+      traj_key: entropy_wealth
+      toggled: false
 Wage and Profit Shares:
   name: Annual Statistics
-  x_label: Years
+  x_label: Time [Years]
   plots:
     wage_share:
-      special: scatter
       checkbox_name: Wage Share
-      toggled: true
-      traj_key_x: scatter_year
-      traj_key_y: wage_share
-      labels: [Wage Share]
-      color: orange
+      linestyle: solid
       marker: ^
-    profit_share:
-      special: scatter
-      checkbox_name: Profit Share
-      toggled: true
+      markerfacecolor: orange
+      markeredgecolor: orange
+      linewidth: 1.0
+      markersize: 7.0
+      labels: [Wage Share]
+      colors: [black]
+      traj_key: wage_share
       traj_key_x: scatter_year
-      traj_key_y: profit_share
-      labels: [Profit Share]
-      color: Purple
+      toggled: true
+    profit_share:
+      checkbox_name: Profit Share
+      linestyle: solid
       marker: s
+      markerfacecolor: purple
+      markeredgecolor: purple
+      linewidth: 1.0
+      markersize: 7.0
+      labels: [Profit Share]
+      colors: ['#0a1aff']
+      traj_key: profit_share
+      traj_key_x: scatter_year
+      toggled: true
     wage_share_v_profit_share:
       special: hist
       checkbox_name: Wage Share vs Profit Share

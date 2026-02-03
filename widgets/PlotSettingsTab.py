@@ -8,6 +8,7 @@ from widgets.common import make_shortname
 from tools.modelling_tools import FlowSeq, flowseq_representer
 import logging
 from .common import atomic_write
+from matplotlib import colormaps
 
 from PyQt6 import (
     QtWidgets as qw,
@@ -49,7 +50,7 @@ class ColorLineEdit(qw.QLineEdit):
 class LabelColorRow(qw.QWidget):
     removed = qc.pyqtSignal(object)
 
-    def __init__(self, label: str = "", color: str = "", parent=None, indep= False):
+    def __init__(self, label: str = "", color: str = "", parent=None, indep= False, extra_picker= False):
         super().__init__(parent)
         lay = qw.QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -66,6 +67,16 @@ class LabelColorRow(qw.QWidget):
         self.pick_btn.setText("🎨")
         self.pick_btn.setToolTip("Pick a color")
 
+        if extra_picker:
+            self.color_edit2 = ColorLineEdit()
+            self.color_edit2.setPlaceholderText("#RRGGBB")
+            self.color_edit2.setMaximumWidth(120)
+            self.color_edit2.set_hex(color)
+
+            self.pick_btn2 = qw.QToolButton()
+            self.pick_btn2.setText("🎨")
+            self.pick_btn2.setToolTip("Pick a color")
+
         if not indep:
             self.del_btn = qw.QToolButton()
             self.del_btn.setText("✕")
@@ -74,21 +85,39 @@ class LabelColorRow(qw.QWidget):
         lay.addWidget(self.label_edit, 1)
         lay.addWidget(self.color_edit, 0)
         lay.addWidget(self.pick_btn, 0)
+        if extra_picker:
+            lay.addWidget(self.color_edit2, 0)
+            lay.addWidget(self.pick_btn2, 0)
 
         if not indep:
             lay.addWidget(self.del_btn, 0)
 
         self.pick_btn.clicked.connect(self._pick_color)
+        if extra_picker:
+            self.pick_btn2.clicked.connect(self._pick_color2)
         if not indep:
             self.del_btn.clicked.connect(lambda: self.removed.emit(self))
 
         self.color_edit.textChanged.connect(self.color_edit._update_swatch)
+        if extra_picker:
+            self.color_edit2.textChanged.connect(self.color_edit2._update_swatch)
 
     def _pick_color(self) -> None:
         initial = qg.QColor(self.color_edit.text().strip())
+        if initial.name().lower() == "#000000":
+            initial = qg.QColor("#ffffff")
         c = qw.QColorDialog.getColor(initial, self, "Choose color")
         if c.isValid():
             self.color_edit.set_hex(c.name())
+
+    # I am lazy and stupid
+    def _pick_color2(self) -> None:
+        initial = qg.QColor(self.color_edit2.text().strip())
+        if initial.name().lower() == "#000000":
+            initial = qg.QColor("#ffffff")
+        c = qw.QColorDialog.getColor(initial, self, "Choose color")
+        if c.isValid():
+            self.color_edit2.set_hex(c.name())
 
     def get_pair(self) -> tuple[str, str]:
         return (self.label_edit.text().strip(), self.color_edit.text().strip())
@@ -332,8 +361,10 @@ class PlotSettingsTab(qw.QWidget):
         widgets = [
             self.name_edit, self.toggled_check, self.plot_type_combo,
             self.cat_title, self.x_label, self.y_label, self.tooltip,
-            self.curve_traj_key, self.curve_linestyle, self.curve_series_editor,
-            self.hist_data, self.hist_bins, self.hist_density, self.hist_label_color,
+            self.curve_traj_key, self.curve_linestyle, self.curve_series_editor, self.curve_traj_key_x,
+            self.curve_marker_and_color.label_edit, self.curve_marker_and_color.color_edit, self.curve_marker_and_color.color_edit2,
+            self.curve_linewidth, self.curve_markersize, self.hist_cmap,
+            self.hist_data, self.hist_bins, self.hist_density, self.hist_label_color_edgecolor,
             self.hist_type, self.hist_align, self.hist_weights, self.hist_align,
             self.scatter_traj_key_x, self.scatter_traj_key_y, self.scatter_label_color, self.scatter_marker,
         ]
@@ -358,6 +389,12 @@ class PlotSettingsTab(qw.QWidget):
         self.curve_traj_key.textChanged.connect(self._save_changes)
         self.curve_linestyle.currentIndexChanged.connect(self._save_changes)
         self.curve_series_editor.changed.connect(self._save_changes)
+        self.curve_traj_key_x.textChanged.connect(self._save_changes)
+        self.curve_linewidth.valueChanged.connect(self._save_changes)
+        self.curve_markersize.valueChanged.connect(self._save_changes)
+        self.curve_marker_and_color.color_edit.textChanged.connect(self._save_changes)
+        self.curve_marker_and_color.color_edit2.textChanged.connect(self._save_changes)
+        self.curve_marker_and_color.label_edit.textChanged.connect(self._save_changes)
 
         # Histogram
         self.hist_data.textChanged.connect(self._save_changes)
@@ -366,8 +403,10 @@ class PlotSettingsTab(qw.QWidget):
         self.hist_type.currentIndexChanged.connect(self._save_changes)
         self.hist_align.currentIndexChanged.connect(self._save_changes)
         self.hist_density.stateChanged.connect(self._save_changes)
-        self.hist_label_color.label_edit.textChanged.connect(self._save_changes)
-        self.hist_label_color.color_edit.textChanged.connect(self._save_changes)
+        self.hist_label_color_edgecolor.label_edit.textChanged.connect(self._save_changes)
+        self.hist_label_color_edgecolor.color_edit.textChanged.connect(self._save_changes)
+        self.hist_label_color_edgecolor.color_edit2.textChanged.connect(self._save_changes)
+        self.hist_cmap.currentIndexChanged.connect(self._save_changes)
 
         # Scatter
         self.scatter_traj_key_x.textChanged.connect(self._save_changes)
@@ -639,18 +678,37 @@ class PlotSettingsTab(qw.QWidget):
         layout = qw.QFormLayout(w)
 
         self.curve_traj_key = qw.QLineEdit()
+        self.curve_traj_key_x = qw.QLineEdit()
+
         self.curve_linestyle = qw.QComboBox()
         self.curve_linestyle.addItem("Solid", "solid")
         self.curve_linestyle.addItem("Dashed", "dashed")
         self.curve_linestyle.addItem("Dotted", "dotted")
+        self.curve_linewidth = qw.QDoubleSpinBox()
+        self.curve_linewidth.setRange(0.5, 3.0)
+        self.curve_linewidth.setValue(1.5)
+        self.curve_linewidth.setDecimals(1)
+        self.curve_linewidth.setSingleStep(0.1)
+
+        self.curve_marker_and_color = LabelColorRow(indep= True, extra_picker= True)
+        self.curve_markersize = qw.QDoubleSpinBox()
+        self.curve_markersize.setRange(1.0, 10.0)
+        self.curve_markersize.setSingleStep(1.0)
+        self.curve_markersize.setValue(6.0)
+        self.curve_markersize.setDecimals(1)
 
         self.curve_series_editor = LabelColorListEditor()
-
+        self.curve_tip1 = qw.QLabel("Tips: x-Axis Key is only for breaking with your default.")
         # autosave wiring is done in _wire_autosave_signals
 
         layout.addRow("Trajectory Key:", self.curve_traj_key)
+        layout.addRow("Trajectory Key for x-Axis:", self.curve_traj_key_x)
         layout.addRow("Line Style:", self.curve_linestyle)
+        layout.addRow("Line Width:", self.curve_linewidth)
+        layout.addRow("Marker Type/Color/Edgecolor:", self.curve_marker_and_color)
+        layout.addRow("Marker Size:", self.curve_markersize)
         layout.addRow("Curves (label + color):", self.curve_series_editor)
+        layout.addRow("", self.curve_tip1)
         return w
 
     def _build_hist_panel(self) -> qw.QWidget:
@@ -662,13 +720,19 @@ class PlotSettingsTab(qw.QWidget):
         self.hist_weights = qw.QLineEdit()
 
         self.hist_density = qw.QCheckBox("Density (normalize)")
-        self.hist_label_color = LabelColorRow(indep= True)
+        self.hist_label_color_edgecolor = LabelColorRow(indep= True, extra_picker= True)
 
         self.hist_type = qw.QComboBox()
         self.hist_type.addItems(["bar", "barstacked", "step", "stepfilled"])
 
         self.hist_align = qw.QComboBox()
         self.hist_align.addItems(["left", "mid", "right"])
+        self.hist_cmap = qw.QComboBox()
+        self.hist_cmap.addItem("None")
+        self.hist_cmap.addItems(list(colormaps))
+
+        self.hist_tip = qw.QLabel("Tips: Data key is the only required field.")
+        self.hist_tip2 = qw.QLabel("    If your bins are very thin, try setting edge color to 'face' to have outlines match the inside color.")
 
         layout.addRow("Data Key*:", self.hist_data)
         layout.addRow("Bins Key:", self.hist_bins)
@@ -676,7 +740,10 @@ class PlotSettingsTab(qw.QWidget):
         layout.addRow("", self.hist_density)
         layout.addRow("Type:", self.hist_type)
         layout.addRow("Alignment:", self.hist_align)
-        layout.addRow("Label/Color:", self.hist_label_color)
+        layout.addRow("Label/Color/Edgecolor:", self.hist_label_color_edgecolor)
+        layout.addRow("Gradient:", self.hist_cmap)
+        layout.addRow("", self.hist_tip)
+        layout.addRow("", self.hist_tip2)
         return w
 
     def _build_scatter_panel(self) -> qw.QWidget:
@@ -930,12 +997,19 @@ class PlotSettingsTab(qw.QWidget):
         if idx >= 0:
             self.curve_linestyle.setCurrentIndex(idx)
         self.curve_series_editor.set_pairs([], [])
+        self.curve_marker_and_color.label_edit.clear()
+        self.curve_marker_and_color.color_edit.clear()
+        self.curve_marker_and_color.color_edit2.clear()
+        self.curve_traj_key_x.clear()
+        self.curve_linewidth.setValue(1.5)
+        self.curve_markersize.setValue(6.0)
 
         self.hist_data.clear()
         self.hist_bins.clear()
         self.hist_weights.clear()
-        self.hist_label_color.label_edit.clear()
-        self.hist_label_color.color_edit.clear()
+        self.hist_label_color_edgecolor.label_edit.clear()
+        self.hist_label_color_edgecolor.color_edit.clear()
+        self.hist_label_color_edgecolor.color_edit2.clear()
         self.hist_density.setChecked(False)
 
         self.scatter_traj_key_x.clear()
@@ -967,15 +1041,19 @@ class PlotSettingsTab(qw.QWidget):
             self.type_stack.setCurrentIndex(1)
 
         if self.plot_type_combo.currentText() == "Curve":
-            self.curve_traj_key.blockSignals(True)
             self.curve_traj_key.setText(plot.get("traj_key", "") or "")
-            self.curve_traj_key.blockSignals(False)
+            self.curve_traj_key_x.setText(plot.get("traj_key_x", "") or "")
             val = (plot.get("linestyle") or "solid").strip().lower()
             idx = self.curve_linestyle.findData(val)
             if idx >= 0:
                 self.curve_linestyle.setCurrentIndex(idx)
             else:
                 self.curve_linestyle.setCurrentIndex(self.curve_linestyle.findData("solid"))
+            self.curve_linewidth.setValue(plot.get("linewidth", 1.5))
+            self.curve_markersize.setValue(plot.get("markersize", 6.0))
+            self.curve_marker_and_color.label_edit.setText(plot.get("marker", "") or "")
+            self.curve_marker_and_color.color_edit.set_hex(plot.get("markerfacecolor", "") or "")
+            self.curve_marker_and_color.color_edit2.set_hex(plot.get("markeredgecolor", "") or "")
             labels = plot.get("labels", []) or []
             colors = plot.get("colors", []) or []
             self.curve_series_editor.set_pairs(labels, colors)
@@ -984,7 +1062,7 @@ class PlotSettingsTab(qw.QWidget):
             self.hist_data.setText(plot.get("dist", "") or "")
             self.hist_bins.setText(plot.get("bins", "") or "")
             self.hist_weights.setText(plot.get("weights", "") or "")
-            self.hist_density.setEnabled(plot.get("density", False) or False)
+            self.hist_density.setChecked(plot.get("density", False) or False)
             val = (plot.get("histtype") or "bar").strip().lower()
             idx = self.hist_type.findText(val)
             if idx >= 0:
@@ -999,8 +1077,16 @@ class PlotSettingsTab(qw.QWidget):
             else:
                 self.hist_align.setCurrentIndex(self.hist_align.findText("bar"))
 
-            self.hist_label_color.label_edit.setText(plot.get("label", "") or "")
-            self.hist_label_color.color_edit.setText(plot.get("color", "") or "")
+            val = (plot.get("gradient") or "None").strip()
+            idx = self.hist_cmap.findText(val)
+            if idx >= 0:
+                self.hist_cmap.setCurrentIndex(idx)
+            else:
+                self.hist_cmap.setCurrentIndex(self.hist_cmap.findText("bar"))
+
+            self.hist_label_color_edgecolor.label_edit.setText(plot.get("label", "") or "")
+            self.hist_label_color_edgecolor.color_edit.set_hex(plot.get("color", "") or "")
+            self.hist_label_color_edgecolor.color_edit2.set_hex(plot.get("edgecolor", "") or "")
 
         else:  # Scatter
             self.scatter_traj_key_x.setText(plot.get("traj_key_x", "") or "")
@@ -1010,7 +1096,7 @@ class PlotSettingsTab(qw.QWidget):
             except Exception:
                 label = ""
             self.scatter_label_color.label_edit.setText(label)
-            self.scatter_label_color.color_edit.setText(plot.get("color", "") or "")
+            self.scatter_label_color.color_edit.set_hex(plot.get("color", "") or "")
             self.scatter_marker.setText(plot.get("marker", "") or "")
 
     def _get_plot_data(self):
@@ -1040,10 +1126,17 @@ class PlotSettingsTab(qw.QWidget):
         if data_type == "curve":
             if self.name_edit.text(): new_data["checkbox_name"] = self.name_edit.text()
             new_data["linestyle"] = (self.curve_linestyle.currentData() or "solid")
+            if self.curve_marker_and_color.label_edit.text().strip():
+                new_data["marker"] = (self.curve_marker_and_color.label_edit.text().strip() or None)
+                new_data["markerfacecolor"] = (self.curve_marker_and_color.color_edit.text().strip() or None)
+                new_data["markeredgecolor"] = (self.curve_marker_and_color.color_edit2.text().strip() or None)
             labels, colors = self.curve_series_editor.get_pairs()
+            new_data["linewidth"] = self.curve_linewidth.value()
+            new_data["markersize"] = self.curve_markersize.value()
             new_data["labels"] = labels
             new_data["colors"] = colors
             new_data["traj_key"] = self.curve_traj_key.text()
+            new_data["traj_key_x"] = self.curve_traj_key_x.text()
             if self.name_edit.text(): new_data["toggled"] = self.toggled_check.isChecked()
             inter_name = self.lbl_internal_name.text()
 
@@ -1078,12 +1171,16 @@ class PlotSettingsTab(qw.QWidget):
             if self.hist_weights.text().strip():
                 new_data["weights"] = self.hist_weights.text().strip()
             new_data["density"] = bool(self.hist_density.isChecked())
-            if self.hist_label_color.label_edit.text().strip():
-                new_data["label"] = [self.hist_label_color.label_edit.text().strip()]
-            if self.hist_label_color.color_edit.text().strip():
-                new_data["color"] = self.hist_label_color.color_edit.text().strip()
+            if self.hist_label_color_edgecolor.label_edit.text().strip():
+                new_data["label"] = self.hist_label_color_edgecolor.label_edit.text().strip()
+            if self.hist_label_color_edgecolor.color_edit.text().strip():
+                new_data["color"] = self.hist_label_color_edgecolor.color_edit.text().strip()
+            if self.hist_label_color_edgecolor.color_edit2.text().strip():
+                new_data["edgecolor"] = self.hist_label_color_edgecolor.color_edit2.text().strip()
             histtype = self.hist_type.currentText()
             new_data["histtype"] = histtype
+            gradient = self.hist_cmap.currentText()
+            new_data["gradient"] = gradient
             align = self.hist_align.currentText()
             new_data["align"] = align
 

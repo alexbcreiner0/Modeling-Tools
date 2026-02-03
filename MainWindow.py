@@ -6,6 +6,7 @@ from PyQt6 import (
     QtGui as qg,
     QtCore as qc
 )
+import numpy as np
 from tools.qt_tools import recolor_icon
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from widgets.CustomNavigationToolbar import CustomNavigationToolbar
@@ -75,6 +76,7 @@ class SimWorker(qc.QObject):
 
             # if it's a normal function output (i.e. the user is not animating)
             if isinstance(result, tuple) and len(result) == 2:
+                print("Is a normal function output")
                 animating = False
                 traj, t = result
                 latest_traj, latest_t = traj, t
@@ -137,6 +139,7 @@ class MainWindow(qw.QMainWindow):
 
         self.current_demo_name, self.current_demo = self._find_default(self.demos)
         self._sleep_time = self.current_demo.get("details", {}).get("simulation_speed", 0)
+        self._compute_mode = self.current_demo.get("details", {}).get("compute_mode", "single_process")
         self.sim_model = self.current_demo["details"]["simulation_model"]
         self.params, self.get_trajectories, self.presets, panel_data, plotting_data, self.functions, self.default_dir = self._get_data(self.settings, self.current_demo)
 
@@ -166,7 +169,7 @@ class MainWindow(qw.QMainWindow):
         self.removeToolBar(self.toolbar)
         
         # make top toolbar
-        self.nav_toolbar = self._make_nav_toolbar()
+        self.nav_toolbar = self._build_nav_toolbar()
         self.addToolBar(qc.Qt.ToolBarArea.TopToolBarArea, self.nav_toolbar)
         
         # Load and perform initial simulation, get trajectories
@@ -481,7 +484,7 @@ class MainWindow(qw.QMainWindow):
         self.thread = None
         self.worker = None
 
-    def _make_nav_toolbar(self):
+    def _build_nav_toolbar(self):
 
         nav_toolbar = qw.QToolBar("Navigation")
 
@@ -511,7 +514,6 @@ class MainWindow(qw.QMainWindow):
         nav_toolbar.addWidget(grab_as_initial_button)
         nav_toolbar.addWidget(self.grab_entry)
 
-
         spacer = qw.QWidget()
         spacer.setSizePolicy(
             qw.QSizePolicy.Policy.Expanding,
@@ -532,15 +534,15 @@ class MainWindow(qw.QMainWindow):
         nav_toolbar.addSeparator()
 
         sim_speed_label = qw.QLabel("Sim Speed: ")
-        sim_speed_edit = qw.QLineEdit()
+        self.sim_speed_edit = qw.QLineEdit()
         if self._sleep_time != 0:
-            sim_speed_edit.setText(str(self._sleep_time))
+            self.sim_speed_edit.setText(str(self._sleep_time))
         else:
-            sim_speed_edit.setPlaceholderText("0.0 (higher = slower)")
-        sim_speed_edit.setFixedWidth(130)
-        sim_speed_edit.textChanged.connect(self._adjust_sim_speed)
+            self.sim_speed_edit.setPlaceholderText("0.0 (higher = slower)")
+        self.sim_speed_edit.setFixedWidth(130)
+        self.sim_speed_edit.textChanged.connect(self._adjust_sim_speed)
         nav_toolbar.addWidget(sim_speed_label)
-        nav_toolbar.addWidget(sim_speed_edit)
+        nav_toolbar.addWidget(self.sim_speed_edit)
 
 
         catch_icon = style.standardIcon(qw.QStyle.StandardPixmap.SP_DialogHelpButton)
@@ -753,9 +755,21 @@ class MainWindow(qw.QMainWindow):
         self.graph_panel.set_sim_run_id(self._run_id)
         self.thread.start()
 
-    def _on_worker_progress(self, traj, t):
-        self._pending_traj = traj
-        self._pending_t = t
+    # if mode is multiprocessing, dictionary will be a dict of single new values to add
+    def _on_worker_progress(self, new_data: dict, new_t: dict | float):
+        # if self._compute_mode == "multiprocess":
+        #     if self._pending_traj is None:
+        #         self._pending_traj = {}
+        #     if self._pending_t is None:
+        #         self._pending_t = np.array([])
+        #     for traj_name, value in new_data.items():
+        #         if traj_name in self._pending_traj and value is not None:
+        #             self._pending_traj[traj_name] = np.append(self._pending_traj[traj_name], value)
+        #         else:
+        #             self._pending_traj[traj_name] = np.array([value])
+                
+        self._pending_traj = new_data
+        self._pending_t = new_t
 
     def _on_sim_thread_finished(self):
         self.thread = None
@@ -989,9 +1003,10 @@ class MainWindow(qw.QMainWindow):
         self.main_splitter.restoreState(saved_state)
 
         self._sleep_time = demo.get("details", {}).get("simulation_speed", 0)
+        self.sim_speed_edit.setText(str(self._sleep_time))
 
         self.model_label.setText(f"Model: {demo["name"]}")
-        qc.QTimer.singleShot(1000, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
+        # qc.QTimer.singleShot(1000, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
 
         self.update_plot()
 

@@ -11,6 +11,7 @@ from matplotlib import (
 from matplotlib.patches import Rectangle
 import numpy as np
 from matplotlib.backend_bases import cursors
+from matplotlib import colormaps
 import scienceplots
 import logging, json, hashlib
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -665,7 +666,15 @@ class GraphPanel(qw.QWidget):
             bins = self._desired_hist_edges(data, plot_dict)
 
         counts, edges, patches = ax.hist(
-            data, bins=bins, edgecolor=edge_color, rwidth=rwidth, histtype= histtype, density= density, color= color, label= label, weights= weights
+            data,
+            bins=bins, 
+            edgecolor=edge_color, 
+            rwidth=rwidth, 
+            histtype= histtype, 
+            density= density, 
+            color= color, 
+            label= label, 
+            weights= weights
         )
         for k, rect in enumerate(patches):
             rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
@@ -676,9 +685,10 @@ class GraphPanel(qw.QWidget):
         # except Exception:
         #     pass
 
-        if plot_dict.get("gradient", False):
+        gradient = plot_dict.get("gradient", "None")
+        if gradient != "None":
             norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)))
-            cmap = plt.cm.magma
+            cmap = colormaps.get(gradient)
             for c, p in zip(counts, patches):
                 p.set_facecolor(cmap(norm(c)))
 
@@ -820,6 +830,11 @@ class GraphPanel(qw.QWidget):
             color=plot_dict["colors"][0],
             linestyle=plot_dict.get("linestyle", "solid"),
             label=label,
+            marker= plot_dict.get("marker", None),
+            markerfacecolor= plot_dict.get("markerfacecolor", None),
+            markeredgecolor= plot_dict.get("markeredgecolor", None),
+            linewidth= plot_dict.get("linewidth", 1.5),
+            markersize= plot_dict.get("markersize", 6.0)
         )[0]
         ln.set_gid(gid)
 
@@ -1470,9 +1485,20 @@ class GraphPanel(qw.QWidget):
         density = plot_dict.get("density", False)
         align = plot_dict.get("align", "mid")
         histtype = plot_dict.get("histtype", 'bar')
+        label = plot_dict.get("label", "")
 
         edges = self._desired_hist_edges(data, plot_dict)
-        counts, edges, patches = ax.hist(data, bins=edges, edgecolor=edge_color, rwidth=rwidth, density= density, color= color, align= align, histtype= histtype)
+        counts, edges, patches = ax.hist(
+            data, 
+            bins=edges,
+            edgecolor=edge_color,
+            rwidth=rwidth,
+            density= density,
+            color= color,
+            align= align,
+            histtype= histtype,
+            label= label
+        )
 
         for k, rect in enumerate(patches):
             rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
@@ -1481,9 +1507,10 @@ class GraphPanel(qw.QWidget):
 
         ax.set_xlim(float(edges[0]), float(edges[-1]))
 
-        if plot_dict.get("gradient", False):
+        gradient = plot_dict.get("gradient", "None")
+        if gradient != "None":
             norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
-            cmap = plt.cm.magma
+            cmap = colormaps.get(gradient)
             for c, p in zip(counts, patches):
                 p.set_facecolor(cmap(norm(c)))
 
@@ -1496,6 +1523,10 @@ class GraphPanel(qw.QWidget):
             return
 
         ax = self.axes[slot_index]
+        # self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+        # return
+
+        # I think this is all BS
         key = (slot_index, choice_name, plot_name)
 
         desired_edges = self._desired_hist_edges(data, plot_dict)
@@ -1509,6 +1540,10 @@ class GraphPanel(qw.QWidget):
 
         # update heights using the true edges
         counts, _ = np.histogram(data, bins=stored_edges)
+        if plot_dict.get("density", False):
+            widths = np.diff(stored_edges)
+            n = counts.sum()
+            counts = counts / (n * widths) if n > 0 else counts
 
         # collect rects in stable k order from inventory (or from ax.patches)
         bucket = self._slot_artists.get(slot_index, {})
@@ -1535,9 +1570,10 @@ class GraphPanel(qw.QWidget):
 
         ax.set_xlim(float(stored_edges[0]), float(stored_edges[-1]))
 
-        if plot_dict.get("gradient", False):
+        gradient = plot_dict.get("gradient", "None")
+        if gradient != "None":
             norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
-            cmap = plt.cm.magma
+            cmap = colormaps.get(gradient)
             for c, p in zip(counts, rects):
                 p.set_facecolor(cmap(norm(c)))
 

@@ -11,7 +11,7 @@ def get_trajectories(params: Params):
     T, N, M, w = params.T, params.N, params.M, params.w
     economy = Economy(M, N, w)
 
-    for i in range(T):
+    for i in range(1,T+1):
         step = economy.my_step()
         for out in step:
             if out == -1:

@@ -3,6 +3,15 @@ from typing import Tuple
 import numpy as np
 import sys
 
+def get_discrete_entropy(model):
+    
+    data = [agent.wealth for agent in model.agents]
+    _, counts = np.unique(data, return_counts= True)
+    probs = counts / counts.sum()
+
+    H = -np.sum(probs * np.log2(probs))
+    return H
+
 def compute_gini(model):
     agent_wealths = [agent.wealth for agent in model.agents]
     x = sorted(agent_wealths)
@@ -33,7 +42,7 @@ class MoneyModel(mesa.Model):
         super().__init__(seed= seed)
         self.num_agents = n
         self.datacollector = mesa.DataCollector(
-            model_reporters= {"Gini": compute_gini}, 
+            model_reporters= {"Gini": compute_gini, "Entropy": get_discrete_entropy},
             agent_reporters= {"Wealth": "wealth"}
         )
 
@@ -52,5 +61,6 @@ class MoneyModel(mesa.Model):
         traj = {}
         traj["wealth"] = np.array([a.wealth for a in self.agents])
         traj["gini"] = self.datacollector.get_model_vars_dataframe()["Gini"].to_numpy()
+        traj["entropy"] = self.datacollector.get_model_vars_dataframe()["Entropy"].to_numpy()
         return traj
 

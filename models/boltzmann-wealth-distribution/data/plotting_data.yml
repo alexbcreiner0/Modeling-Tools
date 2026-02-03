@@ -11,7 +11,7 @@ all:
       rwidth: 1
       gradient: true
       labels: [Agent Wealth]
-      integer_bins: True
+      integer_bins: true
 gini_coeff:
   name: Gini Coefficient
   tooltip: null
@@ -22,3 +22,10 @@ gini_coeff:
       labels: [Gini Coefficient]
       toggled: true
       traj_key: gini
+    entropy:
+      checkbox_name: Entropy
+      linestyle: solid
+      labels: [Entropy]
+      colors: [red]
+      traj_key: entropy
+      toggled: false
