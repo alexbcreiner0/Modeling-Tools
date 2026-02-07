@@ -12,6 +12,7 @@ import logging, atexit
 import logging.config
 from logging.handlers import RotatingFileHandler
 import threading
+import multiprocessing as mp
 
 LOG_DIR = rpath("logs")
 LOG_DIR.mkdir(exist_ok= True)
@@ -58,6 +59,7 @@ def apply_dpi_scaled_font(app: qw.QApplication, base_pt: float = 10.0) -> None:
 
 if __name__ == "__main__":
 
+    # mp.freeze_support()
     app = qw.QApplication(sys.argv)
     apply_dpi_scaled_font(app)
     app.setStyle("Fusion")

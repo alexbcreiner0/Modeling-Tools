@@ -14,13 +14,79 @@ from matplotlib import pyplot as plt
 import sys, importlib, yaml, math, inspect
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
+from SimWorker import SimWorker
 from tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config, reload_package_folder
 from paths import rpath
-import time
+from multiprocessing import Queue, get_context
 
 # from simulation.parameters import params_from_mapping, to_plain
 from widgets.Dialogs import SaveDialog, DescDialog, NewModelDialog
 from widgets.EditConfigDialog import EditConfigDialog
+
+class BridgeWorker(qc.QObject):
+    """ 
+    Worker that rapidly drains the data queue. Later will be rejobbed into the
+    guy which 'assembles' the data from smaller serialized data points.
+    """
+
+    progress = qc.pyqtSignal(object, object)
+    done = qc.pyqtSignal()
+    error = qc.pyqtSignal(object)
+
+    def __init__(self, mp_queue, run_id, parent= None):
+        super().__init__(parent)
+        self.mp_queue = mp_queue
+        self._running = True
+        self._drain_timer = None
+        self.run_id = run_id
+
+    @qc.pyqtSlot()
+    def start(self):
+        self._drain_timer = qc.QTimer(self)
+        self._drain_timer.setInterval(10)
+        self._drain_timer.timeout.connect(self._drain_once)
+        self._drain_timer.start()
+    
+    @qc.pyqtSlot()
+    def stop(self):
+        if self._drain_timer is not None:
+            self._drain_timer.stop()
+            self._drain_timer.deleteLater()
+            self._drain_timer = None
+
+    @qc.pyqtSlot()
+    def _drain_once(self):
+        import queue as py_queue
+        latest = None
+        while True:
+            try:
+                msg = self.mp_queue.get_nowait()
+            except py_queue.Empty:
+                break
+
+            if isinstance(msg, tuple) and msg and msg[0] == self.run_id and msg[1] == "DONE":
+                self.stop()
+                self.done.emit()
+                return
+
+            if isinstance(msg, tuple) and msg and msg[0] == self.run_id and msg[1] == "ERROR":
+                self.stop()
+                self.error.emit(msg)
+                return
+
+            if msg[0] == self.run_id:
+                latest = msg
+
+        if latest is None:
+            return
+
+        _, traj, t = latest
+
+        if traj is None or t is None:
+            return
+
+        self.progress.emit(traj, t)
+
 
 def _is_text_input_widget(w: qw.QWidget | None) -> bool:
     if w is None:
@@ -41,78 +107,6 @@ def _is_text_input_widget(w: qw.QWidget | None) -> bool:
 
     return False
 
-class SimWorker(qc.QObject):
-    progress = qc.pyqtSignal(object, object)          # traj, t
-    finished = qc.pyqtSignal(object, object, object)  # traj, t, e
-
-    def __init__(self, params, stream_func, *, yield_every=1, sleep_time= 0.01):
-        super().__init__()
-        self.params = params
-        self.stream_func = stream_func
-        self.yield_every = yield_every
-        self._stop = False
-        self._pause = False
-        self.sleep_time = sleep_time
-
-    @qc.pyqtSlot()
-    def request_stop(self):
-        self._stop = True
-
-    @qc.pyqtSlot()
-    def toggle_pause(self):
-        self._pause = not self._pause
-
-    def _should_stop(self) -> bool:
-        return self._stop or qc.QThread.currentThread().isInterruptionRequested()
-
-    @qc.pyqtSlot()
-    def run(self):
-        e = None
-        latest_traj, latest_t = None, None
-        animating = True
-
-        try:
-            result = self.stream_func(self.params)
-
-            # if it's a normal function output (i.e. the user is not animating)
-            if isinstance(result, tuple) and len(result) == 2:
-                print("Is a normal function output")
-                animating = False
-                traj, t = result
-                latest_traj, latest_t = traj, t
-                self.progress.emit(traj, t)
-
-            else:
-                for i, frame in enumerate(result):
-                    if self._should_stop():
-                        break
-
-                    time.sleep(self.sleep_time)
-                    # stop receiving new outputs if sim is paused
-                    while self._pause and not self._should_stop():
-                        qc.QThread.msleep(25) # recheck every 25 ms
-
-                    if not (isinstance(frame, tuple) and len(frame) == 2):
-                        raise TypeError(f"Streaming sim must yield (traj, t) tuples. Got {type(frame)} {frame!r}")
-
-                    latest_traj, latest_t = frame
-                    if latest_traj is None or latest_t is None:
-                        continue
-                    if (i % self.yield_every) == 0:
-                        self.progress.emit(latest_traj, latest_t)
-
-        except Exception as ex:
-            latest_t_val = latest_t[-1] if latest_t is not None else None
-            extra = {
-                "Sim function": self.stream_func.__name__,
-                "Animating from generator": animating,
-                "latest t value": latest_t_val
-            }
-            info = (extra, ex)
-            self.finished.emit(latest_traj, latest_t, info)
-            return
-
-        self.finished.emit(latest_traj, latest_t, e)
 
 class MainWindow(qw.QMainWindow):
 
@@ -129,18 +123,26 @@ class MainWindow(qw.QMainWindow):
         self.thread.finished.connect(self.on_thread_finished)
         self.live_animation = True
         self._run_id = 0
+        self.bridge_worker = None
+        self.bridge_thread = None
+        self._sim_state = "IDLE"
+        self._rerun_pending = False
 
-        # short term fix
         self._pending_traj = None
         self._pending_t = None
         self._anim_timer = qc.QTimer(self)
-        self._anim_timer.setInterval(30)  # ~30fps
+        self._anim_timer.setInterval(30)  # ~30fpsmain
         self._anim_timer.timeout.connect(self._apply_next_frame)
 
         self.current_demo_name, self.current_demo = self._find_default(self.demos)
         self._sleep_time = self.current_demo.get("details", {}).get("simulation_speed", 0)
         self._compute_mode = self.current_demo.get("details", {}).get("compute_mode", "single_process")
         self.sim_model = self.current_demo["details"]["simulation_model"]
+        if self.current_demo["details"].get("multiprocessing", False):
+            self.multiprocessing = True
+            self.ctx = get_context("spawn")
+        else:
+            self.multiprocessing = False
         self.params, self.get_trajectories, self.presets, panel_data, plotting_data, self.functions, self.default_dir = self._get_data(self.settings, self.current_demo)
 
         self.model_label = qw.QLabel(f"Model: {self.current_demo.get("name", "")}")
@@ -157,10 +159,6 @@ class MainWindow(qw.QMainWindow):
         self.presets_submenu = self._make_menu(self.presets, self.demos, self.functions)
         self.sim_actions[self.get_trajectories.__name__].setChecked(True)
 
-        # make status bar
-        # saved_infos = [qw.QLabel("Saved x-axis: "), qw.QLabel("Saved y-axis: ")]
-        # self.saved_labels = [qw.QLabel(), qw.QLabel()]
-
         # make matplotlib stuff, need toolbar for below
         self.figure, self.axis = plt.subplots(layout= "constrained")
         # self.figure.set_constrained_layout(True)
@@ -172,8 +170,6 @@ class MainWindow(qw.QMainWindow):
         self.nav_toolbar = self._build_nav_toolbar()
         self.addToolBar(qc.Qt.ToolBarArea.TopToolBarArea, self.nav_toolbar)
         
-        # Load and perform initial simulation, get trajectories
-        # self.traj, self.t, e = self.get_trajectories(self.params)
         self.traj, self.t = None, None
 
         self.graph_panel, self.control_panel, self.dropdown_choices = self._make_panels(plotting_data, panel_data, self.current_demo)
@@ -208,14 +204,73 @@ class MainWindow(qw.QMainWindow):
 
         qc.QCoreApplication.instance().installEventFilter(self)
 
-        # main_container = qw.QWidget()
-        # main_container.setLayout(self.main_layout)
-
         self.setCentralWidget(self.main_splitter)
-        # qc.QTimer.singleShot(5000, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
 
         self._install_focus_clear_filter()
-        self.update_plot()
+        self.start_sim()
+
+    def _halt_sim_stack(self, *, force: bool= False, clear_pending: bool= True, clear_queue: bool = False) -> None:
+        """ Safe multipurpose method for halting/killing all of the relevant moving parts of an ongoing sim """
+
+        # ensure no further animation happens
+        try:
+            self._anim_timer.stop()
+        except Exception:
+            pass
+
+        if clear_pending:
+            self._pending_traj = None
+            self._pending_t = None
+
+        bw = getattr(self, "bridge_worker", None)
+        bt = getattr(self, "bridge_thread", None)
+
+        if bw is not None and bt is not None and bt.isRunning():
+            try:
+                qc.QMetaObject.invokeMethod(bw, "stop", qc.Qt.ConnectionType.QueuedConnection)
+            except RuntimeError:
+                pass
+
+        if bt is not None:
+            if bt.isRunning():
+                bt.quit()
+                bt.wait(1000)
+            self.bridge_thread = None
+            self.bridge_worker = None
+
+        if clear_queue and self.multiprocessing:
+            q = getattr(self, "sim_results_queue", None)
+            if q is not None:
+                import queue as py_queue
+                while True:
+                    try:
+                        q.get_nowait()
+                    except py_queue.Empty:
+                        break
+                    except Exception:
+                        break
+
+        # 2) ask the SimWorker to stop / kill its process (if mp)
+        w = getattr(self, "worker", None)
+        if w is not None:
+            try:
+                w.request_stop(force=force)
+            except Exception:
+                pass
+
+        # 3) stop the worker QThread
+        th = getattr(self, "thread", None)
+        if th is not None:
+            try:
+                if th.isRunning():
+                    th.requestInterruption()
+                    th.quit()
+                    th.wait(1000)
+            except Exception:
+                pass
+
+        self.thread = None
+        self.worker = None
 
     def _install_focus_clear_filter(self) -> None:
         # Put it on the window and also on the central widget / scroll areas if needed
@@ -372,7 +427,7 @@ class MainWindow(qw.QMainWindow):
             dropdown_tooltips, panel_data, 
             plotting_data, self.sim_model, demo
         )
-        control_panel.paramChanged.connect(self.update_plot)
+        control_panel.paramChanged.connect(self.start_sim)
         control_panel.layoutChanged.connect(self.on_layout_changed)
         control_panel.slotPlotChoiceChanged.connect(self.on_slot_plot_choice_changed)
         control_panel.slotOptionsChanged.connect(self.on_slot_options_changed)
@@ -385,7 +440,7 @@ class MainWindow(qw.QMainWindow):
         new_params, new_sector_names = data
         self.params = new_params
         self._update_sector_names(new_sector_names)
-        self.update_plot()
+        self.start_sim()
 
     def _update_sector_names(self, names):
 
@@ -407,6 +462,7 @@ class MainWindow(qw.QMainWindow):
     def _apply_next_frame(self):
         if self._pending_traj is None:
             return
+
         self.show_partial_results(self._pending_traj, self._pending_t)
 
     def on_slot_axes_limits_changed(self, slot_index: int, xlim: tuple, ylim: tuple):
@@ -563,6 +619,8 @@ class MainWindow(qw.QMainWindow):
         if self.thread is not None and self.thread.isRunning():
             if self.worker:
                 self.worker.sleep_time = self._sleep_time
+                if self.multiprocessing:
+                    self.worker._sleep_value.value = self._sleep_time
 
     def _on_figure_background_checkbox_changed(self, state: int) -> None:
         use_window = True if state == 2 else False
@@ -620,7 +678,7 @@ class MainWindow(qw.QMainWindow):
         rerun_button = qg.QAction("Rerun Simulation", self)
         
         file_menu.addAction(rerun_button)
-        rerun_button.triggered.connect(self.update_plot)
+        rerun_button.triggered.connect(self.start_sim)
 
         edit_settings_action = qg.QAction("Settings", self)
         file_menu.addAction(edit_settings_action)
@@ -652,7 +710,7 @@ class MainWindow(qw.QMainWindow):
 
         quit_button = qg.QAction("Quit", self)
         file_menu.addAction(quit_button)
-        quit_button.triggered.connect(qw.QApplication.quit)
+        quit_button.triggered.connect(self.close)
 
         for demo in demos:
             name = demos[demo]["name"]
@@ -712,7 +770,12 @@ class MainWindow(qw.QMainWindow):
     #     self.saved_labels[1].setText(ylim_str)
 
 
-    def update_plot(self, name=None, new_val=None):
+    def start_sim(self, name=None, new_val=None):
+        if getattr(self, "_sim_state", "IDLE") == "STOPPING":
+            self._rerun_pending = True
+            self.status_bar.showMessage("Stopping... rerun queued.", 1500)
+            return
+
         self._run_id += 1
         if name not in (None, False):
             setattr(self.params, name, new_val)
@@ -720,9 +783,8 @@ class MainWindow(qw.QMainWindow):
         # If running: stop and rerun after finish
         if self.thread is not None and self.thread.isRunning():
             self._rerun_pending = True
-            if self.worker:
-                self.worker.request_stop()
-            self.thread.requestInterruption()
+            self._sim_state = "STOPPING"
+            self._halt_sim_stack(force= True, clear_pending= True, clear_queue= True)
             self.status_bar.showMessage("Stop requested… will rerun.", 2000)
             return
 
@@ -734,7 +796,28 @@ class MainWindow(qw.QMainWindow):
 
         self.thread = qc.QThread(self)
 
-        self.worker = SimWorker(self.params, self.get_trajectories, yield_every=1, sleep_time= self._sleep_time)
+        if self.multiprocessing:
+            self.sim_results_queue = self.ctx.Queue()
+            self.worker = SimWorker(self.params, self.get_trajectories, yield_every=1, sleep_time= self._sleep_time, ctx= self.ctx, mp_queue= self.sim_results_queue, model_info= self.current_demo, run_id= self._run_id)
+            self.bridge_worker = BridgeWorker(self.sim_results_queue, self._run_id)
+            self.bridge_thread = qc.QThread(self)
+            self.bridge_worker.moveToThread(self.bridge_thread)
+
+            self.bridge_thread.started.connect(self.bridge_worker.start, qc.Qt.ConnectionType.QueuedConnection)
+
+            self.bridge_worker.progress.connect(self._on_worker_progress)
+            self.bridge_worker.done.connect(self._on_sim_thread_finished)
+            self.bridge_worker.error.connect(self._on_sim_error)
+            self.bridge_thread.finished.connect(self.bridge_thread.deleteLater)
+            self.bridge_thread.finished.connect(self.bridge_worker.deleteLater)
+
+            # i dunno supposedly this helps
+            self.bridge_worker.destroyed.connect(lambda *_: setattr(self, "bridge_worker", None))
+            self.bridge_thread.destroyed.connect(lambda *_: setattr(self, "bridge_thread", None))
+
+            self.bridge_thread.start()
+        else:
+            self.worker = SimWorker(self.params, self.get_trajectories, yield_every=1, sleep_time= self._sleep_time)
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
@@ -772,11 +855,24 @@ class MainWindow(qw.QMainWindow):
         self._pending_t = new_t
 
     def _on_sim_thread_finished(self):
-        self.thread = None
-        self.worker = None
-        if getattr(self, "_rerun_pending", False):
+        self._halt_sim_stack(force= False, clear_pending= False, clear_queue= False)
+        self._sim_state = "IDLE"
+
+        if self._rerun_pending:
             self._rerun_pending = False
-            self.update_plot()
+            self.start_sim()
+
+    def _on_sim_error(self, msg):
+        _, ex_repr, tb, module_path, func_name = msg
+        extra = {
+            "module_path": module_path,
+            "func_name": func_name,
+            "_remote_exc_info": tb,
+        }
+        logger.log(logging.ERROR, f"Simulation failed: {ex_repr}", extra= extra)
+        self._rerun_pending = False
+        self._halt_sim_stack(force= True, clear_pending= True, clear_queue= False)
+
 
     # def update_plot(self, name= None, new_val= None):
 
@@ -828,7 +924,7 @@ class MainWindow(qw.QMainWindow):
     def keyPressEvent(self, a0):
         if a0 is not None:
             if a0.key() == 16777268: # F5
-                self.update_plot()
+                self.start_sim()
             if a0.key() == 16777269: # F6
                 self.tight_layout()
             if a0.key() == 16777270: # F7
@@ -839,7 +935,14 @@ class MainWindow(qw.QMainWindow):
                 self.toggle_pause()
 
             if a0.key() == 16777216: # ESC
-                qw.QApplication.quit()
+                self.closeEvent(a0)
+
+    def closeEvent(self, event):
+        try:
+            self._halt_sim_stack(force= True, clear_pending= True, clear_queue= False)
+        finally:
+            event.accept()
+            qw.QApplication.quit()
 
     def load_preset(self, preset):
         try:
@@ -858,6 +961,7 @@ class MainWindow(qw.QMainWindow):
         Reload simulation.py / parameters.py for the current demo
         without changing which demo is active.
         """
+        self._halt_sim_stack(force= False, clear_pending= True, clear_queue= True)
         try:
             demo = self.current_demo
 
@@ -894,7 +998,7 @@ class MainWindow(qw.QMainWindow):
             logger.log(logging.ERROR, f"Failed to reload current demo: {e}", extra= extra, exc_info= e)
 
         # Re-run simulation
-        self.update_plot()
+        self.start_sim()
 
     def _get_data(self, settings, demo):
 
@@ -950,11 +1054,12 @@ class MainWindow(qw.QMainWindow):
         return params, sim_function, presets, panel_data, plotting_data, functions, default_dir
 
     def load_demo(self, demo_name):
-
+        self._halt_sim_stack(force= True, clear_pending= True, clear_queue= True)
         try:
             demo = self.demos[demo_name]
             self.sim_model = demo["details"]["simulation_model"]
             self.params, self.get_trajectories, self.presets, panel_data, plotting_data, functions, self.default_dir  = self._get_data(self.settings, demo)
+            self.multiprocessing = demo["details"].get("multiprocessing", False)
 
             model_settings = self.config["model_specific_settings"][self.sim_model]
         except Exception as e:
@@ -974,7 +1079,6 @@ class MainWindow(qw.QMainWindow):
 
         self.presets_submenu.clear()
         self._create_presets_submenus(self.presets, self.presets_submenu)
-
 
         saved_state = self.main_splitter.saveState()
         if hasattr(self, "main_splitter") and self.main_splitter is not None:
@@ -1008,15 +1112,14 @@ class MainWindow(qw.QMainWindow):
         self.model_label.setText(f"Model: {demo["name"]}")
         # qc.QTimer.singleShot(1000, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
 
-        self.update_plot()
+        self.start_sim()
 
     def load_sim(self, func, name):
-
         print(f"Setting sim function = {func}")
         self.get_trajectories = func
         action = self.sim_actions[name]
         action.setChecked(True)
-        self.update_plot()
+        self.start_sim()
 
     def new_model(self):
         NewModelDialog(self).bootstrap()
@@ -1195,7 +1298,7 @@ class MainWindow(qw.QMainWindow):
             self.current_demo,
             old_current_tab
         )
-        new_cp.paramChanged.connect(self.update_plot)
+        new_cp.paramChanged.connect(self.start_sim)
         new_cp.layoutChanged.connect(self.on_layout_changed)
         new_cp.slotPlotChoiceChanged.connect(self.on_slot_plot_choice_changed)
         new_cp.slotOptionsChanged.connect(self.on_slot_options_changed)

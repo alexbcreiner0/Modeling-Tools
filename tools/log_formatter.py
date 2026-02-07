@@ -36,6 +36,10 @@ class JSONFormatter(logging.Formatter):
         if record.exc_info is not None:
             always_fields["exc_info"] = self.formatException(record.exc_info)
 
+        remote_exc = getattr(record, "_remote_exc_info", None)
+        if record.exc_info is None and remote_exc:
+            always_fields["exc_info"] = remote_exc
+
         if record.stack_info is not None:
             always_fields["stack_info"] = self.formatStack(record.stack_info)
 

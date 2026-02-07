@@ -15,7 +15,8 @@ def get_trajectories(params: Params):
         step = economy.my_step()
         for out in step:
             if out == -1:
-                yield None, None
+                # yield None, None
+                continue
         t.append(i)
         traj = economy.traj
 
