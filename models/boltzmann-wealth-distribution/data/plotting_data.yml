@@ -5,13 +5,16 @@ all:
   x_label: Money
   y_label: Number of agents
   plots:
-    wealth_distn:
+    wealth_distribution:
       special: hist
+      checkbox_name: Wealth Distribution
+      toggled: true
       dist: wealth
-      rwidth: 1
-      gradient: true
-      labels: [Agent Wealth]
-      integer_bins: true
+      density: false
+      label: Agent Wealth
+      histtype: bar
+      gradient: magma
+      align: left
 gini_coeff:
   name: Gini Coefficient
   tooltip: null

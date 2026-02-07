@@ -1,4 +1,5 @@
 import logging
+import traceback
 logger = logging.getLogger(__name__)
 
 from PyQt6 import (
@@ -7,6 +8,7 @@ from PyQt6 import (
     QtCore as qc
 )
 import numpy as np
+import time
 from tools.qt_tools import recolor_icon
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from widgets.CustomNavigationToolbar import CustomNavigationToolbar
@@ -14,7 +16,7 @@ from matplotlib import pyplot as plt
 import sys, importlib, yaml, math, inspect
 from ControlPanel import ControlPanel
 from GraphPanel import GraphPanel
-from SimWorker import SimWorker
+from SimWorker import SimController
 from tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config, reload_package_folder
 from paths import rpath
 from multiprocessing import Queue, get_context
@@ -119,8 +121,10 @@ class MainWindow(qw.QMainWindow):
         self.config = config
         self.settings = config["global_settings"]
         self.demos = config["demos"]
+
         self.thread = qc.QThread()
         self.thread.finished.connect(self.on_thread_finished)
+
         self.live_animation = True
         self._run_id = 0
         self.bridge_worker = None
@@ -138,12 +142,8 @@ class MainWindow(qw.QMainWindow):
         self._sleep_time = self.current_demo.get("details", {}).get("simulation_speed", 0)
         self._compute_mode = self.current_demo.get("details", {}).get("compute_mode", "single_process")
         self.sim_model = self.current_demo["details"]["simulation_model"]
-        if self.current_demo["details"].get("multiprocessing", False):
-            self.multiprocessing = True
-            self.ctx = get_context("spawn")
-        else:
-            self.multiprocessing = False
-        self.params, self.get_trajectories, self.presets, panel_data, plotting_data, self.functions, self.default_dir = self._get_data(self.settings, self.current_demo)
+        self.ctx = get_context("spawn")
+        self.params, self.current_sim_func, self.presets, panel_data, plotting_data, self.functions, self.default_dir = self._get_data(self.settings, self.current_demo)
 
         self.model_label = qw.QLabel(f"Model: {self.current_demo.get("name", "")}")
         self.status_bar.addPermanentWidget(self.model_label)
@@ -157,7 +157,7 @@ class MainWindow(qw.QMainWindow):
 
         # Create top bar menu
         self.presets_submenu = self._make_menu(self.presets, self.demos, self.functions)
-        self.sim_actions[self.get_trajectories.__name__].setChecked(True)
+        self.sim_actions[self.current_sim_func.__name__].setChecked(True)
 
         # make matplotlib stuff, need toolbar for below
         self.figure, self.axis = plt.subplots(layout= "constrained")
@@ -238,7 +238,7 @@ class MainWindow(qw.QMainWindow):
             self.bridge_thread = None
             self.bridge_worker = None
 
-        if clear_queue and self.multiprocessing:
+        if clear_queue:
             q = getattr(self, "sim_results_queue", None)
             if q is not None:
                 import queue as py_queue
@@ -256,12 +256,11 @@ class MainWindow(qw.QMainWindow):
             try:
                 w.request_stop(force=force)
 
-                if self.multiprocessing:
-                    finished = w.join(timeout= 2.0)
-                    if not finished:
-                        # escalate
-                        w.request_stop(force= True)
-                        w.join(timeout= 2.0)
+                finished = w.join(timeout= 2.0)
+                if not finished:
+                    # escalate
+                    w.request_stop(force= True)
+                    w.join(timeout= 2.0)
             except Exception:
                 pass
 
@@ -626,8 +625,7 @@ class MainWindow(qw.QMainWindow):
         if self.thread is not None and self.thread.isRunning():
             if self.worker:
                 self.worker.sleep_time = self._sleep_time
-                if self.multiprocessing:
-                    self.worker._sleep_value.value = self._sleep_time
+                self.worker._sleep_value.value = self._sleep_time
 
     def _on_figure_background_checkbox_changed(self, state: int) -> None:
         use_window = True if state == 2 else False
@@ -658,7 +656,6 @@ class MainWindow(qw.QMainWindow):
         # self.update_plot()
         self.control_panel.load_new_params(self.params)
 
-    # Doesn't work usually
     def request_threadkill(self):
         if self.thread and self.thread.isRunning():
             self.thread.requestInterruption()
@@ -769,14 +766,6 @@ class MainWindow(qw.QMainWindow):
             rename_action.triggered.connect(lambda _checked= False, name= preset: self.rename_preset(name))
             view_desc_action.triggered.connect(lambda _checked= False, name= preset: self.view_desc(name))
 
-    # def update_saved_lims(self, xlim, ylim):
-
-    #     xlim_str = f"({xlim[0]:g}, {xlim[1]:g})"
-    #     ylim_str = f"({ylim[0]:g}, {ylim[1]:g})"
-    #     self.saved_labels[0].setText(xlim_str)
-    #     self.saved_labels[1].setText(ylim_str)
-
-
     def start_sim(self, name=None, new_val=None):
         if getattr(self, "_sim_state", "IDLE") == "STOPPING":
             self._rerun_pending = True
@@ -803,28 +792,33 @@ class MainWindow(qw.QMainWindow):
 
         self.thread = qc.QThread(self)
 
-        if self.multiprocessing:
-            self.sim_results_queue = self.ctx.Queue()
-            self.worker = SimWorker(self.params, self.get_trajectories, yield_every=1, sleep_time= self._sleep_time, ctx= self.ctx, mp_queue= self.sim_results_queue, model_info= self.current_demo, run_id= self._run_id)
-            self.bridge_worker = BridgeWorker(self.sim_results_queue, self._run_id)
-            self.bridge_thread = qc.QThread(self)
-            self.bridge_worker.moveToThread(self.bridge_thread)
+        self.sim_results_queue = self.ctx.Queue()
+        self.worker = SimController(
+            self._run_id,
+            self.params,
+            self.current_sim_func, 
+            self.current_demo, 
+            self.ctx, 
+            self.sim_results_queue,
+            yield_every=1, 
+            sleep_time= self._sleep_time, 
+        )
+        self.bridge_worker = BridgeWorker(self.sim_results_queue, self._run_id)
+        self.bridge_thread = qc.QThread(self)
+        self.bridge_worker.moveToThread(self.bridge_thread)
 
-            self.bridge_thread.started.connect(self.bridge_worker.start, qc.Qt.ConnectionType.QueuedConnection)
+        self.bridge_thread.started.connect(self.bridge_worker.start, qc.Qt.ConnectionType.QueuedConnection)
 
-            self.bridge_worker.progress.connect(self._on_worker_progress)
-            self.bridge_worker.done.connect(self._on_sim_thread_finished)
-            self.bridge_worker.error.connect(self._on_sim_error)
-            self.bridge_thread.finished.connect(self.bridge_thread.deleteLater)
-            self.bridge_thread.finished.connect(self.bridge_worker.deleteLater)
+        self.bridge_worker.progress.connect(self._on_worker_progress)
+        self.bridge_worker.done.connect(self._on_sim_thread_finished)
+        self.bridge_worker.error.connect(self._on_sim_error)
+        self.bridge_thread.finished.connect(self.bridge_thread.deleteLater)
+        self.bridge_thread.finished.connect(self.bridge_worker.deleteLater)
 
-            # i dunno supposedly this helps
-            self.bridge_worker.destroyed.connect(lambda *_: setattr(self, "bridge_worker", None))
-            self.bridge_thread.destroyed.connect(lambda *_: setattr(self, "bridge_thread", None))
+        self.bridge_worker.destroyed.connect(lambda *_: setattr(self, "bridge_worker", None))
+        self.bridge_thread.destroyed.connect(lambda *_: setattr(self, "bridge_thread", None))
 
-            self.bridge_thread.start()
-        else:
-            self.worker = SimWorker(self.params, self.get_trajectories, yield_every=1, sleep_time= self._sleep_time)
+        self.bridge_thread.start()
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
@@ -879,27 +873,6 @@ class MainWindow(qw.QMainWindow):
         logger.log(logging.ERROR, f"Simulation failed: {ex_repr}", extra= extra)
         self._rerun_pending = False
         self._halt_sim_stack(force= True, clear_pending= True, clear_queue= False)
-
-
-    # def update_plot(self, name= None, new_val= None):
-
-    #     if name != None and name != False:
-    #         setattr(self.params, name, new_val)
-
-    #     if self.thread is not None and self.thread.isRunning():
-    #         return
-
-    #     self.status_bar.showMessage("Computing trajectories...")
-
-    #     self.thread = qc.QThread(self)
-    #     self.worker = SimWorker(self.params, self.get_trajectories)
-    #     self.worker.moveToThread(self.thread)
-    #     self.worker.progress.connect(self.show_partial_results)
-    #     self.thread.started.connect(self.worker.run)
-    #     self.worker.finished.connect(self.show_results)
-    #     self.worker.finished.connect(self.thread.quit)
-    #     # self.thread.finished.connect(self.thread.deleteLater)
-    #     self.thread.start()
 
     def show_results(self, traj, t, e):
         self._anim_timer.stop()
@@ -974,7 +947,7 @@ class MainWindow(qw.QMainWindow):
 
             (
                 self.params,
-                self.get_trajectories,
+                self.current_sim_func,
                 self.presets,
                 panel_data,
                 plotting_data,
@@ -1000,7 +973,7 @@ class MainWindow(qw.QMainWindow):
             extra = {
                 "demo": self.current_demo,
                 "params": self.params,
-                "sim function": self.get_trajectories,
+                "sim function": self.current_sim_func,
             }
             logger.log(logging.ERROR, f"Failed to reload current demo: {e}", extra= extra, exc_info= e)
 
@@ -1065,8 +1038,7 @@ class MainWindow(qw.QMainWindow):
         try:
             demo = self.demos[demo_name]
             self.sim_model = demo["details"]["simulation_model"]
-            self.params, self.get_trajectories, self.presets, panel_data, plotting_data, functions, self.default_dir  = self._get_data(self.settings, demo)
-            self.multiprocessing = demo["details"].get("multiprocessing", False)
+            self.params, self.current_sim_func, self.presets, panel_data, plotting_data, functions, self.default_dir  = self._get_data(self.settings, demo)
 
             model_settings = self.config["model_specific_settings"][self.sim_model]
         except Exception as e:
@@ -1123,7 +1095,7 @@ class MainWindow(qw.QMainWindow):
 
     def load_sim(self, func, name):
         print(f"Setting sim function = {func}")
-        self.get_trajectories = func
+        self.current_sim_func = func
         action = self.sim_actions[name]
         action.setChecked(True)
         self.start_sim()
