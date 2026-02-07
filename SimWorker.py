@@ -12,15 +12,30 @@ from multiprocessing import Process, Pool
 from paths import rpath
 import importlib
 from tools.loader import to_plain
+import queue as py_queue
 
-def child_run(queue, run_id, module_path, func_name, params_path, params, stop_event, pause_event, sleep_value):
+def put_latest(q, msg, stop_event):
+    while True:
+        if stop_event.is_set():
+            return False
+        try:
+            q.put_nowait(msg)
+            return True
+        except py_queue.Full:
+            # drop one old item and try again
+            try:
+                q.get_nowait()
+            except py_queue.Empty:
+                pass
+
+def child_run(queue, run_id, module_path, func_name, params_path, params, stop_event, pause_event, sleep_value, yield_every):
     try:
         from tools.loader import params_from_mapping
         mod = importlib.import_module(module_path)
         func = getattr(mod, func_name)
         params_dataclass = params_from_mapping(params, params_path)
 
-        for traj, t in func(params_dataclass):
+        for i, (traj, t) in enumerate(func(params_dataclass)):
             if stop_event.is_set():
                 break
 
@@ -33,7 +48,11 @@ def child_run(queue, run_id, module_path, func_name, params_path, params, stop_e
             if dt > 0:
                 time.sleep(dt)
 
-            queue.put((run_id, traj, t))
+            if yield_every <= 1 or (i % yield_every) == 0:
+                # TODO: wtf is this even doing
+                if not put_latest(queue, (run_id, traj, t), stop_event):
+                    break
+                # queue.put((run_id, traj, t))
 
         queue.put((run_id, "DONE",))
 
@@ -46,85 +65,107 @@ class SimController(qc.QObject):
     progress = qc.pyqtSignal(object, object)          # traj, t
     finished = qc.pyqtSignal(object, object, object)  # traj, t, e
 
-    def __init__(self, run_id, params, stream_func, model_info, ctx, mp_queue, *, yield_every=1, sleep_time= 0.01):
-        super().__init__()
+    def __init__(self, ctx, parent= None):
+        super().__init__(parent)
         self.ctx = ctx
 
         self._proc = None
-        self._run_id = run_id
-        self.mp_queue = mp_queue
+        self._run_id = None
+        self._yield_every = 5
 
-        self.current_sim_func = stream_func
-        self.yield_every = yield_every
+        self._pause_event = ctx.Event()
+        self._pause_event.set() # default to unpaused
+        self._stop_event = ctx.Event()
+        self._sleep_value = ctx.Value("d", 0)
+
         self._stop = False
         self._pause = False
-        self.sleep_time = sleep_time
 
-        self._stop_event = ctx.Event()
-        self._pause_event = ctx.Event()
-        self._pause_event.set() # start unpaused
-        self._sleep_value = ctx.Value("d", float(self.sleep_time))
-
+    def configure(self, *, run_id, model_info, params, mp_queue, sleep_time, yield_every):
         sim_model = model_info["details"]["simulation_model"]
-        self.sim_function_name = model_info["details"]["simulation_function"]
-        self.module_path = f"models.{sim_model}.simulation.simulation" # multiprocessing expects the string
-        self.params_path = rpath("models", sim_model, "simulation", "parameters.py") # but my own function needs a path
-        self.params = to_plain(params)
 
-    @qc.pyqtSlot()
-    def request_stop(self, force: bool = False):
-        self._stop = True
+        self._run_id = run_id
+        self._yield_every = yield_every
+        self.mp_queue = mp_queue
 
-        stop_event = getattr(self, "_stop_event", None)
-        if stop_event is not None:
-            stop_event.set()
+        self._module_path = f"models.{sim_model}.simulation.simulation" # multiprocessing expects the string
+        self._func_name = model_info["details"]["simulation_function"]
+        self._params_path = rpath("models", sim_model, "simulation", "parameters.py") # but my own function needs a path
+        self._params_plain = to_plain(params)
+        self._sleep_value.value = float(sleep_time)
 
-        if force:
-            p = getattr(self, "_proc", None)
-            if p is not None and p.is_alive():
-                p.terminate()
-                p.join(timeout= 0.5)
-                if p.is_alive():
-                    p.kill()
-                    p.join(timeout= 0.5)
+        # resetting for new runs
+        self._stop_event.clear()
+        self._pause_event.set() 
 
-    @qc.pyqtSlot()
-    def toggle_pause(self):
-        self._pause = not self._pause
+    def is_alive(self) -> bool:
+        p = self._proc
+        return bool(p is not None and p.is_alive())
 
-        pause_event = getattr(self, "_pause_event", None)
-        if pause_event:
-            if self._pause:
-                pause_event.clear()
-            else:
-                pause_event.set()
+    def start(self):
+        if self.mp_queue is None or self._run_id is None:
+            raise RuntimeError("SimController not configured before start()")
 
-    def _should_stop(self) -> bool:
-        return self._stop or qc.QThread.currentThread().isInterruptionRequested()
+        if self.is_alive():
+            return
 
-    def join(self, timeout= 1.0) -> bool:
-        """ During a demo switch, while a sim is running, this is used to force the app to wait until the old demo is down before the new one gets made """
-        p = getattr(self, "_proc", None)
-        if p is not None:
-            return True
-        p.join(timeout= timeout)
-        return not p.is_alive()
-
-    @qc.pyqtSlot()
-    def run(self):
-        e = None
-        latest_traj, latest_t = None, None
-        animating = True
-
+        print(f"{self._run_id}")
         self._proc = self.ctx.Process(
             target= child_run, 
             args=(
-                self.mp_queue, self._run_id, self.module_path, 
-                self.sim_function_name, self.params_path, 
-                self.params, self._stop_event, self._pause_event, self._sleep_value
+                self.mp_queue, 
+                self._run_id,
+                self._module_path, 
+                self._func_name, 
+                self._params_path, 
+                self._params_plain, 
+                self._stop_event, 
+                self._pause_event, 
+                self._sleep_value,
+                self._yield_every
             )
         )
         self._proc.start()
+
+    @qc.pyqtSlot(bool)
+    def request_stop(self, force: bool = False):
+        self._stop_event.set()
+        
+        p = self._proc
+        if p is None:
+            return
+
+        if not force:
+            return
+
+        if p.is_alive():
+            p.terminate()
+            p.join(timeout= 0.5)
+
+        if p.is_alive():
+            p.kill()
+            p.join(timeout= 0.5)
+
+    @qc.pyqtSlot()
+    def toggle_pause(self):
+        if self._pause_event.is_set():
+            self._pause_event.clear()
+        else:
+            self._pause_event.set()
+
+    def set_sleep_time(self, dt: float):
+        self._sleep_value.value = float(dt)
+
+    # def _should_stop(self) -> bool:
+    #     return self._stop or qc.QThread.currentThread().isInterruptionRequested()
+
+    def join(self, timeout= 1.0) -> bool:
+        """ During a demo switch, while a sim is running, this is used to force the app to wait until the old demo is down before the new one gets made """
+        p = self._proc
+        if p is None:
+            return True
+        p.join(timeout= timeout)
+        return not p.is_alive()
 
         # try:
         #     result = self.stream_func(self.params)

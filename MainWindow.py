@@ -1,7 +1,7 @@
 import logging
 import traceback
 logger = logging.getLogger(__name__)
-
+import time
 from PyQt6 import (
     QtWidgets as qw,
     QtGui as qg,
@@ -26,7 +26,7 @@ from widgets.Dialogs import SaveDialog, DescDialog, NewModelDialog
 from widgets.EditConfigDialog import EditConfigDialog
 
 class BridgeWorker(qc.QObject):
-    """ 
+    """
     Worker that rapidly drains the data queue. Later will be rejobbed into the
     guy which 'assembles' the data from smaller serialized data points.
     """
@@ -122,8 +122,8 @@ class MainWindow(qw.QMainWindow):
         self.settings = config["global_settings"]
         self.demos = config["demos"]
 
-        self.thread = qc.QThread()
-        self.thread.finished.connect(self.on_thread_finished)
+        # self.thread = qc.QThread()
+        # self.thread.finished.connect(self.on_thread_finished)
 
         self.live_animation = True
         self._run_id = 0
@@ -142,7 +142,10 @@ class MainWindow(qw.QMainWindow):
         self._sleep_time = self.current_demo.get("details", {}).get("simulation_speed", 0)
         self._compute_mode = self.current_demo.get("details", {}).get("compute_mode", "single_process")
         self.sim_model = self.current_demo["details"]["simulation_model"]
+
         self.ctx = get_context("spawn")
+        self.sim_controller = SimController(self.ctx, parent= self)
+
         self.params, self.current_sim_func, self.presets, panel_data, plotting_data, self.functions, self.default_dir = self._get_data(self.settings, self.current_demo)
 
         self.model_label = qw.QLabel(f"Model: {self.current_demo.get("name", "")}")
@@ -223,20 +226,25 @@ class MainWindow(qw.QMainWindow):
             self._pending_t = None
 
         bw = getattr(self, "bridge_worker", None)
-        bt = getattr(self, "bridge_thread", None)
+        # bt = getattr(self, "bridge_thread", None)
 
-        if bw is not None and bt is not None and bt.isRunning():
+        if bw is not None:
             try:
-                qc.QMetaObject.invokeMethod(bw, "stop", qc.Qt.ConnectionType.QueuedConnection)
+                bw.stop()
             except RuntimeError:
                 pass
+            try:
+                bw.deleteLater()
+            except Exception:
+                pass
 
-        if bt is not None:
-            if bt.isRunning():
-                bt.quit()
-                bt.wait(1000)
-            self.bridge_thread = None
-            self.bridge_worker = None
+        self.bridge_worker = None
+
+        # if bt is not None:
+        #     if bt.isRunning():
+        #         bt.quit()
+        #         bt.wait(1000)
+        #     self.bridge_thread = None
 
         if clear_queue:
             q = getattr(self, "sim_results_queue", None)
@@ -250,33 +258,28 @@ class MainWindow(qw.QMainWindow):
                     except Exception:
                         break
 
-        # 2) ask the SimWorker to stop / kill its process (if mp)
-        w = getattr(self, "worker", None)
-        if w is not None:
+        if self.sim_controller is not None:
             try:
-                w.request_stop(force=force)
-
-                finished = w.join(timeout= 2.0)
-                if not finished:
-                    # escalate
-                    w.request_stop(force= True)
-                    w.join(timeout= 2.0)
+                self.sim_controller.request_stop(force=force)
+                self.sim_controller.join(timeout= 2.0)
+                if force and self.sim_controller.is_alive():
+                    self.sim_controller.request_stop(force= True)
+                    self.sim_controller.join(timeout= 2.0)
             except Exception:
                 pass
 
         # 3) stop the worker QThread
-        th = getattr(self, "thread", None)
-        if th is not None:
-            try:
-                if th.isRunning():
-                    th.requestInterruption()
-                    th.quit()
-                    th.wait(1000)
-            except Exception:
-                pass
+        # th = getattr(self, "thread", None)
+        # if th is not None:
+        #     try:
+        #         if th.isRunning():
+        #             th.requestInterruption()
+        #             th.quit()
+        #             th.wait(1000)
+        #     except Exception:
+        #         pass
 
-        self.thread = None
-        self.worker = None
+        # self.worker = None
 
     def _install_focus_clear_filter(self) -> None:
         # Put it on the window and also on the central widget / scroll areas if needed
@@ -303,8 +306,11 @@ class MainWindow(qw.QMainWindow):
             self.graph_panel.update_slot_frame(slot_index, dropdown_index, options, slot_cfg)
 
     def toggle_pause(self):
-        if self.worker:
-            self.worker.toggle_pause()
+        # if self.worker:
+        #     self.worker.toggle_pause()
+        if self.sim_controller is not None:
+            self.sim_controller.toggle_pause()
+
 
     def update_figure_background(self, use_window_background: bool) -> None:
         """
@@ -622,10 +628,8 @@ class MainWindow(qw.QMainWindow):
         except:
             return
 
-        if self.thread is not None and self.thread.isRunning():
-            if self.worker:
-                self.worker.sleep_time = self._sleep_time
-                self.worker._sleep_value.value = self._sleep_time
+        if self.sim_controller is not None and self.sim_controller.is_alive():
+            self.sim_controller.set_sleep_time(self._sleep_time)
 
     def _on_figure_background_checkbox_changed(self, state: int) -> None:
         use_window = True if state == 2 else False
@@ -657,10 +661,8 @@ class MainWindow(qw.QMainWindow):
         self.control_panel.load_new_params(self.params)
 
     def request_threadkill(self):
-        if self.thread and self.thread.isRunning():
-            self.thread.requestInterruption()
-            if self.worker:
-                self.worker.request_stop()
+        if self.sim_controller is not None and self.sim_controller.is_alive():
+            self.sim_controller.request_stop()
             self.status_bar.showMessage("Stop requested...", msecs=2000)
 
     def _make_menu(self, presets, demos, functions):
@@ -767,7 +769,7 @@ class MainWindow(qw.QMainWindow):
             view_desc_action.triggered.connect(lambda _checked= False, name= preset: self.view_desc(name))
 
     def start_sim(self, name=None, new_val=None):
-        if getattr(self, "_sim_state", "IDLE") == "STOPPING":
+        if self._sim_state == "STOPPING":
             self._rerun_pending = True
             self.status_bar.showMessage("Stopping... rerun queued.", 1500)
             return
@@ -777,12 +779,19 @@ class MainWindow(qw.QMainWindow):
             setattr(self.params, name, new_val)
 
         # If running: stop and rerun after finish
-        if self.thread is not None and self.thread.isRunning():
+        if self.sim_controller is not None and self.sim_controller.is_alive():
             self._rerun_pending = True
             self._sim_state = "STOPPING"
-            self._halt_sim_stack(force= True, clear_pending= True, clear_queue= True)
+
+            self._request_stop_for_rerun(force=False)
+            # qc.QTimer.singleShot(2000, lambda: self._request_stop_for_rerun(force=True)
+            #                      if (self.sim_controller is not None and self.sim_controller.is_alive())
+            #                      else None)
             self.status_bar.showMessage("Stop requested… will rerun.", 2000)
             return
+            # self._halt_sim_stack(force= True, clear_pending= True, clear_queue= True)
+            # self.status_bar.showMessage("Stop requested… will rerun.", 2000)
+            # return
 
         self._rerun_pending = False
 
@@ -790,54 +799,60 @@ class MainWindow(qw.QMainWindow):
         self._pending_t = None
         self._anim_timer.stop()
 
-        self.thread = qc.QThread(self)
+        # self.thread = qc.QThread(self)
 
-        self.sim_results_queue = self.ctx.Queue()
-        self.worker = SimController(
-            self._run_id,
-            self.params,
-            self.current_sim_func, 
-            self.current_demo, 
-            self.ctx, 
-            self.sim_results_queue,
-            yield_every=1, 
-            sleep_time= self._sleep_time, 
-        )
-        self.bridge_worker = BridgeWorker(self.sim_results_queue, self._run_id)
-        self.bridge_thread = qc.QThread(self)
-        self.bridge_worker.moveToThread(self.bridge_thread)
+        self.sim_results_queue = self.ctx.Queue(maxsize= 10)
 
-        self.bridge_thread.started.connect(self.bridge_worker.start, qc.Qt.ConnectionType.QueuedConnection)
-
+        # TODO: should never have listened to the chatbot telling me to take this off of it's own thread, return to a separate QThread
+        self.bridge_worker = BridgeWorker(self.sim_results_queue, self._run_id, parent= self)
         self.bridge_worker.progress.connect(self._on_worker_progress)
-        self.bridge_worker.done.connect(self._on_sim_thread_finished)
+        # self.bridge_worker.done.connect(self._on_sim_thread_finished)
+        self.bridge_worker.done.connect(self._on_sim_done)
         self.bridge_worker.error.connect(self._on_sim_error)
-        self.bridge_thread.finished.connect(self.bridge_thread.deleteLater)
-        self.bridge_thread.finished.connect(self.bridge_worker.deleteLater)
+        self.bridge_worker.start()
 
-        self.bridge_worker.destroyed.connect(lambda *_: setattr(self, "bridge_worker", None))
-        self.bridge_thread.destroyed.connect(lambda *_: setattr(self, "bridge_thread", None))
+        # self.bridge_thread = qc.QThread(self)
+        # self.bridge_worker.moveToThread(self.bridge_thread)
 
-        self.bridge_thread.start()
-        self.worker.moveToThread(self.thread)
-
-        self.thread.started.connect(self.worker.run)
-        # self.worker.progress.connect(self.show_partial_results)
-        self.worker.progress.connect(self._on_worker_progress)
+        self.sim_controller.configure(
+            run_id= self._run_id,
+            model_info= self.current_demo, 
+            params= self.params,
+            mp_queue= self.sim_results_queue,
+            sleep_time= self._sleep_time, 
+            yield_every=1, 
+        )
+        self.sim_controller.start()
 
         if self.live_animation:
             self._anim_timer.start()
 
-        self.worker.finished.connect(self.show_results)
-        self.worker.finished.connect(self.thread.quit)
+        self.graph_panel.set_sim_run_id(self._run_id)
+
+        # self.bridge_thread.started.connect(self.bridge_worker.start, qc.Qt.ConnectionType.QueuedConnection)
+
+        # self.bridge_thread.finished.connect(self.bridge_thread.deleteLater)
+        # self.bridge_thread.finished.connect(self.bridge_worker.deleteLater)
+
+        # self.bridge_worker.destroyed.connect(lambda *_: setattr(self, "bridge_worker", None))
+        # self.bridge_thread.destroyed.connect(lambda *_: setattr(self, "bridge_thread", None))
+
+        # self.bridge_thread.start()
+        # self.worker.moveToThread(self.thread)
+
+        # self.thread.started.connect(self.worker.run)
+        # self.worker.progress.connect(self.show_partial_results)
+        # self.worker.progress.connect(self._on_worker_progress)
+
+        # self.worker.finished.connect(self.show_results)
+        # self.worker.finished.connect(self.thread.quit)
 
         # cleanup
-        self.thread.finished.connect(self.worker.deleteLater)
-        self.thread.finished.connect(self.thread.deleteLater)
-        self.thread.finished.connect(self._on_sim_thread_finished)
+        # self.thread.finished.connect(self.worker.deleteLater)
+        # self.thread.finished.connect(self.thread.deleteLater)
+        # self.thread.finished.connect(self._on_sim_thread_finished)
 
-        self.graph_panel.set_sim_run_id(self._run_id)
-        self.thread.start()
+        # self.thread.start()
 
     # if mode is multiprocessing, dictionary will be a dict of single new values to add
     def _on_worker_progress(self, new_data: dict, new_t: dict | float):
@@ -855,6 +870,21 @@ class MainWindow(qw.QMainWindow):
         self._pending_traj = new_data
         self._pending_t = new_t
 
+    def _on_sim_done(self):
+        self._anim_timer.stop()
+
+        if self._pending_traj is not None and self._pending_t is not None:
+            self.show_partial_results(self._pending_traj, self._pending_t)
+            self.traj, self.t = self._pending_traj, self._pending_t
+
+        self._halt_sim_stack(force= False, clear_pending= False, clear_queue= False)
+        self._sim_state = "IDLE"
+
+        if self._rerun_pending:
+            self._rerun_pending = False
+            print("restarting sim")
+            self.start_sim()
+
     def _on_sim_thread_finished(self):
         self._halt_sim_stack(force= False, clear_pending= False, clear_queue= False)
         self._sim_state = "IDLE"
@@ -864,8 +894,9 @@ class MainWindow(qw.QMainWindow):
             self.start_sim()
 
     def _on_sim_error(self, msg):
-        _, ex_repr, tb, module_path, func_name = msg
+        run_id, _tag, ex_repr, tb, module_path, func_name = msg
         extra = {
+            "run_id": run_id,
             "module_path": module_path,
             "func_name": func_name,
             "_remote_exc_info": tb,
@@ -873,6 +904,7 @@ class MainWindow(qw.QMainWindow):
         logger.log(logging.ERROR, f"Simulation failed: {ex_repr}", extra= extra)
         self._rerun_pending = False
         self._halt_sim_stack(force= True, clear_pending= True, clear_queue= False)
+        self._sim_state = "IDLE"
 
     def show_results(self, traj, t, e):
         self._anim_timer.stop()
@@ -916,6 +948,17 @@ class MainWindow(qw.QMainWindow):
 
             if a0.key() == 16777216: # ESC
                 self.closeEvent(a0)
+
+    def _request_stop_for_rerun(self, force= False):
+        try:
+            self._anim_timer.stop()
+        except Exception:
+            pass
+
+        if self.sim_controller is not None:
+            self.sim_controller.request_stop(force= force)
+            # if force:
+            #     self._on_sim_done() # no DONE message if force killed the process
 
     def closeEvent(self, event):
         try:
