@@ -56,6 +56,7 @@ class SimWorker(qc.QObject):
         self.sleep_time = sleep_time
         self.multiprocessing = False
         self.run_id = run_id
+        self.ctx = ctx
 
         if mp_queue is not None and ctx is not None and model_info is not None:
             self._stop_event = ctx.Event()
@@ -102,6 +103,14 @@ class SimWorker(qc.QObject):
     def _should_stop(self) -> bool:
         return self._stop or qc.QThread.currentThread().isInterruptionRequested()
 
+    def join(self, timeout= 1.0) -> bool:
+        """ During a demo switch, while a sim is running, this is used to force the app to wait until the old demo is down before the new one gets made """
+        p = getattr(self, "_proc", None)
+        if p is not None:
+            return True
+        p.join(timeout= timeout)
+        return not p.is_alive()
+
     @qc.pyqtSlot()
     def run(self):
         e = None
@@ -109,7 +118,7 @@ class SimWorker(qc.QObject):
         animating = True
 
         if self.multiprocessing:
-            self._proc = Process(
+            self._proc = self.ctx.Process(
                 target= child_run, 
                 args=(
                     self.mp_queue, self.run_id, self.module_path, 

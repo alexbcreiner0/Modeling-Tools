@@ -255,6 +255,13 @@ class MainWindow(qw.QMainWindow):
         if w is not None:
             try:
                 w.request_stop(force=force)
+
+                if self.multiprocessing:
+                    finished = w.join(timeout= 2.0)
+                    if not finished:
+                        # escalate
+                        w.request_stop(force= True)
+                        w.join(timeout= 2.0)
             except Exception:
                 pass
 
