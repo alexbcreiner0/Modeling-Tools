@@ -60,34 +60,39 @@ class BridgeWorker(qc.QObject):
     def _drain_once(self):
         import queue as py_queue
         latest = None
+        saw_done = False
+
         while True:
             try:
                 msg = self.mp_queue.get_nowait()
             except py_queue.Empty:
                 break
 
-            if isinstance(msg, tuple) and msg and msg[0] == self.run_id and msg[1] == "DONE":
-                self.stop()
-                self.done.emit()
-                return
+            if not (isinstance(msg, tuple) and msg):
+                continue
 
-            if isinstance(msg, tuple) and msg and msg[0] == self.run_id and msg[1] == "ERROR":
+            if msg[0] != self.run_id:
+                continue
+
+            if len(msg) >= 2 and msg[1] == "DONE":
+                saw_done = True
+                continue
+
+            if len(msg) >= 2 and msg[1] == "ERROR":
                 self.stop()
                 self.error.emit(msg)
                 return
 
-            if msg[0] == self.run_id:
-                latest = msg
+            latest = msg
 
-        if latest is None:
-            return
+        if latest is not None:
+            _, traj, t = latest
+            if traj is not None or t is not None:
+                self.progress.emit(traj, t)
 
-        _, traj, t = latest
-
-        if traj is None or t is None:
-            return
-
-        self.progress.emit(traj, t)
+        if saw_done:
+            self.stop()
+            self.done.emit()
 
 
 def _is_text_input_widget(w: qw.QWidget | None) -> bool:
@@ -121,9 +126,6 @@ class MainWindow(qw.QMainWindow):
         self.config = config
         self.settings = config["global_settings"]
         self.demos = config["demos"]
-
-        # self.thread = qc.QThread()
-        # self.thread.finished.connect(self.on_thread_finished)
 
         self.live_animation = True
         self._run_id = 0
@@ -267,19 +269,6 @@ class MainWindow(qw.QMainWindow):
                     self.sim_controller.join(timeout= 2.0)
             except Exception:
                 pass
-
-        # 3) stop the worker QThread
-        # th = getattr(self, "thread", None)
-        # if th is not None:
-        #     try:
-        #         if th.isRunning():
-        #             th.requestInterruption()
-        #             th.quit()
-        #             th.wait(1000)
-        #     except Exception:
-        #         pass
-
-        # self.worker = None
 
     def _install_focus_clear_filter(self) -> None:
         # Put it on the window and also on the central widget / scroll areas if needed
@@ -487,7 +476,6 @@ class MainWindow(qw.QMainWindow):
 
         xlim, ylim = lims
         self.graph_panel.edit_slot_axes(slot_index, xlim, ylim)
-
 
     def on_slot_plot_choice_changed(self, slot_index: int):
         # print(f"[DEBUG] Slot {slot_index} dropdown changed to index {_dropdown_index}")
@@ -768,7 +756,7 @@ class MainWindow(qw.QMainWindow):
             rename_action.triggered.connect(lambda _checked= False, name= preset: self.rename_preset(name))
             view_desc_action.triggered.connect(lambda _checked= False, name= preset: self.view_desc(name))
 
-    def start_sim(self, name=None, new_val=None):
+    def start_sim(self, name= None, new_val= None):
         if self._sim_state == "STOPPING":
             self._rerun_pending = True
             self.status_bar.showMessage("Stopping... rerun queued.", 1500)
@@ -803,14 +791,6 @@ class MainWindow(qw.QMainWindow):
 
         self.sim_results_queue = self.ctx.Queue(maxsize= 10)
 
-        # TODO: should never have listened to the chatbot telling me to take this off of it's own thread, return to a separate QThread
-        self.bridge_worker = BridgeWorker(self.sim_results_queue, self._run_id, parent= self)
-        self.bridge_worker.progress.connect(self._on_worker_progress)
-        # self.bridge_worker.done.connect(self._on_sim_thread_finished)
-        self.bridge_worker.done.connect(self._on_sim_done)
-        self.bridge_worker.error.connect(self._on_sim_error)
-        self.bridge_worker.start()
-
         # self.bridge_thread = qc.QThread(self)
         # self.bridge_worker.moveToThread(self.bridge_thread)
 
@@ -823,6 +803,14 @@ class MainWindow(qw.QMainWindow):
             yield_every=1, 
         )
         self.sim_controller.start()
+
+        # TODO: should never have listened to the chatbot telling me to take this off of it's own thread, return to a separate QThread
+        self.bridge_worker = BridgeWorker(self.sim_results_queue, self._run_id, parent= self)
+        self.bridge_worker.progress.connect(self._on_worker_progress)
+        # self.bridge_worker.done.connect(self._on_sim_thread_finished)
+        self.bridge_worker.done.connect(self._on_sim_done)
+        self.bridge_worker.error.connect(self._on_sim_error)
+        self.bridge_worker.start()
 
         if self.live_animation:
             self._anim_timer.start()
@@ -854,6 +842,7 @@ class MainWindow(qw.QMainWindow):
 
         # self.thread.start()
 
+
     # if mode is multiprocessing, dictionary will be a dict of single new values to add
     def _on_worker_progress(self, new_data: dict, new_t: dict | float):
         # if self._compute_mode == "multiprocess":
@@ -868,6 +857,7 @@ class MainWindow(qw.QMainWindow):
         #             self._pending_traj[traj_name] = np.array([value])
                 
         self._pending_traj = new_data
+
         self._pending_t = new_t
 
     def _on_sim_done(self):
@@ -1308,6 +1298,8 @@ class MainWindow(qw.QMainWindow):
             formatted = plotting_data
 
         dropdown_choices, dropdown_tooltips = self._get_dropdown_choices(formatted)
+
+        self.params, _, _, _, _, _, _ = self._get_data(self.settings, self.current_demo)
 
         # Build new panel and wire signals exactly like _make_panels()
         new_cp = ControlPanel(

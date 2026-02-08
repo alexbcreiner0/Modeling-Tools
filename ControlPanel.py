@@ -550,7 +550,8 @@ class ControlPanel(qw.QWidget):
         elif control_type == "entry_block": 
             param_name, label, tooltip_plain = info["param_name"], info["label"], info["tooltip"]
             tooltip = f"""{tooltip_plain}"""
-            init_val = getattr(params, param_name)
+            if hasattr(params, param_name):
+                init_val = getattr(params, param_name)
             # print(getattr(params, param_name))
 
             if info["type"] == "scalar":

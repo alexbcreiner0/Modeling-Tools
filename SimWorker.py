@@ -109,7 +109,6 @@ class SimController(qc.QObject):
         if self.is_alive():
             return
 
-        print(f"{self._run_id}")
         self._proc = self.ctx.Process(
             target= child_run, 
             args=(
