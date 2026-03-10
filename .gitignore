@@ -20,5 +20,9 @@ models/LTE
 models/test
 models/ivan_queueing_model_redo
 models/complex_function_fun
+model/leone_demo_model
+model/law_of_value_calculation
+model/new_model
 logs
 dimensions.txt
+config.yml.bak
