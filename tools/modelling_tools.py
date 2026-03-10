@@ -8,6 +8,8 @@ from tools.loader import load_presets, params_from_mapping
 from dataclasses import fields
 from numpy import ndarray
 # This mostly contains wizards for creating new simulations.
+# WARNING: THESE EXISTED BEFORE I CREATED A DEDICATED GUI SETTINGS MENU.
+# WARNING: EVERYTHING HERE IS VERY DEPRECATED AND UNSAFE TO USE. DO NOT USE THESE FUNCTIONS.
 
 def list_subdirs(path):
     return [

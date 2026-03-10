@@ -1,0 +1,28 @@
+new_category:
+  name: New Category
+  projection: 3d
+  axis_visible: true
+  grid_visible: true
+  ticks_visible: true
+  frame_visible: true
+  plots:
+    sine:
+      checkbox_name: Sine
+      toggled: true
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      labels: [Sine]
+      colors: [red]
+      traj_key: sin
+      traj_key_x: ''
+    cosine:
+      checkbox_name: Cosine
+      toggled: false
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      labels: [Cosine]
+      colors: [blue]
+      traj_key: cos
+      traj_key_x: ''

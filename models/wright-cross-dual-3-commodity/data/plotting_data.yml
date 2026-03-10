@@ -1,6 +1,5 @@
 prices_and_values:
   name: Prices and Values
-  title: null
   tooltip: '- All quantities here are measured in dollars.
 
     - Labor values, super-integrated labor values and SSSI values here are converted
@@ -15,50 +14,53 @@ prices_and_values:
     as the actual price vector.
 
     - See the wiki for the GitHub repo for more info.'
-  x_label: null
   y_label: Dollars [$]
+  projection: 2d
+  axis_visible: true
+  grid_visible: true
+  ticks_visible: true
+  frame_visible: true
   plots:
     unit_prices:
       checkbox_name: Unit Prices
       linestyle: solid
-      labels: ['Price of {c0}', 'Price of {c1}', 'Price of {c2}']
+      label_template: Price of {i}
+      use_runtime_labels: true
       colors: [red, green, blue]
       traj_key: p
       toggled: true
     unit_values:
       checkbox_name: Unit Values
       linestyle: dashed
-      labels: ['Value of {c0}', 'Value of {c1}', 'Value of {c2}']
+      label_template: Value of {i}
       colors: [red, green, blue]
       traj_key: wage_values
       toggled: true
     tssi_equilibrium_prices:
       checkbox_name: TSSI Equilibrium Prices
       linestyle: solid
-      labels: ['TSSI Equilibrium Price of {c0}', 'TSSI Equilibrium Price of {c1}',
-        'TSSI Equilibrium Price of {c2}']
+      label_template: TSSI Equilibrium Price of {i}
       colors: [red, green, blue]
       traj_key: kliman_prices
       toggled: false
     super_values:
       checkbox_name: Super-Integrated Values
       colors: ['#600702', '#02600f', '#051056']
-      labels: ['SI Value of {c0}', 'SI Value of {c1}', 'SI Value of {c2}']
+      label_template: SI Value of {i}
       linestyle: dashed
       toggled: false
       traj_key: super_integrated_wage_vals
     MELT_values:
       checkbox_name: MELT Adjusted Values
       colors: ['#f99b02', '#0b7c62', '#02f9f5']
-      labels: [Value of Corn * MELT, Value of Iron * MELT, Value of Sugar * MELT]
+      label_template: Value of C{i} * MELT
       linestyle: dotted
       toggled: false
       traj_key: MELT_values
     equilibrium_prices:
       checkbox_name: Equilibrium Prices
       linestyle: solid
-      labels: ['Equilibrium Price of {c0}', 'Equilibrium Price of {c1}', 'Equilibrium
-          Price of {c2}']
+      label_template: Equilibrium Price of {i}
       colors: [red, green, blue]
       traj_key: epr_prices
       toggled: false
@@ -80,52 +82,49 @@ values_and_prices:
     values:
       checkbox_name: Unit Labor Values
       colors: [red, green, blue]
-      labels: ['Value of {c0}', 'Value of {c1}', 'Value of {c2}']
+      label_template: Value of {i}
       linestyle: dashed
       toggled: true
       traj_key: values
     super_integrated_vals:
       checkbox_name: SI Unit Labor Values
       colors: ['#600702', '#02600f', '#051056']
-      labels: ['Super-Integrated Value of {c0}', 'Super-Integrated Value of {c1}',
-        'Super-Integrated Value of {c2}']
+      label_template: Super-Integrated Value of {i}
       linestyle: dashed
       toggled: false
       traj_key: super_integrated_vals
     kliman_values:
       checkbox_name: TSSI Unit Labor Values (Equilibrium)
       colors: [red, green, blue]
-      labels: ['TSSI Equilibrium Value of {c0}', 'TSSI Equilibrium Value of {c1}',
-        'TSSI Equilibrium Value of {c2}']
+      label_template: TSSI Equilibrium Value of {i}
       linestyle: dotted
       toggled: false
       traj_key: kliman_values
     kliman_actual_values:
       checkbox_name: TSSI Unit Labor Values
       colors: [red, green, blue]
-      labels: ['TSSI Value of {c0}', 'TSSI Value of {c1}', 'TSSI Value of {c2}']
+      label_template: TSSI Value of {i}
       linestyle: dashed
       toggled: false
       traj_key: kliman_actual_values
     sssi_values:
       checkbox_name: SSSI Values
       colors: ['#e22c14', '#02f971', '#027af9']
-      labels: ['SSSI Value of {c0}', 'SSSI Value of {c1}', 'SSSI Value of {c2}']
+      label_template: SSSI Value of {i}
       linestyle: dashed
       toggled: false
       traj_key: SSSI_vals
     MELT_prices:
       checkbox_name: MELT Adjusted Prices
       colors: ['#f99b02', '#0b7c62', '#02f9f5']
-      labels: ['Price of {c0} / MELT', 'Price of {c1} / MELT', 'Price of {c2} / MELT']
+      label_template: Price of {i}
       linestyle: solid
       toggled: true
       traj_key: MELT_prices
     labor_commanded:
       checkbox_name: Labor Commanded
       colors: ['#f902e9', '#02f9c0', '#4402f9']
-      labels: ['Labor Commanded By {c0}', 'Labor Commanded By {c1}', 'Labor Commanded
-          By {c2}']
+      label_template: Labor Commanded By {i}
       linestyle: dotted
       toggled: false
       traj_key: labor_commanded
@@ -135,25 +134,34 @@ output_and_supply:
   plots:
     outputs:
       checkbox_name: Outputs
-      colors: [red, green, blue]
-      labels: ['{c0} Output', '{c1} Output', '{c2} Output']
-      linestyle: dashed
       toggled: true
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Output'
+      colors: [red, green, blue]
       traj_key: q
+      traj_key_x: ''
     supplies:
       checkbox_name: Supplies
-      colors: [red, green, blue]
-      labels: ['{c0} Supply', '{c1} Supply', '{c2} Supply']
-      linestyle: solid
       toggled: true
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Supply'
+      colors: [red, green, blue]
       traj_key: s
+      traj_key_x: ''
     demand:
       checkbox_name: Demand
-      colors: [red, green, blue]
-      labels: ['{c0} Demand', '{c1} Demand', '{c2} Demand']
-      linestyle: dotted
       toggled: true
+      linestyle: dotted
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Demand'
+      colors: [red, green, blue]
       traj_key: total_demand
+      traj_key_x: ''
     total_output_val:
       checkbox_name: Total Output Value
       colors: ['#f2bd2b']
@@ -162,19 +170,24 @@ output_and_supply:
       traj_key: total_value_out
     sectoral_output_vals:
       checkbox_name: Sectoral Output Values
-      colors: [red, green, blue]
-      linestyle: dashed
-      labels: ['{c0} Output Value', '{c1} Output Value', '{c2} Output Value']
       toggled: false
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Output Value'
+      colors: [red, green, blue]
       traj_key: sectoral_out_vals
+      traj_key_x: ''
     rel_val_out:
       checkbox_name: Relative Output Value
-      colors: [red, green, blue]
-      linestyle: dashed
-      labels: ['{c0} Relative Value Output', '{c1} Relative Value Output', '{c2} Relative
-          Value Output']
       toggled: false
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Relative Value Output'
+      colors: [red, green, blue]
       traj_key: relative_value_out
+      traj_key_x: ''
     total_price_out:
       checkbox_name: Total Output Price
       colors: [red, green, blue]
@@ -184,19 +197,24 @@ output_and_supply:
       traj_key: total_price_out
     sectoral_output_prices:
       checkbox_name: Sectoral Output Prices
-      colors: [red, green, blue]
-      linestyle: solid
-      labels: ['{c0} Output Price', '{c1} Output Price', '{c2} Output Price']
       toggled: false
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Output Price'
+      colors: [red, green, blue]
       traj_key: sectoral_out_prices
+      traj_key_x: ''
     rel_price_out:
       checkbox_name: Relative Output Price
-      colors: [red, green, blue]
-      linestyle: solid
-      labels: ['{c0} Relative Price Output', '{c1} Relative Price Output', '{c2} Relative
-          Price Output']
       toggled: false
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Relative Price Output'
+      colors: [red, green, blue]
       traj_key: relative_price_out
+      traj_key_x: ''
 rates_of_profit:
   name: Rates of Profit
   tooltip: '- For the sectoral rates of profit, profit and cost are computed without
@@ -219,19 +237,24 @@ rates_of_profit:
       traj_key: epr
     sectoral_rops:
       checkbox_name: Sectoral Rates of Profit
-      colors: [red, green, blue]
-      labels: ['{c0} Sector Profit Rate', '{c1} Sector Profit Rate', '{c2} Sector
-          Profit Rate']
       toggled: true
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Sector Profit Rate'
+      colors: [red, green, blue]
       traj_key: profit_rates
+      traj_key_x: ''
     actual_sectoral_rops:
       checkbox_name: Sectoral Rates of Profit (Enterprise)
-      colors: [red, green, blue]
-      labels: ['{c0} Sector Profit Rate (Enterprise)', '{c1} Sector Profit Rate (Enterprise)',
-        '{c2} Sector Profit Rate (Enterprise)']
       toggled: false
       linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Sector Profit Rate (Enterprise)'
+      colors: [red, green, blue]
       traj_key: profit_of_enterprise_rates
+      traj_key_x: ''
     interest_rate:
       checkbox_name: Interest rate
       colors: [black]
@@ -249,7 +272,8 @@ rates_of_profit:
     okishio_numbers:
       checkbox_name: Okishio Predicted Profit Rates
       color: orange
-      labels: [Okishio Predicted Profit Rates]
+      labels:
+      - Okishio Predicted Profit Rates
       special: scatter
       toggled: false
       traj_key_x: okishio_pts_x
@@ -337,12 +361,14 @@ wages_and_unemployment:
       traj_key: hourly_b_val
     real_wage:
       checkbox_name: Hourly Real Wage
-      colors: [red, green, blue]
-      labels: ['Hourly Real Wage ({c0})', 'Hourly Real Wage ({c1})', 'Hourly Real
-          Wage ({c2})']
-      linestyle: dashed
       toggled: false
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: Hourly Real Wage ({i})
+      colors: [red, green, blue]
       traj_key: hourly_b
+      traj_key_x: ''
     hourly_profit:
       checkbox_name: Hourly Profit Income
       toggled: false
@@ -360,27 +386,33 @@ wages_and_unemployment:
     hourly_real_cap_income:
       checkbox_name: Hourly Real Profit Income
       toggled: false
-      colors: [red, green, blue]
-      labels: ['Hourly Real Profit Income ({c0})', 'Hourly Real Profit Income ({c1})',
-        'Hourly Real Profit Income ({c2})']
       linestyle: dotted
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: Hourly Real Profit Income ({i})
+      colors: [red, green, blue]
       traj_key: hourly_real_cap_income
+      traj_key_x: ''
     b:
       checkbox_name: Total Real Wages
       toggled: false
-      colors: [red, green, blue]
-      labels: ['{c0} Consumed by Workers', '{c1} Consumed by Workers', '{c2} Consumed
-          by Workers']
-      traj_key: b
       linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Consumed by Workers'
+      colors: [red, green, blue]
+      traj_key: b
+      traj_key_x: ''
     c:
       checkbox_name: Total Capitalist Consumption
       toggled: false
-      colors: [red, green, blue]
-      labels: ['{c0} Consumed by Capitalists', '{c1} Consumed by Capitalists', '{c2}
-          Consumed by Capitalists']
       linestyle: dotted
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Consumed by Capitalists'
+      colors: [red, green, blue]
       traj_key: c
+      traj_key_x: ''
     exploitation:
       checkbox_name: Rate of Exploitation
       colors: [orange]
@@ -411,20 +443,24 @@ income_distn:
       traj_key: m_w
     total_sectoral_costs:
       checkbox_name: Total Sectoral Money Investment
-      colors: [red, green, blue]
-      labels: [Corn Sector Capital Investment, Iron Sector Capital Investment, Sugar
-          Sector Capital Investment]
-      linestyle: dashed
       toggled: false
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Sector Capital Investment'
+      colors: [red, green, blue]
       traj_key: total_sectoral_costs
+      traj_key_x: ''
     total_capital_advanced:
       checkbox_name: Sectoral Capital Advanced
-      colors: [red, green, blue]
-      labels: [Corn Sector Capital Advanced, Iron Sector Capital Advanced, Sugar Sector
-          Capital Advanced]
-      linestyle: dashed
       toggled: false
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Sector Capital Advanced'
+      colors: [red, green, blue]
       traj_key: total_capital_advanced
+      traj_key_x: ''
     total_cost:
       checkbox_name: Total Money Capital Investment
       colors: [purple]
@@ -626,12 +662,14 @@ compositions:
   plots:
     capital_intensities:
       checkbox_name: Capital Intensities
-      colors: [red, green, blue]
-      labels: ['{c0} Sector Technical Composition', '{c1} Sector Technical Compostion',
-        '{c2} Sector Technical Composition']
-      linestyle: dotted
       toggled: true
+      linestyle: dotted
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Sector Technical Composition'
+      colors: [red, green, blue]
       traj_key: capital_intensities
+      traj_key_x: ''
     overall_comp:
       checkbox_name: Value Composition of Capital
       colors: [purple]
@@ -655,30 +693,38 @@ compositions:
       traj_key: composition_of_capital_advanced
     sectoral_comps:
       checkbox_name: Sectoral Compositions (Value)
-      colors: [red, green, blue]
-      labels: ['{c0} Sector Composition of Capital (Value)', '{c1} Sector Composition
-          of Capital (Value)', '{c2} Sector Composition of Capital (Value)']
-      linestyle: dashed
       toggled: false
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Sector Composition of Capital (Value)'
+      colors: [red, green, blue]
       traj_key: sectoral_comps
+      traj_key_x: ''
     sectoral_money_comps:
       checkbox_name: Sectoral Compositions (Money)
-      colors: [red, green, blue]
-      labels: ['{c0} Sector Composition of Capital (Money)', '{c1} Sector Composition
-          of Capital (Money)', '{c2} Sector Composition of Capital (Money)']
-      linestyle: solid
       toggled: false
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: '{i} Sector Composition of Capital (Money)'
+      colors: [red, green, blue]
       traj_key: money_compositions
+      traj_key_x: ''
 real_costs:
   name: Real Costs of Production
   tooltip: For more information see the GitHub Wiki page for the model.
   plots:
     corn_costs:
       checkbox_name: Materials Costs of {c0}
-      colors: [red, green, blue]
-      labels: ['{c0} Cost of {c0}', '{c1} Cost of {c0}', '{c2} Cost of {c0}']
       toggled: true
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      labels: ['{c0} Cost of {c0}', '{c1} Cost of {c0}', '{c2} Cost of {c0}']
+      colors: [red, green, blue]
       traj_key: a_0
+      traj_key_x: ''
     iron_costs:
       checkbox_name: Materials Costs of {c1}
       colors: ['#fa6055', '#38ed2b', '#2b78ed']
@@ -687,11 +733,14 @@ real_costs:
       traj_key: a_1
     labor_costs:
       checkbox_name: Labor Costs
-      colors: [yellow, orange, purple]
-      labels: ['Labor Cost of {c0}', 'Labor Cost of {c1}', 'Labor Cost of {c2}']
-      linestyle: dashed
       toggled: true
+      linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
+      label_template: Labor Cost of {i}
+      colors: [yellow, orange, purple]
       traj_key: l
+      traj_key_x: ''
     spectral_radii:
       checkbox_name: Spectral Radii
       colors: [black]

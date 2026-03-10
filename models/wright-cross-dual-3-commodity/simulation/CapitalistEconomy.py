@@ -85,7 +85,6 @@ class CapitalistEconomy:
         self.traj["relative_value_out"] = np.array([sectoral_out_vals / total_value_out])
         self.traj["relative_price_out"] = np.array([sectoral_out_prices / total_price_out])
 
-        
         (evals, evecs) = eig(self.params.A)
         r = np.max([np.abs(eval) for eval in evals])
         self.traj["spectral_radius_A"] = np.array([r])

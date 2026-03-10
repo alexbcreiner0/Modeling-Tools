@@ -6,12 +6,13 @@ from PyQt6 import (
 )
 from matplotlib import (
     pyplot as plt,
-    rcParams
+    rcParams,
 )
 from matplotlib.patches import Rectangle
 import numpy as np
 from matplotlib.backend_bases import cursors
-from matplotlib import colormaps
+from matplotlib import colormaps, colors as mcolors
+from matplotlib.colors import ListedColormap, BoundaryNorm
 import scienceplots
 import logging, json, hashlib
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -45,6 +46,7 @@ class GraphPanel(qw.QWidget):
 
         self._slot_choices: dict[int, str] = {} # slot_index -> dropdown choices
         self.legend_label_overrides: dict[tuple[int, str], dict[str, str]] = {} # keeps track of legend info for each slot/category choice 
+        self.runtime_labels = {}
         self._logged_plot_keys: set[tuple] = set()
         self._slot_images: dict[int, object] = {} # slot_index -> AxesImage
         self._slot_cbar: dict[int, object] = {} # slot_index -> Colorbar (optional)
@@ -148,6 +150,12 @@ class GraphPanel(qw.QWidget):
         # fall back to your existing 2D zoom logic
         self._zoom_2d(ax, event)
 
+    def set_runtime_labels(self, key: str, labels):
+        if labels is None:
+            self.runtime_labels.pop(key, None)
+        else:
+            self.runtime_labels[key] = list(labels)
+
     def _zoom_2d(self, ax, event) -> None:
         """ 2D helper for _on_scroll """
         # ax = event.inaxes
@@ -236,7 +244,8 @@ class GraphPanel(qw.QWidget):
 
         # things like heatmaps and cplots are images
         for j, im in enumerate(ax.images):
-            gid = getattr(im, "get_gid", lambda: None)()
+            gid = im.get_gid()
+            # gid = getattr(im, "get_gid", lambda: None)()
             key = gid or f"{choice_name}::image::{j}"
             bucket[key] = im
             meta[key] = {
@@ -264,7 +273,7 @@ class GraphPanel(qw.QWidget):
                 "dim": 3 if is_3d else 2
             }
 
-        # histogram bars are patches
+        # histogram bars and pie chart wedges are patches
         for j, p in enumerate(ax.patches):
             gid = p.get_gid() if hasattr(p, "get_gid") else None
             key = gid or f"{choice_name}::patch::{j}"
@@ -335,7 +344,6 @@ class GraphPanel(qw.QWidget):
             annot.set_visible(False)
 
             self.snap_artists[ax] = (marker, annot)
-
 
     def set_axes_layout(self, rows, cols):
         if rows < 1 or cols < 1:
@@ -491,8 +499,9 @@ class GraphPanel(qw.QWidget):
             self._base_box_aspect = 0.6
 
     def _plot_on_axis(self, ax, slot_index, choice_name, traj, t, dropdown_choice, options):
-        choice, plots = self._choice_and_plots(dropdown_choice)
-        t = np.asarray(t)
+        _, plots = self._choice_and_plots(dropdown_choice)
+        # t = np.asarray(t)
+        t_base = np.asarray(t)
 
         for plot_name, plot_dict in plots.items():
             if not self._plot_enabled(plot_dict, options):
@@ -521,24 +530,30 @@ class GraphPanel(qw.QWidget):
                     self._build_hist(ax, slot_index, choice_name, plot_name, plot_dict, traj)
                     continue
 
+                if special == "pie":
+                    self._build_pie(ax, choice_name, plot_name, plot_dict)
+                    continue
+
                 key = plot_dict.get("traj_key")
                 if not key or key not in traj:
                     raise KeyError(key)
 
                 y = np.asarray(traj[key])
-                n = len(plot_dict.get("labels", [0]))
+                shape = y.shape
+                # n = len(plot_dict.get("labels", [0]))
 
+                t_plot = t_base
                 alt_t_name = plot_dict.get("traj_key_x", None)
-                if alt_t_name is not None:
-                    t = traj.get(alt_t_name, t)
-                if n == 1:
-                    tt, yy = self._safe_align_xy(t, y)
+                if alt_t_name is not None and alt_t_name in traj:
+                    t_plot = np.asarray(traj[alt_t_name])
+                if y.ndim == 1:
+                    tt, yy = self._safe_align_xy(t_plot, y)
                     self._plot_line_scalar(ax, slot_index, choice_name, plot_name, plot_dict, tt, yy)
                 else:
-                    # y expected shape (T, n)
-                    tt = t
+                    tt = t_plot
                     Y = y
-                    if Y.shape[0] != len(t):
+                    # if Y.shape[0] != len(t):
+                    if Y.shape[0] != len(tt):
                         # align on time dimension
                         m = min(Y.shape[0], len(t))
                         tt = t[:m]
@@ -565,6 +580,12 @@ class GraphPanel(qw.QWidget):
                 self._log_exception(
                     logging.ERROR,
                     "Unexpected error when plotting.",
+                    extra={
+                        "choice_name": choice_name,
+                        "plot_name": plot_name,
+                        "traj_key": plot_dict.get("traj_key"),
+                        "sim_run_id": self._sim_run_id
+                    },
                     exc_info=True,
                     key=(self._sim_run_id, "plot_fail", choice_name, plot_dict.get("traj_key"), type(e).__name__),
                 )
@@ -617,11 +638,43 @@ class GraphPanel(qw.QWidget):
         if frame2d is None:
             return
 
+        disc = plot_dict.get("discrete", False)
+        cmap = None
+        norm = None
+        disc_values = None
+        disc_labels = None
+        if disc:
+            disc_values = traj.get(plot_dict.get("values"))
+            disc_colors = traj.get(plot_dict.get("colors"))
+            disc_labels = traj.get(plot_dict.get("labels", None), None)
+
+            if disc_values is not None and disc_colors is not None:
+                disc_values = [float(v) for v in disc_values]
+                if len(disc_colors) != len(disc_values):
+                    raise ValueError(
+                        f"heatmap discrete.colors length ({len(disc_colors)}) "
+                        f"!= discrete.values length ({len(disc_values)})"
+                    )
+                pairs = sorted(zip(disc_values, disc_colors), key= lambda p: p[0])
+                disc_values = [p[0] for p in pairs]
+                disc_colors = [p[1] for p in pairs]
+
+                cmap = ListedColormap(disc_colors)
+                if len(disc_values) == 1:
+                    boundaries = [disc_values[0] - 0.5, disc_values[0] + 0.5]
+                else:
+                    mids = [(disc_values[i] + disc_values[i+1])*0.5 for i in range(len(disc_values)-1)]
+                    first = disc_values[0] - (mids[0] - disc_values[0])
+                    last = disc_values[-1] + (disc_values[-1] - mids[-1])
+                    boundaries = [first] + mids + [last]
+                norm = BoundaryNorm(boundaries, ncolors= len(disc_values), clip= True)
+                
+
         extent = None
         if "x" in traj and "y" in traj:
             xmin, xmax = float(traj["x"][0]), float(traj["x"][-1])
             ymin, ymax = float(traj["y"][0]), float(traj["y"][-1])
-            extent = (xmin, xmax, ymin, ymax)
+            extent = (xmin, xmax, ymin, ymax) if not disc else None
 
         im = ax.imshow(
             frame2d,
@@ -629,8 +682,65 @@ class GraphPanel(qw.QWidget):
             interpolation=plot_dict.get("interpolation", "nearest"),
             aspect=plot_dict.get("aspect", "auto"),
             extent=extent,
+            cmap= cmap,
+            norm= norm
         )
         im.set_gid(f"{choice_name}::{plot_name}::heatmap")
+
+        ov = plot_dict.get("overlay_markers", {})
+        if ov:
+            u = np.asarray(frame2d)
+            markers = ov.get("markers", [])
+            sizes = ov.get("sizes", [])
+            colors = ov.get("colors", [])
+            edge_colors = ov.get("edgecolors", [])
+            labels = ov.get("labels", [])
+
+            # cell centers: x = col + 0.5, y = row + 0.5 (works with origin="lower")
+            for i, code in enumerate(ov.get("codes", [])):
+                code = int(code)
+                ys, xs = np.where(u == code)
+                # offsets = np.column_stack([xs + 0.5, ys + 0.5])
+                xmin, xmax, ymin, ymax = im.get_extent()
+                h, w = u.shape
+                dx = (xmax - xmin) / w
+                dy = (ymax - ymin) / h
+
+                ys, xs = np.where(u == code)
+                xcoords = xmin + (xs + 0.5) * dx
+                ycoords = ymin + (ys + 0.5) * dy
+                offsets = np.column_stack([xcoords, ycoords])
+
+                try:
+                    marker = markers[i]
+                except IndexError:
+                    marker = 'o'
+                try:
+                    size = sizes[i]
+                except IndexError:
+                    size = rcParams['lines.markersize'] ** 2
+                try:
+                    color = colors[i]
+                except IndexError:
+                    color = "none"
+                try:
+                    edgecolor = edge_colors[i]
+                except IndexError:
+                    edgecolor = "black"
+                try:
+                    label = labels[i]
+                except IndexError:
+                    label = "_nolegend_"
+
+                coll = ax.scatter(
+                    offsets[:,0], offsets[:,1],
+                    marker=marker,
+                    s=size,
+                    facecolors=color,
+                    edgecolors=edgecolor,
+                    label=label
+                )
+                coll.set_gid(f"{choice_name}::{plot_name}::overlay::{code}")
 
         # keep legacy teardown support for now
         self._slot_images[slot_index] = im
@@ -638,16 +748,37 @@ class GraphPanel(qw.QWidget):
         if plot_dict.get("colorbar", False):
             cb = self.figure.colorbar(im, ax=ax)
             self._slot_cbar[slot_index] = cb
+            if disc_values is not None:
+                try:
+                    cb.set_ticks(disc_values)
+                    if disc_labels is not None and len(disc_labels) == len(disc_values):
+                            cb.set_ticklabels([str(s) for s in disc_labels])
+                except Exception:
+                    pass
 
-        vmin = plot_dict.get("vmin", None)
-        vmax = plot_dict.get("vmax", None)
-        if vmin is not None or vmax is not None:
-            im.set_clim(vmin=vmin, vmax=vmax)
-        else:
-            im.autoscale()
+        # vmin = plot_dict.get("vmin", None)
+        # vmax = plot_dict.get("vmax", None)
+        # if vmin is not None or vmax is not None:
+        #     im.set_clim(vmin=vmin, vmax=vmax)
+        # else:
+        #     im.autoscale()
+        if disc_values is None:
+            vmin = plot_dict.get("vmin", None)
+            vmax = plot_dict.get("vmax", None)
+            if vmin is not None or vmax is not None:
+                im.set_clim(vmin= vmin, vmax= vmax)
+            else:
+                im.autoscale()
 
     def _build_hist(self, ax, slot_index, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
         data = traj[plot_dict["dist"]]
+
+        if data.ndim != 1:
+            raise ValueError(
+                f"Histogram expects 1D data, got shape {data.shape}"
+                f"for plot '{plot_name}' (choice '{choice_name}')"
+            )
+
         edge_color = plot_dict.get("edgecolor", "black")
         rwidth = plot_dict.get("rwidth", 1)
         histtype = plot_dict.get("histtype", 'bar')
@@ -766,6 +897,26 @@ class GraphPanel(qw.QWidget):
             except Exception:
                 pass
 
+    def _build_pie(self, ax, choice_name: str, plot_name: str, plot_dict: dict):
+        data = self.traj.get(plot_dict.get("traj_key"), None)
+        uniques, counts = np.unique(data, return_counts= True)
+        labels_key = plot_dict.get("label_map", None)
+        labels_map = self.traj[labels_key] if labels_key else None
+        colors_key = plot_dict.get("color_map", None)
+        colors_map = self.traj[colors_key] if colors_key else None
+
+        if labels_map:
+            labels = [labels_map[value] for value in labels_map if value in uniques]
+        else:
+            labels = None
+        if colors_map:
+            colors = [colors_map[value] for value in colors_map if value in uniques]
+        else:
+            colors = None
+
+        ax.pie(counts, labels= labels, colors= colors, labeldistance= None)
+        # p.set_gid(f"{choice_name}::{plot_name}::pie")
+
     def _on_canvas_draw(self, event):
         """
         Called after Matplotlib redraws the figure.
@@ -839,21 +990,84 @@ class GraphPanel(qw.QWidget):
         ln.set_gid(gid)
 
     def _plot_line_vector(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, t: np.ndarray, Y: np.ndarray):
-        n = len(plot_dict.get("labels", [0]))
+        # n = len(plot_dict.get("labels", [0]))
+        n = int(Y.shape[1])
+        labels = self._auto_vector_labels(plot_name, plot_dict, n)
+        colors = self._auto_vector_colors(plot_dict, n)
+
         over = self.legend_label_overrides.get((slot_index, choice_name), {})
 
         for i in range(n):
-            default_label = plot_dict["labels"][i]
+            default_label = labels[i]
             gid = f"{choice_name}::{plot_name}::{i}"
             label = over.get(gid, default_label)
 
             ln = ax.plot(
                 t, Y[:, i],
-                color=plot_dict["colors"][i],
+                color=colors[i],
                 linestyle=plot_dict.get("linestyle", "solid"),
                 label=label,
             )[0]
             ln.set_gid(gid)
+
+    def _auto_vector_labels(self, plot_name: str, plot_dict: dict, n: int) -> list[str]:
+
+        labels = plot_dict.get("labels")
+        if isinstance(labels, list) and len(labels) == n:
+            return labels
+
+        template = plot_dict.get("label_template") # e.g. Sector {k}
+        if isinstance(template, str) and template.strip():
+            return [template.format(i= i, k= i+1) for i in range(n)]
+
+        prefix = plot_dict.get("label_prefix") # e.g. Sector i
+        if isinstance(prefix, str) and prefix.strip():
+            return [f"{prefix} {i+1}" for i in range(n)]
+
+        return [f"{plot_name} [{i}]" for i in range(n)]
+
+    def _auto_vector_colors(self, plot_dict: dict, n: int):
+        base = plot_dict.get("colors", [])
+        if not isinstance(base, list):
+            base = []
+
+        if len(base) >= n:
+            return base[:n]
+
+        cmap_name = plot_dict.get("colormap")
+        if not cmap_name:
+            cmap_name = "tab20" if n <= 20 else "turbo"
+
+        cmap = colormaps.get(cmap_name).resampled(max(n, 1))
+
+        used = []
+        for c in base:
+            try:
+                used.append(mcolors.to_rgba(c))
+            except Exception:
+                pass
+
+        out = list(base)
+        for i in range(n):
+            if len(out) >= n:
+                break
+            cand = cmap(i)
+
+            # skip colors too close to already-used ones
+            if any(sum((cand[k] - u[k]) ** 2 for k in range(3)) < 0.02 for u in used):
+                continue
+
+            out.append(cand)
+            used.append(cand)
+
+        # if the skipping logic was too aggressive, just fill remaining slots directly
+        j = 0
+        while len(out) < n:
+            cand = cmap(j % n)
+            out.append(cand)
+            j += 1
+
+        return out
 
     def _safe_align_xy(self, t: np.ndarray, y: np.ndarray):
         n = min(len(t), len(y))
@@ -894,6 +1108,14 @@ class GraphPanel(qw.QWidget):
 
         # self explanatory
         self._restore_limits(ax, current_xlim, current_ylim, current_zlim)
+
+        if slot_config is None:
+            slot_config = {}
+        choice, _ = self._choice_and_plots(dropdown_choice)
+        slot_config["axis_visible"] = choice.get("axis_visible", True)
+        slot_config["grid_visible"] = choice.get("grid_visible", True)
+        slot_config["ticks_visible"] = choice.get("ticks_visible", True)
+        slot_config["frame_visible"] = choice.get("frame_visible", True)
         self._apply_slot_config(ax, slot_index, dropdown_choice, slot_config, legend_font_size)
 
         self._rebuild_slot_artists_inventory(slot_index)
@@ -942,6 +1164,23 @@ class GraphPanel(qw.QWidget):
         fontsize = default_font
         loc = slot_config.get("legend_loc", "upper right")
         legend_title = slot_config.get("legend_title", None)
+        axis_visible = slot_config.get("axis_visible", True)
+        ticks_visible = slot_config.get("ticks_visible", True)
+        grid_visible = slot_config.get("grid_visible", True)
+        frame_visible = slot_config.get("frame_visible", True)
+
+        if not axis_visible:
+            ax.set_axis_off()
+        else:
+            ax.set_axis_on()
+            ax.grid(bool(grid_visible))
+
+            if not ticks_visible:
+                ax.set_xticks([]); ax.set_yticks([])
+                ax.set_xticklabels([]); ax.set_yticklabels([])
+            if not frame_visible:
+                for sp in ax.spines.values():
+                    sp.set_visible(False)
 
         if legend_visible:
             handles, labels = ax.get_legend_handles_labels()
@@ -1179,6 +1418,10 @@ class GraphPanel(qw.QWidget):
                 expected.append(f"{choice_name}::{plot_name}::surface")
                 continue
 
+            if special == "pie":
+                expected.append(f"{choice_name}::{plot_name}::pie")
+                continue
+
             if special == "hist":
                 # infer patch keys from whatever currently exists in the slot inventory
                 dist_key = plot_dict.get("dist", "dist")
@@ -1222,8 +1465,11 @@ class GraphPanel(qw.QWidget):
                 # continue
 
             # ---- normal line plots
-            labels = plot_dict.get("labels", [])
-            n = len(labels) if isinstance(labels, (list, tuple)) else 1
+            try:
+                traj_key = plot_dict["traj_key"]
+                n = self.traj[traj_key].shape[1]
+            except Exception:
+                n = len(plot_dict.get("labels", []))
             if n <= 1:
                 expected.append(f"{choice_name}::{plot_name}::0")
             else:
@@ -1306,6 +1552,7 @@ class GraphPanel(qw.QWidget):
 
         if gid.endswith("::scatter"): return "collection"
         if gid.endswith("::surface"): return "surface"
+        if gid.endswith("::pie"): return "pie"
         if gid.endswith("::cplot") or gid.endswith("::heatmap"): return "image"
         if "::hist::patch" in gid: return "patch"
         return "line"
@@ -1342,6 +1589,10 @@ class GraphPanel(qw.QWidget):
 
         offsets = np.column_stack((x[:n], y[:n]))
         coll.set_offsets(offsets)
+
+    def _update_pie_artist(self, ax, gid: str) -> None:
+        choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
+        self._build_pie(ax, choice_name, plot_name, plot_dict)
 
     def _update_surface_artist(self, ax, slot_index: int, gid: str, traj: dict) -> None:
         choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
@@ -1399,17 +1650,50 @@ class GraphPanel(qw.QWidget):
 
         im.set_data(frame2d)
 
+        ov = plot_dict.get("overlay_markers", {})
+        if ov.get("enabled", False):
+            u = np.asarray(frame2d)
+            ax = im.axes
+            for code in ov.get("codes", []):
+                code = int(code)
+                gid2 = f"{choice_name}::{plot_name}::overlay::{code}"
+                # find existing collection by gid
+                target = None
+                for coll in ax.collections:
+                    if getattr(coll, "get_gid", lambda: None)() == gid2:
+                        target = coll; break
+                if target is None:
+                    continue
+                ys, xs = np.where(u == code)
+                # offsets = np.column_stack([xs + 0.5, ys + 0.5]) if len(xs) else np.empty((0,2))
+                xmin, xmax, ymin, ymax = im.get_extent()
+                h, w = u.shape
+                dx = (xmax - xmin) / w
+                dy = (ymax - ymin) / h
+
+                ys, xs = np.where(u == code)
+                if len(xs):
+                    xcoords = xmin + (xs + 0.5) * dx
+                    ycoords = ymin + (ys + 0.5) * dy
+                    offsets = np.column_stack([xcoords, ycoords])
+                else:
+                    offsets = np.empty((0, 2))
+                target.set_offsets(offsets)
+
         if "x" in traj and "y" in traj:
             xmin, xmax = float(traj["x"][0]), float(traj["x"][-1])
             ymin, ymax = float(traj["y"][0]), float(traj["y"][-1])
-            im.set_extent((xmin, xmax, ymin, ymax))
+            if not plot_dict.get("discrete", False):
+                im.set_extent((xmin, xmax, ymin, ymax))
 
-        vmin = plot_dict.get("vmin", None)
-        vmax = plot_dict.get("vmax", None)
-        if vmin is not None or vmax is not None:
-            im.set_clim(vmin= vmin, vmax= vmax)
-        else:
-            im.autoscale()
+        disc = plot_dict.get("discrete", False)
+        if not disc:
+            vmin = plot_dict.get("vmin", None)
+            vmax = plot_dict.get("vmax", None)
+            if vmin is not None or vmax is not None:
+                im.set_clim(vmin= vmin, vmax= vmax)
+            else:
+                im.autoscale()
 
     # def _desired_hist_edges(self, data: np.ndarray, plot_dict: dict) -> np.ndarray:
     #     bins = plot_dict.get("bins", None)
@@ -1518,6 +1802,7 @@ class GraphPanel(qw.QWidget):
         dist_key = plot_dict.get("dist")
         if not dist_key or dist_key not in traj:
             return
+
         data = np.asarray(traj[dist_key])
         if data.size == 0:
             return
@@ -1526,7 +1811,6 @@ class GraphPanel(qw.QWidget):
         # self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
         # return
 
-        # I think this is all BS
         key = (slot_index, choice_name, plot_name)
 
         desired_edges = self._desired_hist_edges(data, plot_dict)
@@ -1661,6 +1945,9 @@ class GraphPanel(qw.QWidget):
             self.plot_slot(slot_index, dropdown_choice, options, slot_cfg)
             return
 
+        # otherwise, attempt to update the axes more conservatively without tearing everything down and redrawing it all
+        # using more specialized methods
+
         # Update line data in-place 
         t = np.asarray(self.t)
         ax = self.axes[slot_index]
@@ -1714,6 +2001,9 @@ class GraphPanel(qw.QWidget):
 
             elif kind == "patch":
                 pass # histogram case, adressed in a special way above
+
+            elif kind == "pie":
+                self._update_pie_artist(ax, gid)
 
             else:
                 pass

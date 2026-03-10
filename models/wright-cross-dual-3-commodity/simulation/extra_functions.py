@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import numpy as np
 from scipy.linalg import eig
 import math
@@ -224,7 +226,7 @@ def random_parameters(params, epsilon=1e-1):
     A = random_irreducible_productive_matrix(dim)
     l, p, q = random_vector(dim), random_vector(dim), random_vector(dim) # strictly positive
     b, c = random_vector(dim, random_nonzeros= True), random_vector(dim, random_nonzeros= True) # can have non-negative entries
-    eps1, eps2, eps3 = np.random.uniform(1e-3,0.1), np.random.uniform(1e-3,0.1, 3), np.random.uniform(1e-3, 0.1) # random noise/difference factors
+    eps1, eps2, eps3 = np.random.uniform(1e-3,0.1), np.random.uniform(1e-3,0.1, dim), np.random.uniform(1e-3, 0.1) # random noise/difference factors
     alpha_w, alpha_c = np.random.uniform(1e-3,1), np.random.uniform(1e-3,0.1) # random scalars
     m_w = np.random.uniform(1e-3, M)
 
@@ -286,4 +288,4 @@ def random_parameters(params, epsilon=1e-1):
     return new_params, sector_names
 
 if __name__ == "__main__":
-    random_parameters(3)
+    print(repr(random_irreducible_productive_matrix(5)))

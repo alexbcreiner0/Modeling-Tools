@@ -15,6 +15,11 @@ all:
       histtype: bar
       gradient: magma
       align: left
+    pie_test:
+      special: pie
+      traj_key: wealth
+      checkbox_name: Pie Test
+      toggled: false
 gini_coeff:
   name: Gini Coefficient
   tooltip: null
@@ -32,3 +37,13 @@ gini_coeff:
       colors: [red]
       traj_key: entropy
       toggled: false
+    total_money_in_circulation:
+      checkbox_name: Total Money in Circulation
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      labels: [Total Money in Circulation]
+      colors: [green]
+      traj_key: total_money
+      traj_key_x: ''
+      toggled: true

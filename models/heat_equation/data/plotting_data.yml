@@ -1,5 +1,9 @@
 all:
   name: All
+  axis_visible: false
+  grid_visible: false
+  ticks_visible: false
+  frame_visible: false
   plots:
     thing:
       special: heatmap

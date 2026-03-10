@@ -7,15 +7,21 @@ model_specific_settings:
     - Iron
     - Sugar
   morishima_disproportionality_reinvestment: null
+  LTE: null
   kliman-profit-rate-paper: null
   boltzmann-wealth-distribution: null
   ivan_4_sector_queueing_model: null
   ivan_queueing_model_redo: null
   complex_function_fun: null
   heat_equation: null
-  test: null
   fun_math_stuff: null
   wright_agent_based_social_architecture: null
+  labor_value_calculation: null
+  law_of_value_simple_commodity_production: null
+  epstein_civil_violence: null
+  test: null
+  new_model: null
+  leone_demo_model: null
 demos:
   wright_s_cross_dual_disequilibrium_model_three_commodities:
     name: Wright's Cross-Dual Disequilibrium Model (Three Commodities)
@@ -26,7 +32,6 @@ demos:
       simulation_function: simulate2
       default_preset: default_preset
       starting_lims: [[0.0, 100.0], [0.0, 12.0]]
-
     default: true
   morishima_s_material_constrained_reinvestment_model:
     name: Morishima's Material Constrained Reinvestment Model
@@ -61,7 +66,6 @@ demos:
       simulation_function: get_trajectories
       default_preset: default_preset
       starting_lims: [[0.0, 1000.0], [0.0, 20.0]]
-
   complex_plotting_test:
     name: Complex Plotting Test
     desc: ''
@@ -70,15 +74,6 @@ demos:
       simulation_function: get_trajectories
       default_preset: default_preset
       starting_lims: [[-10.0, 10.0], [-10.0, 10.0]]
-  test:
-    name: Test
-    desc: ''
-    details:
-      simulation_model: test
-      simulation_function: get_trajectories
-      default_preset: default_preset
-      starting_lims: [[-10.0, 10.0], [-2.0, 2.0]]
-
   heat_equation:
     name: Heat Equation
     desc: ''
@@ -86,6 +81,7 @@ demos:
       simulation_model: heat_equation
       simulation_function: get_trajectories
       default_preset: default_preset
+      starting_lims: [[0.0, 120.0], [0.0, 80.0]]
   fun_math_stuff:
     name: Fun Math Stuff
     desc: ''
@@ -103,3 +99,55 @@ demos:
       simulation_function: get_trajectories
       default_preset: default_preset
       starting_lims: [[0.0, 1000.0], [0.0, 0.03]]
+  labor_value_calculation:
+    name: Labor Value Calculation
+    desc: ''
+    details:
+      simulation_model: labor_value_calculation
+      simulation_function: get_trajectories
+      default_preset: default_preset
+  cockshott_s_law_of_value_agent_based_model:
+    name: Cockshott's Law of Value Agent-Based Model
+    desc: ''
+    details:
+      simulation_model: law_of_value_simple_commodity_production
+      simulation_function: get_trajectories
+      default_preset: default_preset
+  epstein_civil_violence_model:
+    name: Epstein Civil Violence Model
+    desc: ''
+    details:
+      simulation_model: epstein_civil_violence
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[0.0, 40.0], [0.0, 40.0]]
+      simulation_speed: 0.1
+  messing_around:
+    name: MEssing ARound
+    desc: ''
+    details:
+      simulation_model: test
+      simulation_function: get_trajectories
+      default_preset: default_preset
+  lte:
+    name: LTE
+    desc: ''
+    details:
+      simulation_model: LTE
+      simulation_function: get_trajectories
+      default_preset: ''
+  showing_charlie_stuff:
+    name: Showing Charlie Stuff
+    desc: ''
+    details:
+      simulation_model: new_model
+      simulation_function: get_trajectories
+      default_preset: default_preset
+      starting_lims: [[0.0, 10.0], [0.0, 10.0]]
+  leone_demo_model:
+    name: Leone Demo Model
+    desc: ''
+    details:
+      simulation_model: leone_demo_model
+      simulation_function: get_trajectories
+      default_preset: default_preset

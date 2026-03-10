@@ -1,0 +1,50 @@
+divider1:
+  title: Parameters
+row1:
+  A:
+    param_name: A
+    tooltip: ''
+    control_type: entry_block
+    type: matrix
+    dim: [5, 5]
+    label: $A=$
+  l:
+    param_name: l
+    tooltip: ''
+    control_type: entry_block
+    type: vector
+    dim: 4
+    label: $l=$
+row2:
+  T:
+    param_name: T
+    control_type: entry_block
+    type: scalar
+    scalar_type: int
+    range: [0, 10000]
+    label: $T=$
+    tooltip: ''
+  tau:
+    param_name: tau
+    control_type: entry_block
+    type: scalar
+    scalar_type: int
+    range: [0.0, 32.0]
+    label: $\tau=$
+    tooltip: ''
+  scenario:
+    param_name: scenario
+    control_type: dropdown
+    label: Scenario
+    tooltip: ''
+    names: [Normal, Output Scaling Demo]
+    values: [normal, divergent_current_algo]
+row3:
+  avg_interval:
+    param_name: avg_interval
+    control_type: entry_block
+    type: scalar
+    scalar_type: int
+    range: [0, 100]
+    label: $T_A=$
+    tooltip: ''

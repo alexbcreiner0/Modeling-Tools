@@ -1,6 +1,11 @@
 all:
   name: All
   title: Weierstrass Function
+  projection: 2d
+  axis_visible: true
+  grid_visible: true
+  ticks_visible: true
+  frame_visible: true
   plots:
     weierstrass_function:
       checkbox_name: Weierstrass Function

@@ -171,23 +171,44 @@ def to_plain(obj): # opaque as fuck chatgpt code for converting the parameters d
         return bool(obj)
     return obj
 
-def format_plot_config(cfg: dict, commodities: list[str]) -> dict:
+def format_plot_config(plotting_data: dict, runtime_names: list[str] | None = None) -> dict:
+    data = deepcopy(plotting_data)
+
+    if not runtime_names:
+        return data
+
     # build a mapping like {"c0": "Corn", "c1": "Iron", ...}
-    fmt = {f"c{i}": name for i, name in enumerate(commodities)}
+    fmt = {f"c{i}": name for i, name in enumerate(runtime_names)}
 
-    def rec(x):
-        if isinstance(x, str):
-            try:
-                return x.format(**fmt)
-            except Exception:
-                return x  # leave untouched if no placeholders match
-        if isinstance(x, list):
-            return [rec(v) for v in x]
-        if isinstance(x, dict):
-            return {k: rec(v) for k, v in x.items()}
-        return x
+    for cat_key, cat_dict in data.items():
+        for plot_key, plot_dict in cat_dict.get("plots", {}).items():
+            if plot_dict.get("label_template"):
+                template = plot_dict.get("label_template")
+                new_labels = []
+                for name in runtime_names:
+                    new_labels.append(template.format(i = name))
+                plot_dict["labels"] = new_labels
 
-    return rec(deepcopy(cfg))
+            else:
+                for i, label in enumerate(plot_dict.get("labels", [])):
+                    plot_dict["labels"][i] = label.format(**fmt)
+
+    return data
+
+    # recursively format every string in the dict
+    # def rec(x):
+    #     if isinstance(x, str):
+    #         try:
+    #             return x.format(**fmt)
+    #         except Exception:
+    #             return x  
+    #     if isinstance(x, list):
+    #         return [rec(v) for v in x]
+    #     if isinstance(x, dict):
+    #         return {k: rec(v) for k, v in x.items()}
+    #     return x
+
+    # return rec(deepcopy(plotting_data))
 
 def reload_package_folder(anchor_module):
     """

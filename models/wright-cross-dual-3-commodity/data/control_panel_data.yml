@@ -233,11 +233,19 @@ row10:
     control_type: button_group
     names: [Random Parameters]
     tooltips:
-    - Generate random parameters. Not entirely working at present.
+    - Generate random parameters.
     display: horizontal
     functions:
     - random_parameters
     param_name: generation
+  n:
+    param_name: n
+    control_type: entry_block
+    type: scalar
+    scalar_type: int
+    range: [1, 10]
+    label: $n=$
+    tooltip: ''
 row11:
   A:
     control_type: entry_block
@@ -249,7 +257,10 @@ row11:
       the number of units of commodity i needed to produce a unit of commodity j.
       So the bottom right entry is the amount of 'sugar' needed to make 'sugar'.
     type: matrix
-    dim: [3, 3]
+    dim_from:
+    - n
+    - n
+    safe_default: 0.1
   l:
     control_type: entry_block
     param_name: l
@@ -257,7 +268,8 @@ row11:
     tooltip: The living labor vector. The ith entry of this is the number of hours
       of labor required to produce a unit of the ith commodity.
     type: vector
-    dim: 3
+    dim_from: n
+    safe_default: 0.1
 row12:
   composite1:
     control_type: hsub_panel1
@@ -270,7 +282,8 @@ row12:
           means of subsistence bundle amounting to a scalar multiple of this vector.
           By default, we have workers consuming corn and sugar, but mostly corn.
         type: vector
-        dim: 3
+        dim_from: n
+        safe_default: 0.1
         vsize_policy: expanding
       c:
         control_type: entry_block
@@ -280,7 +293,8 @@ row12:
           consumption bundle amounting to a scalar multiple of this vector. By default,
           we have capitalists consuming corn and sugar, but mostly sugar.
         type: vector
-        dim: 3
+        dim_from: n
+        safe_default: 0.1
         vsize_policy: expanding
     param_name: composite1
   composite2:
@@ -317,7 +331,8 @@ row13:
     tooltip: Initial output vector. This one is much less consequential than the initial
       supply vector found next to this.
     type: vector
-    dim: 3
+    dim_from: n
+    safe_default: 0.1
   s:
     control_type: entry_block
     param_name: s
@@ -325,7 +340,8 @@ row13:
     tooltip: Initial supply vector. Default example has an initial shortage of 'iron'.
       Try increasing this amount (the second entry) and see what changes.
     type: vector
-    dim: 3
+    dim_from: n
+    safe_default: 0.1
   p:
     control_type: entry_block
     param_name: p
@@ -333,7 +349,8 @@ row13:
     tooltip: The initial unit price vector. Entry i is the price of a unit of i at
       the start of the simulation.
     type: vector
-    dim: 3
+    dim_from: n
+    safe_default: 0.1
 row14:
   L:
     control_type: entry_block
@@ -414,7 +431,8 @@ row17:
     param_name: eta
     label: $\mathbf{\eta}= $
     type: vector
-    dim: 3
+    dim_from: n
+    safe_default: 0.1
     tooltip: Elasticity constants representing how dramatically each price fluctuate
       in response to changes in supply.
   kappa:
@@ -422,7 +440,8 @@ row17:
     param_name: kappa
     label: $\mathbf{\kappa}= $
     type: vector
-    dim: 3
+    dim_from: n
+    safe_default: 0.1
     tooltip: Elasticity constants representing how dramatically outputs fluctuate
       in resonse to profitability
 row18:

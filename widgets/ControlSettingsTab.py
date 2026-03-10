@@ -504,7 +504,7 @@ class ControlSettingsTab(qw.QWidget):
         self.combo_param_name.currentTextChanged.connect(self._param_name_changed)
         self.param_choice = qw.QComboBox()
         self.combo_control_type = qw.QComboBox()
-        self.combo_control_type.addItems(["entry_block", "dropdown"])
+        self.combo_control_type.addItems(["entry_block", "dropdown", "checkbox"])
         self.combo_control_type.currentTextChanged.connect(self._control_type_changed)
 
         self.edit_label = qw.QLineEdit()
@@ -542,15 +542,11 @@ class ControlSettingsTab(qw.QWidget):
         self.combo_scalar_type.addItems(["int", "float"])
         self.combo_scalar_type.currentTextChanged.connect(self._scalar_type_changed)
 
-        self.spin_range_min = qw.QDoubleSpinBox()
-        self.spin_range_min.setRange(-1e12, 1e12)
-        self.spin_range_min.setDecimals(8)
-        self.spin_range_min.valueChanged.connect(self._range_changed)
+        self.range_min = qw.QLineEdit()
+        self.range_min.textChanged.connect(self._range_changed)
 
-        self.spin_range_max = qw.QDoubleSpinBox()
-        self.spin_range_max.setRange(-1e12, 1e12)
-        self.spin_range_max.setDecimals(8)
-        self.spin_range_max.valueChanged.connect(self._range_changed)
+        self.range_max = qw.QLineEdit()
+        self.range_max.textChanged.connect(self._range_changed)
 
         # Dimension editor: vector uses one spinbox, matrix uses two.
         self.dim_stack = qw.QStackedWidget()
@@ -558,28 +554,50 @@ class ControlSettingsTab(qw.QWidget):
         # (If it expands vertically, the spinboxes can end up looking "below" the label.)
         self.dim_stack.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
 
+        self.dependent_checks = {"vec": False, "mat_rows": False, "mat_cols": False}
+
         vec_w = qw.QWidget()
         vec_l = qw.QHBoxLayout(vec_w)
         vec_l.setContentsMargins(0, 0, 0, 0)
         vec_l.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
-        self.spin_vec_dim = qw.QSpinBox()
-        self.spin_vec_dim.setRange(1, 10**9)
-        self.spin_vec_dim.valueChanged.connect(self._dim_spins_changed)
-        vec_l.addWidget(self.spin_vec_dim, 0)
+        self.vec_dep = qw.QCheckBox("Dependent")
+        self.vec_dim = qw.QLineEdit()
+        # self.spin_vec_dim = qw.QSpinBox()
+        # self.spin_vec_dim.setRange(1, 10**9)
+        self.vec_dim.textChanged.connect(self._dim_changed)
+        self.vec_dep.checkStateChanged.connect(self._dim_changed)
+        vec_l.addWidget(self.vec_dim, 0)
+        vec_l.addWidget(self.vec_dep, 0)
         self.dim_stack.addWidget(vec_w)
 
         mat_w = qw.QWidget()
-        mat_l = qw.QHBoxLayout(mat_w)
-        mat_l.setContentsMargins(0, 0, 0, 0)
-        mat_l.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
-        self.spin_mat_rows = qw.QSpinBox()
-        self.spin_mat_rows.setRange(1, 10**9)
-        self.spin_mat_rows.valueChanged.connect(self._dim_spins_changed)
-        self.spin_mat_cols = qw.QSpinBox()
-        self.spin_mat_cols.setRange(1, 10**9)
-        self.spin_mat_cols.valueChanged.connect(self._dim_spins_changed)
-        mat_l.addWidget(self.spin_mat_rows, 0)
-        mat_l.addWidget(self.spin_mat_cols, 0)
+        mat_w_edits = qw.QWidget()
+        mat_w_boxes = qw.QWidget()
+        mat_l_outer = qw.QVBoxLayout(mat_w)
+        mat_l_boxes = qw.QHBoxLayout(mat_w_boxes)
+        mat_l_dims = qw.QHBoxLayout(mat_w_edits)
+        mat_l_dims.setContentsMargins(0, 0, 0, 0)
+        mat_l_dims.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
+        self.mat_rows_dep = qw.QCheckBox("Dependent rows")
+        self.mat_rows = qw.QLineEdit()
+        # self.mat_rows.setMaximumWidth(120)
+        # self.mat_rows.setRange(1, 10**9)
+        self.mat_rows.textChanged.connect(self._dim_changed)
+        self.mat_cols_dep = qw.QCheckBox("Dependent columns")
+        self.mat_rows_dep.checkStateChanged.connect(self._dim_changed)
+        self.mat_cols = qw.QLineEdit()
+        self.mat_cols.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
+        # self.mat_cols.setMaximumWidth(120)
+        # self.mat_cols.setRange(1, 10**9)
+        self.mat_cols.textChanged.connect(self._dim_changed)
+        self.mat_cols_dep.checkStateChanged.connect(self._dim_changed)
+        mat_l_boxes.addWidget(self.mat_rows_dep, 0)
+        mat_l_boxes.addWidget(self.mat_cols_dep, 0)
+        mat_l_dims.addWidget(self.mat_rows, 0)
+        mat_l_dims.addWidget(qw.QLabel("x"), 0)
+        mat_l_dims.addWidget(self.mat_cols, 0)
+        mat_l_outer.addWidget(mat_w_boxes)
+        mat_l_outer.addWidget(mat_w_edits)
         self.dim_stack.addWidget(mat_w)
 
         # Ensure the stacked widget height matches a single row of controls.
@@ -587,8 +605,8 @@ class ControlSettingsTab(qw.QWidget):
 
         eform.addRow("Entry type:", self.combo_entry_kind)
         eform.addRow("Scalar type:", self.combo_scalar_type)
-        eform.addRow("Range min:", self.spin_range_min)
-        eform.addRow("Range max:", self.spin_range_max)
+        eform.addRow("Range min:", self.range_min)
+        eform.addRow("Range max:", self.range_max)
         eform.addRow("Dim:", self.dim_stack)
 
         self.control_stack.addWidget(entry_page)
@@ -614,6 +632,9 @@ class ControlSettingsTab(qw.QWidget):
         dlay.addLayout(dbtns)
 
         self.control_stack.addWidget(drop_page)
+
+        check_page = qw.QWidget()
+        self.control_stack.addWidget(check_page)
 
         outer.addStretch(0)
         return w
@@ -814,41 +835,6 @@ class ControlSettingsTab(qw.QWidget):
             self._working_data.clear()
             self._ensure_loaded(self._current_model)
             self._refresh_tree()
-
-    # def on_apply_clicked(self) -> None:
-    #     if not self._current_model:
-    #         return
-
-    #     try:
-    #         self._rebuild_model_from_tree()
-    #         for model, model_data in self._original_data.items():
-    #             bak = rpath("models", model, "data", "control_panel_data.yml.bak")
-    #             reformatted_data = self._dump_to_yaml(model_data)
-    #             with open(bak, "w") as f:
-    #                 yaml.safe_dump(reformatted_data, f, sort_keys= False, allow_unicode= True)
-
-    #         for model, model_data in self._working_data.items():
-    #             path = rpath("models", model, "data", "control_panel_data.yml")
-    #             reformatted_data = self._dump_to_yaml(model_data)
-    #             with open(path, "w") as f:
-    #                 yaml.safe_dump(reformatted_data, f, sort_keys= False, allow_unicode= True)
-    #     except Exception as e:
-    #         self.window.status.show(f"Error saving control panel data: {e}", 7000)
-    #     finally:
-    #         try:
-    #             for model, model_data in self._original_data.items():
-    #                 path = rpath("models", model, "data", "control_panel_data.yml.bak")
-    #                 os.remove(path)
-    #         except OSError as e:
-    #             self.window.status.show("Error removing backup, you should check your directory.", 5000)
-    #             logger.log(logger.WARNING, f"Error removing control_panel_data.yml.bak", exc_info= e)
-
-    #     self._original_data.clear()
-    #     self._working_data.clear()
-    #     self._ensure_loaded(self._current_model)
-    #     self._refresh_tree()
-
-        # except Exception as e:
 
     # -------------------------
     # Tree build / selection payload
@@ -1199,6 +1185,8 @@ class ControlSettingsTab(qw.QWidget):
         if ctype == "dropdown":
             self.control_stack.setCurrentIndex(1)
             self._load_dropdown_table(spec)
+        elif ctype == "checkbox":
+            self.control_stack.setCurrentIndex(2)
         else:
             self.control_stack.setCurrentIndex(0)
             self._load_entry_fields(spec)
@@ -1228,42 +1216,59 @@ class ControlSettingsTab(qw.QWidget):
         except Exception:
             r0, r1 = 0.0, 1.0
 
-        self.spin_range_min.blockSignals(True)
-        self.spin_range_max.blockSignals(True)
-        self.spin_range_min.setValue(float(r0))
-        self.spin_range_max.setValue(float(r1))
-        self.spin_range_min.blockSignals(False)
-        self.spin_range_max.blockSignals(False)
+        self.range_min.blockSignals(True)
+        self.range_max.blockSignals(True)
+        self.range_min.setText(str(r0))
+        self.range_max.setText(str(r1))
+        self.range_min.blockSignals(False)
+        self.range_max.blockSignals(False)
+
 
         # --- dim ---
-        dim = spec.get("dim", 1)
-        self.spin_vec_dim.blockSignals(True)
-        self.spin_mat_rows.blockSignals(True)
-        self.spin_mat_cols.blockSignals(True)
+
+        if spec.get("dim_from"):
+            dim = spec.get("dim_from", 1)
+            self.vec_dep.setChecked(True)
+        else:
+            dim = spec.get("dim", 1)
+        self.vec_dim.blockSignals(True)
+        self.mat_rows.blockSignals(True)
+        self.mat_cols.blockSignals(True)
+        self.vec_dep.blockSignals(True)
+        self.mat_rows_dep.blockSignals(True)
+        self.mat_cols_dep.blockSignals(True)
 
         if kind == "vector":
             try:
-                self.spin_vec_dim.setValue(int(dim))
+                self.vec_dim.setText(str(dim))
             except Exception:
-                self.spin_vec_dim.setValue(1)
+                self.vec_dim.setText("1")
             self.dim_stack.setCurrentIndex(0)
         elif kind == "matrix":
             rows, cols = 1, 1
             if isinstance(dim, (list, tuple, FlowSeq)) and len(dim) == 2:
                 try:
-                    rows, cols = int(dim[0]), int(dim[1])
+                    rows, cols = dim[0], dim[1]
+                    if not rows.isnumeric():
+                        self.mat_rows_dep.setChecked(True)
+                    if not cols.isnumeric():
+                        self.mat_cols_dep.setChecked(True)
                 except Exception:
                     rows, cols = 1, 1
-            self.spin_mat_rows.setValue(rows)
-            self.spin_mat_cols.setValue(cols)
+            self.mat_rows.setText(rows)
+            self.mat_cols.setText(cols)
             self.dim_stack.setCurrentIndex(1)
         else:
             # scalar
             self.dim_stack.setCurrentIndex(0)
 
-        self.spin_vec_dim.blockSignals(False)
-        self.spin_mat_rows.blockSignals(False)
-        self.spin_mat_cols.blockSignals(False)
+        self.vec_dim.blockSignals(False)
+        self.mat_rows.blockSignals(False)
+        self.mat_cols.blockSignals(False)
+        self.vec_dep.blockSignals(False)
+        self.mat_rows_dep.blockSignals(False)
+        self.mat_cols_dep.blockSignals(False)
+
 
         # --- show only relevant rows (no blank gaps) ---
         eform = getattr(self, "_entry_form", None)
@@ -1273,16 +1278,16 @@ class ControlSettingsTab(qw.QWidget):
 
             # Scalar: show scalar_type + range min/max
             eform.setRowVisible(self.combo_scalar_type, show_scalar)
-            eform.setRowVisible(self.spin_range_min, show_scalar)
-            eform.setRowVisible(self.spin_range_max, show_scalar)
+            eform.setRowVisible(self.range_min, show_scalar)
+            eform.setRowVisible(self.range_max, show_scalar)
 
             # Vector/Matrix: show dim editor only
             eform.setRowVisible(self.dim_stack, show_dim)
         else:
             # Fallback: at least hide widgets if the form reference is missing
             self.combo_scalar_type.setVisible(kind == "scalar")
-            self.spin_range_min.setVisible(kind == "scalar")
-            self.spin_range_max.setVisible(kind == "scalar")
+            self.range_min.setVisible(kind == "scalar")
+            self.range_max.setVisible(kind == "scalar")
             self.dim_stack.setVisible(kind in {"vector", "matrix"})
 
 
@@ -1319,6 +1324,14 @@ class ControlSettingsTab(qw.QWidget):
             spec.pop("dim", None)
             self.control_stack.setCurrentIndex(1)
             self._load_dropdown_table(spec)
+        elif ctype == "checkbox":
+            spec.pop("type", None)
+            spec.pop("scalar_type", None)
+            spec.pop("range", None)
+            spec.pop("dim", None)
+            spec.pop("names", None)
+            spec.pop("values", None)
+            self.control_stack.setCurrentIndex(2)
         else:
             spec.setdefault("type", "scalar")
             spec.setdefault("scalar_type", "float")
@@ -1381,7 +1394,7 @@ class ControlSettingsTab(qw.QWidget):
         spec = self._working_data[self._current_model][di]["rows"][ri]["controls"][ci]
         spec["scalar_type"] = st
 
-    def _range_changed(self, _=None) -> None:
+    def _range_changed(self, _ = None) -> None:
         ref = self._current_control_ref()
         if not ref:
             return
@@ -1389,10 +1402,15 @@ class ControlSettingsTab(qw.QWidget):
         spec = self._working_data[self._current_model][di]["rows"][ri]["controls"][ci]
         if spec.get("type") != "scalar":
             return
-        r0 = float(self.spin_range_min.value())
-        r1 = float(self.spin_range_max.value())
+        try:
+            r0 = float(self.range_min.text())
+            r1 = float(self.range_max.text())
+        except ValueError:
+            return
+
         spec["range"] = FlowSeq([int(r0), int(r1)]) if spec.get("scalar_type") == "int" else FlowSeq([r0, r1])
-    def _dim_spins_changed(self, _=None) -> None:
+
+    def _dim_changed(self, _=None) -> None:
         ref = self._current_control_ref()
         if not ref:
             return
@@ -1401,10 +1419,31 @@ class ControlSettingsTab(qw.QWidget):
 
         kind = spec.get("type")
         if kind == "vector":
-            spec["dim"] = int(self.spin_vec_dim.value())
+            if self.vec_dep.isChecked():
+                spec["dim_from"] = self.vec_dim.text()
+                if spec.get("dim"):
+                    del spec["dim"]
+                return
+            
+            try:
+                dim = int(self.vec_dim.text())
+                spec["dim"] = dim
+            except ValueError:
+                return
+            finally:
+                if spec.get("dim_from"):
+                    del spec["dim_from"]
         elif kind == "matrix":
-            spec["dim"] = FlowSeq([int(self.spin_mat_rows.value()), int(self.spin_mat_cols.value())])
-
+            dim_rows = self.mat_rows.text()
+            dim_cols = self.mat_cols.text()
+            if self.mat_rows_dep.isChecked() or self.mat_cols_dep.isChecked():
+                spec["dim_from"] = FlowSeq([dim_rows, dim_cols])
+                if spec.get("dim"):
+                    del spec["dim"]
+            else:
+                spec["dim"] = FlowSeq([dim_rows, dim_cols])
+                if spec.get("dim_from"):
+                    del spec["dim_from"]
 
     def _dropdown_item_changed(self, item: qw.QTableWidgetItem) -> None:
         ref = self._current_control_ref()

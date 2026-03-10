@@ -4,6 +4,7 @@ from PyQt6 import (
 )
 from functools import partial
 from numpy import ndarray, zeros
+import numpy as np
 from .LatexLabel import LatexLabel
 from .HelpButton import HelpButton
 
@@ -90,14 +91,17 @@ class MatrixEntry(qw.QWidget):
                 for j in range(self.dim[1]):
                     self._cell_timers[i][j].stop()
 
-            for i in range(self.dim[0]):
-                if self.dim[1] > 1:
+            for i in range(self.dim[0]): # loop over rows
+                if self.dim[1] > 1: # if there's more than 1 column
                     for j in range(self.dim[1]):
                         with qc.QSignalBlocker(self.entries[i][j]):
                             self.entries[i][j].setText(f"{array[i][j]:.8g}")
                 else:
                     with qc.QSignalBlocker(self.entries[i][0]):
-                        self.entries[i][0].setText(f"{array[i]:.8g}")
+                        if isinstance(array[i], (int, float, np.int64, np.float64)):
+                            self.entries[i][0].setText(f"{array[i]:.8g}")
+                        else:
+                            self.entries[i][0].setText(f"{array[i][0]:.8g}")
         finally:
             self._bulk_updating = False
 

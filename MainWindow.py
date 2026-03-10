@@ -440,7 +440,8 @@ class MainWindow(qw.QMainWindow):
     def _on_params_replaced(self, data):
         new_params, new_sector_names = data
         self.params = new_params
-        self._update_sector_names(new_sector_names)
+        if new_sector_names is not None:
+            self._update_sector_names(new_sector_names)
         self.start_sim()
 
     def _update_sector_names(self, names):
@@ -629,7 +630,6 @@ class MainWindow(qw.QMainWindow):
         self.figure.canvas.draw_idle()
 
     def grab_as_initial(self):
-
         try:
             time = float(self.grab_entry.text())
         except ValueError:
@@ -647,6 +647,7 @@ class MainWindow(qw.QMainWindow):
 
         # self.update_plot()
         self.control_panel.load_new_params(self.params)
+        self.start_sim()
 
     def request_threadkill(self):
         if self.sim_controller is not None and self.sim_controller.is_alive():
@@ -701,6 +702,10 @@ class MainWindow(qw.QMainWindow):
         edit_demos_action = qg.QAction("Demos", self)
         file_menu.addAction(edit_demos_action)
         edit_demos_action.triggered.connect(lambda _checked= False, tab= 6: self.open_settings(tab))
+
+        force_kill_action = qg.QAction("Force Kill Sim", self)
+        file_menu.addAction(force_kill_action)
+        force_kill_action.triggered.connect(lambda _checked= False: self._halt_sim_stack(force= True))
 
         quit_button = qg.QAction("Quit", self)
         file_menu.addAction(quit_button)
@@ -1018,7 +1023,7 @@ class MainWindow(qw.QMainWindow):
         try:
             sim_model = demo["details"]["simulation_model"]
             sim_function_name = demo["details"]["simulation_function"]
-            default_preset = demo["details"]["default_preset"]
+            default_preset = demo["details"].get("default_preset", None)
             default_dir = settings["default_save_dir"]
 
             presets = load_presets(sim_model)
@@ -1038,13 +1043,9 @@ class MainWindow(qw.QMainWindow):
         sim_function = getattr(trajectories_module, sim_function_name)
 
         if len(sys.argv) == 1:
-            try:
-                params_dict = presets[default_preset]
-            except StopIteration:
-                with open(rpath("models",sim_model,"data","extra_data.yml"), 'r') as f:
-                    default_presets = yaml.safe_load(f)
-                _dump_to_yaml(default_presets, sim_model)
-                params_dict = default_presets[next(iter(default_presets))]
+            # try:
+            params_dict = presets.get("default_preset", {})
+
         else:
             try:
                 params_dict = presets[sys.argv[1]]
@@ -1056,7 +1057,10 @@ class MainWindow(qw.QMainWindow):
 
         if params_module_name in sys.modules:
             importlib.reload(sys.modules[params_module_name])
-        params = params_from_mapping(params_dict["params"], rpath("models",self.sim_model,"simulation","parameters.py"))
+        if params_dict:
+            params = params_from_mapping(params_dict["params"], rpath("models",self.sim_model,"simulation","parameters.py"))
+        else:
+            params = {}
 
         with open(rpath("models",sim_model,"data","plotting_data.yml")) as f:
             plotting_data = yaml.safe_load(f)

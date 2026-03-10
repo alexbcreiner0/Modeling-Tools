@@ -32,18 +32,18 @@ def get_trajectories(params: Params, *, should_stop: Optional[Callable[[], bool]
 
     finite = absZ[np.isfinite(absZ)]
 
-    lo, hi = np.percentile(finite, [2, 98])  # or [2, 98]
+    # lo, hi = np.percentile(finite, [0, 100])  # or [2, 98]
 
-    abs_clipped = np.clip(absZ, lo, hi)
-    mag = np.log10(absZ)
-    mag -= mag.min()
-    mag /= mag.max()
-    gamma = 0.7
-    mag = mag ** gamma
+    # abs_clipped = np.clip(absZ, lo, hi)
+    # mag = np.log10(absZ)
+    # mag -= mag.min()
+    # mag /= mag.max()
+    # gamma = 0.7
+    # mag = mag ** gamma
     # sin_Z = np.exp(mag * np.log(abs_clipped.max())) * np.exp(1j * sin_Z)
-    sin_Z = np.exp(mag * np.log(absZ.max())) * np.exp(1j * sin_Z)
+    # sin_Z = np.exp(mag * np.log(absZ.max())) * np.exp(1j * sin_Z)
 
-    RGB = cplot.get_srgb1(sin_Z)
+    RGB = cplot.get_srgb1(sin_Z, saturation_adjustment= 2)
 
     traj = {
         "x": x,
@@ -55,6 +55,6 @@ def get_trajectories(params: Params, *, should_stop: Optional[Callable[[], bool]
         "rgb": RGB
     }
 
-    return traj, t
+    yield traj, t
 
 

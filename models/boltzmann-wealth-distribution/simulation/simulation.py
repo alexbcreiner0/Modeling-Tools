@@ -7,7 +7,7 @@ from .extra_functions import MoneyModel
 import time
 
 def get_trajectories(params: Params):
-    model = MoneyModel(params.n_agents)
+    model = MoneyModel(params)
     t = []
     for i in range(params.T):
         traj = model.get_traj()

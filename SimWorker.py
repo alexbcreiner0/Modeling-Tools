@@ -35,7 +35,7 @@ def child_run(queue, run_id, module_path, func_name, params_path, params, stop_e
         func = getattr(mod, func_name)
         params_dataclass = params_from_mapping(params, params_path)
 
-        for i, (traj, t) in enumerate(func(params_dataclass)):
+        for traj, t in func(params_dataclass):
             if stop_event.is_set():
                 break
 
@@ -49,7 +49,6 @@ def child_run(queue, run_id, module_path, func_name, params_path, params, stop_e
                 time.sleep(dt)
 
             if yield_every <= 1 or (i % yield_every) == 0:
-                # TODO: wtf is this even doing
                 if not put_latest(queue, (run_id, traj, t), stop_event):
                     break
                 # queue.put((run_id, traj, t))

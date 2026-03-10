@@ -51,3 +51,4 @@ class Params:
     eps_m: float = 1e-08
     T: int = 100
     res: int = 3
+    n: int = 3

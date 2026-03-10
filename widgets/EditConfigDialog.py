@@ -121,9 +121,13 @@ class EditConfigDialog(qw.QDialog):
 
         self.buttons = qw.QDialogButtonBox()
         self.btn_apply = self.buttons.addButton("Apply", qw.QDialogButtonBox.ButtonRole.ApplyRole)
-        self.btn_save = self.buttons.addButton("Save", qw.QDialogButtonBox.ButtonRole.AcceptRole)
+        self.btn_save = self.buttons.addButton("Save", qw.QDialogButtonBox.ButtonRole.ActionRole)
         self.btn_close = self.buttons.addButton(qw.QDialogButtonBox.StandardButton.Close)
         bottom.addWidget(self.buttons, 0)
+
+        for b in (self.btn_apply, self.btn_save, self.btn_close):
+            b.setDefault(False)
+            b.setAutoDefault(False)
 
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         self.btn_close.clicked.connect(self.reject)

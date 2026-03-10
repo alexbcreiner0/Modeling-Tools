@@ -1,13 +1,14 @@
 from __future__ import annotations
 from pathlib import Path
 from paths import rpath
-import os
+import os, copy
 import yaml
-import copy
 from widgets.common import make_shortname
 from tools.modelling_tools import FlowSeq, flowseq_representer
 import logging
 from .common import atomic_write
+from .ColorPickers import *
+from .FormLayoutPlusTooltips import HelpFormLayout
 from matplotlib import colormaps
 
 from PyQt6 import (
@@ -33,179 +34,53 @@ def _safe_load_yaml(path: str) -> dict:
         data = yaml.safe_load(f)
     return data or {}
 
-class ColorLineEdit(qw.QLineEdit):
-    def set_hex(self, hex_color: str) -> None:
-        hex_color = (hex_color or "").strip()
-        self.setText(hex_color)
-        self._update_swatch()
-
-    def _update_swatch(self) -> None:
-        txt = self.text().strip()
-        c = qg.QColor(txt)
-        if c.isValid():
-            self.setStyleSheet(f"QLineEdit {{ background-color: {c.name()}; }}")
-        else:
-            self.setStyleSheet("")
-
-class LabelColorRow(qw.QWidget):
-    removed = qc.pyqtSignal(object)
-
-    def __init__(self, label: str = "", color: str = "", parent=None, indep= False, extra_picker= False):
-        super().__init__(parent)
-        lay = qw.QHBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-
-        self.label_edit = qw.QLineEdit(label)
-        self.label_edit.setPlaceholderText("Label")
-
-        self.color_edit = ColorLineEdit()
-        self.color_edit.setPlaceholderText("#RRGGBB")
-        self.color_edit.setMaximumWidth(120)
-        self.color_edit.set_hex(color)
-
-        self.pick_btn = qw.QToolButton()
-        self.pick_btn.setText("🎨")
-        self.pick_btn.setToolTip("Pick a color")
-
-        if extra_picker:
-            self.color_edit2 = ColorLineEdit()
-            self.color_edit2.setPlaceholderText("#RRGGBB")
-            self.color_edit2.setMaximumWidth(120)
-            self.color_edit2.set_hex(color)
-
-            self.pick_btn2 = qw.QToolButton()
-            self.pick_btn2.setText("🎨")
-            self.pick_btn2.setToolTip("Pick a color")
-
-        if not indep:
-            self.del_btn = qw.QToolButton()
-            self.del_btn.setText("✕")
-            self.del_btn.setToolTip("Remove this row")
-
-        lay.addWidget(self.label_edit, 1)
-        lay.addWidget(self.color_edit, 0)
-        lay.addWidget(self.pick_btn, 0)
-        if extra_picker:
-            lay.addWidget(self.color_edit2, 0)
-            lay.addWidget(self.pick_btn2, 0)
-
-        if not indep:
-            lay.addWidget(self.del_btn, 0)
-
-        self.pick_btn.clicked.connect(self._pick_color)
-        if extra_picker:
-            self.pick_btn2.clicked.connect(self._pick_color2)
-        if not indep:
-            self.del_btn.clicked.connect(lambda: self.removed.emit(self))
-
-        self.color_edit.textChanged.connect(self.color_edit._update_swatch)
-        if extra_picker:
-            self.color_edit2.textChanged.connect(self.color_edit2._update_swatch)
-
-    def _pick_color(self) -> None:
-        initial = qg.QColor(self.color_edit.text().strip())
-        if initial.name().lower() == "#000000":
-            initial = qg.QColor("#ffffff")
-        c = qw.QColorDialog.getColor(initial, self, "Choose color")
-        if c.isValid():
-            self.color_edit.set_hex(c.name())
-
-    # I am lazy and stupid
-    def _pick_color2(self) -> None:
-        initial = qg.QColor(self.color_edit2.text().strip())
-        if initial.name().lower() == "#000000":
-            initial = qg.QColor("#ffffff")
-        c = qw.QColorDialog.getColor(initial, self, "Choose color")
-        if c.isValid():
-            self.color_edit2.set_hex(c.name())
-
-    def get_pair(self) -> tuple[str, str]:
-        return (self.label_edit.text().strip(), self.color_edit.text().strip())
-
-class LabelColorListEditor(qw.QWidget):
-    changed = qc.pyqtSignal()
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        root = qw.QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-
-        self.rows_layout = qw.QVBoxLayout()
-        self.rows_layout.setSpacing(6)
-        root.addLayout(self.rows_layout)
-
-        btn_row = qw.QHBoxLayout()
-        self.add_btn = qw.QPushButton("+ Add series")
-        btn_row.addWidget(self.add_btn)
-        btn_row.addStretch(1)
-        root.addLayout(btn_row)
-
-        self.add_btn.clicked.connect(self.add_row)
-        root.addStretch(1)
-
-    def clear_rows(self) -> None:
-        while self.rows_layout.count():
-            item = self.rows_layout.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.deleteLater()
-
-    def _emit_changed(self, *args) -> None:
-        # Emit a single 'changed' signal for any modification, unless we're in a load
-        if self.signalsBlocked():
-            return
-        self.changed.emit()
-
-    def add_row(self, stupid_truth_val= False, label: str = "", color: str = "") -> None:
-        row = LabelColorRow(label=label, color=color)
-        row.removed.connect(self._remove_row)
-
-        # Any field edits should mark the list as changed
-        row.label_edit.textChanged.connect(self._emit_changed)
-        row.color_edit.textChanged.connect(self._emit_changed)
-
-        self.rows_layout.addWidget(row)
-        self._emit_changed()
-
-    def _remove_row(self, row_widget: LabelColorRow) -> None:
-        row_widget.setParent(None)
-        row_widget.deleteLater()
-        self._emit_changed()
-
-    def set_pairs(self, labels: list[str], colors: list[str]) -> None:
-        self.clear_rows()
-        n = max(len(labels), len(colors))
-        for i in range(n):
-            self.add_row(
-                label=labels[i] if i < len(labels) else "",
-                color=colors[i] if i < len(colors) else "",
-            )
-        if n == 0:
-            self.add_row()
-
-    def get_pairs(self) -> tuple[list[str], list[str]]:
-        labels: list[str] = []
-        colors: list[str] = []
-        for i in range(self.rows_layout.count()):
-            w = self.rows_layout.itemAt(i).widget()
-            if isinstance(w, LabelColorRow):
-                lab, col = w.get_pair()
-                if lab == "" and col == "":
-                    continue
-                labels.append(lab)
-                colors.append(col)
-        return labels, colors
-
 class PlotSettingsTab(qw.QWidget):
     ROLE = qc.Qt.ItemDataRole.UserRole  # store payload tuples here
 
     def __init__(self, model= None, parent=None):
         super().__init__(parent)
 
+        # Authoritative directory of info for each panel/plot type.
+        self.plot_dir = {
+            "Curve": {
+                "build": self._build_curve_panel,
+                "load": self._load_curve_info,
+                "save": self._get_new_curve_data,
+                "stack_idx": 1,
+            },
+            "Histogram": {
+                "build": self._build_hist_panel,
+                "load": self._load_hist_info,
+                "save": self._get_new_hist_data,
+                "stack_idx": 2,
+                "yaml_name": "hist"
+            },
+            "Scatter": {
+                "build": self._build_scatter_panel,
+                "load": self._load_scatter_info,
+                "save": self._get_new_scatter_data,
+                "stack_idx": 3,
+                "yaml_name": "scatter"
+            },
+            "Heatmap": {
+                "build": self._build_heatmap_panel,
+                "load": self._load_heatmap_info,
+                "save": self._get_new_heatmap_data,
+                "stack_idx": 4,
+                "yaml_name": "heatmap"
+            },
+            "Pie Chart": {
+                "build": self._build_pie_panel,
+                "load": self._load_pie_info,
+                "save": self._get_new_pie_data,
+                "stack_idx": 5,
+                "yaml_name": "pie"
+            },
+        }
+
         root = qw.QVBoxLayout(self)
         self.window = self.window()
 
-        # --- Model selection row ---
         top = qw.QHBoxLayout()
         top.addWidget(qw.QLabel("Model:"))
         self.model_combo = qw.QComboBox()
@@ -216,7 +91,7 @@ class PlotSettingsTab(qw.QWidget):
         top.addWidget(self.reload_btn, 0)
         root.addLayout(top)
 
-        # --- Main splitter: [tree] | [editor] ---
+
         splitter = qw.QSplitter(qc.Qt.Orientation.Horizontal)
         root.addWidget(splitter, 1)
 
@@ -264,11 +139,10 @@ class PlotSettingsTab(qw.QWidget):
 
         splitter.addWidget(tree_panel)
 
-        # ========= Right column: Editor (unchanged) =========
         editor_panel = qw.QWidget()
         editor_layout = qw.QVBoxLayout(editor_panel)
 
-        self.form = qw.QFormLayout()
+        self.form = HelpFormLayout()
         self.form.setLabelAlignment(qc.Qt.AlignmentFlag.AlignRight)
 
         self.lbl_internal_name = qw.QLabel()
@@ -276,22 +150,26 @@ class PlotSettingsTab(qw.QWidget):
         self.toggled_check = qw.QCheckBox("Initially toggled")
         self.name_edit.textChanged.connect(self._update_internal_name)
 
-        self.form.addRow("Name:", self.name_edit)
-        self.form.addRow("Internal Name:", self.lbl_internal_name)
-        self.form.addRow("", self.toggled_check)
+        self.form.addRow("Name:", self.name_edit, help_text= "The name which appears as the toggle checkbox.")
+        self.form.addRow("Internal Name:", self.lbl_internal_name, help_text= "The name in the yaml file. Not really important.")
+        self.form.addRow("", self.toggled_check, help_text= "Whether or not the plot is toggled by default.")
 
         self.plot_type_combo = qw.QComboBox()
-        self.plot_type_combo.addItems(["Curve", "Histogram", "Scatter"])
+        self.plot_type_combo.addItems(list(self.plot_dir.keys()))
         self.form.addRow("Plot type:", self.plot_type_combo)
 
         editor_layout.addLayout(self.form)
 
+        self.field_widgets = [
+            self.name_edit,
+            self.toggled_check
+        ]
+
         self.type_stack = qw.QStackedWidget()
-        self.type_stack.addWidget(self._build_cat_panel()) # 0 
-        self.type_stack.addWidget(self._build_curve_panel()) # 1
-        self.type_stack.addWidget(self._build_hist_panel()) # 2
-        self.type_stack.addWidget(self._build_scatter_panel()) # 3
-        self.type_stack_dict = {0: "cat", 1: "curve", 2: "hist", 3: "scatter"}
+        self.type_stack.addWidget(self._build_cat_panel())
+        for name in self.plot_dir:
+            build_func = self.plot_dir[name]["build"]
+            self.type_stack.addWidget(build_func())
         editor_layout.addWidget(self.type_stack, 1)
 
         action_row = qw.QHBoxLayout()
@@ -312,12 +190,9 @@ class PlotSettingsTab(qw.QWidget):
 
         self._loading_editor: bool = False
 
-        # --- wiring ---
         self.reload_btn.clicked.connect(self.reload_current_model)
-
         self.tree.currentItemChanged.connect(self._on_tree_selection_changed)
-
-        self.plot_type_combo.currentIndexChanged.connect(self._on_plot_type_changed)
+        self.plot_type_combo.currentTextChanged.connect(self._on_plot_type_changed)
 
         self._refresh_models()
         self._current_model = self.model_combo.currentText().strip() or None
@@ -354,70 +229,56 @@ class PlotSettingsTab(qw.QWidget):
         self._wire_autosave_signals()
         self._refresh_tree()
 
+        self._plot_rename_commit_requested = False
+        self._pending_plot_key = None
+        self.name_edit.returnPressed.connect(self._commit_plot_rename)  # keep textChanged autosave
+        self._cat_rename_commit_requested = False
+        self._pending_cat_key = None
+        self.name_edit.returnPressed.connect(self._commit_cat_rename)
+
     def _update_internal_name(self, text):
         self.lbl_internal_name.setText(make_shortname(text))
 
     def _block_editor_signals(self, block: bool) -> None:
-        widgets = [
-            self.name_edit, self.toggled_check, self.plot_type_combo,
-            self.cat_title, self.x_label, self.y_label, self.tooltip,
-            self.curve_traj_key, self.curve_linestyle, self.curve_series_editor, self.curve_traj_key_x,
-            self.curve_marker_and_color.label_edit, self.curve_marker_and_color.color_edit, self.curve_marker_and_color.color_edit2,
-            self.curve_linewidth, self.curve_markersize, self.hist_cmap,
-            self.hist_data, self.hist_bins, self.hist_density, self.hist_label_color_edgecolor,
-            self.hist_type, self.hist_align, self.hist_weights, self.hist_align,
-            self.scatter_traj_key_x, self.scatter_traj_key_y, self.scatter_label_color, self.scatter_marker,
-        ]
-        for w in widgets:
+        for w in self.field_widgets:
             try:
                 w.blockSignals(block)
             except Exception:
                 pass
 
     def _wire_autosave_signals(self) -> None:
-        # General
-        self.name_edit.textChanged.connect(self._save_changes)
-        self.toggled_check.stateChanged.connect(self._save_changes)
+        for widget in self.field_widgets:
+            if isinstance(widget, (qw.QLineEdit, qw.QTextEdit, ColorLineEdit)):
+                widget.textChanged.connect(self._save_changes)
+            elif isinstance(widget, qw.QCheckBox):
+                widget.checkStateChanged.connect(self._save_changes)
+            elif isinstance(widget, qw.QDoubleSpinBox):
+                widget.valueChanged.connect(self._save_changes)
+            elif isinstance(widget, qw.QComboBox):
+                widget.currentIndexChanged.connect(self._save_changes)
+            elif isinstance(widget, DynamicRowStack):
+                widget.changed.connect(self._save_changes)
+            else:
+                print(f"We missed something: {type(widget)=}")
 
-        # Category
-        self.cat_title.textChanged.connect(self._save_changes)
-        self.x_label.textChanged.connect(self._save_changes)
-        self.y_label.textChanged.connect(self._save_changes)
-        self.tooltip.textChanged.connect(self._save_changes)
-
-        # Curve
-        self.curve_traj_key.textChanged.connect(self._save_changes)
-        self.curve_linestyle.currentIndexChanged.connect(self._save_changes)
-        self.curve_series_editor.changed.connect(self._save_changes)
-        self.curve_traj_key_x.textChanged.connect(self._save_changes)
-        self.curve_linewidth.valueChanged.connect(self._save_changes)
-        self.curve_markersize.valueChanged.connect(self._save_changes)
-        self.curve_marker_and_color.color_edit.textChanged.connect(self._save_changes)
-        self.curve_marker_and_color.color_edit2.textChanged.connect(self._save_changes)
-        self.curve_marker_and_color.label_edit.textChanged.connect(self._save_changes)
-
-        # Histogram
-        self.hist_data.textChanged.connect(self._save_changes)
-        self.hist_bins.textChanged.connect(self._save_changes)
-        self.hist_weights.textChanged.connect(self._save_changes)
-        self.hist_type.currentIndexChanged.connect(self._save_changes)
-        self.hist_align.currentIndexChanged.connect(self._save_changes)
-        self.hist_density.stateChanged.connect(self._save_changes)
-        self.hist_label_color_edgecolor.label_edit.textChanged.connect(self._save_changes)
-        self.hist_label_color_edgecolor.color_edit.textChanged.connect(self._save_changes)
-        self.hist_label_color_edgecolor.color_edit2.textChanged.connect(self._save_changes)
-        self.hist_cmap.currentIndexChanged.connect(self._save_changes)
-
-        # Scatter
-        self.scatter_traj_key_x.textChanged.connect(self._save_changes)
-        self.scatter_traj_key_y.textChanged.connect(self._save_changes)
-        self.scatter_label_color.label_edit.textChanged.connect(self._save_changes)
-        self.scatter_label_color.color_edit.textChanged.connect(self._save_changes)
-
-    def _on_plot_type_changed(self, idx: int) -> None:
-        stack_idx = {0: 1, 1: 2, 2: 3}.get(idx, 1)
-        self.type_stack.setCurrentIndex(stack_idx)
+    def _on_plot_type_changed(self, plot_type: str) -> None:
+        # stack_idx = {0: 1, 1: 2, 2: 3, 3: 4}.get(idx, 1)
+        self.type_stack.setCurrentIndex(self.plot_dir[plot_type]["stack_idx"])
         self._save_changes()
+
+    def _commit_plot_rename(self):
+        self._plot_rename_commit_requested = True
+        try:
+            self._save_changes()
+        finally:
+            self._plot_rename_commit_requested = False
+
+    def _commit_cat_rename(self):
+        self._cat_rename_commit_requested = True
+        try:
+            self._save_changes()
+        finally:
+            self._cat_rename_commit_requested = False
 
     def _save_changes(self):
         if self._loading_editor:
@@ -431,7 +292,7 @@ class PlotSettingsTab(qw.QWidget):
         if not data:
             return
 
-        res = self._get_plot_data()
+        res = self._get_new_data()
         if not res:
             return
         inter_name, new_data = res
@@ -440,6 +301,10 @@ class PlotSettingsTab(qw.QWidget):
             return
 
         if data[0] == "category":
+            old_cat_name = data[1]
+            cat_name = new_data["name"]
+            cats = self._working_plot_data[self._current_model]
+
             old_cat_name = data[1]
 
             model_dict = self._working_plot_data[self._current_model]
@@ -451,10 +316,17 @@ class PlotSettingsTab(qw.QWidget):
             self._select_cat(inter_name)
             return
 
-        plot_type = self.plot_type_combo.currentText()
         old_cat_name = data[1]
         old_plot_name = data[2]
         plots_dict = self._working_plot_data[self._current_model][old_cat_name]["plots"]
+
+        # always update the existing plot's data under its current key
+        plots_dict[old_plot_name] = new_data
+
+        # update displayed text live (checkbox_name)
+        display = (new_data or {}).get("checkbox_name") or old_plot_name
+        if item.text(0) != display:
+            item.setText(0, display)
 
         if inter_name == old_plot_name:
             plots_dict[old_plot_name] = new_data
@@ -515,11 +387,8 @@ class PlotSettingsTab(qw.QWidget):
         if src_plot not in src_plots:
             return
 
-        # --- deep copy the plot spec ---
-        import copy
         new_plot = copy.deepcopy(src_plots[src_plot])
 
-        # --- generate a unique internal name ---
         base = src_plot
         plots_in_target = model_dict[target_cat]["plots"]
 
@@ -531,14 +400,11 @@ class PlotSettingsTab(qw.QWidget):
                 i += 1
             new_key = f"{base}_{i}"
 
-        # --- adjust display name if present ---
         if "checkbox_name" in new_plot:
             new_plot["checkbox_name"] = f'{new_plot["checkbox_name"]}'
 
-        # --- insert ---
         plots_in_target[new_key] = new_plot
 
-        # --- refresh + select ---
         self._refresh_tree()
         self._select_plot(target_cat, new_key)
 
@@ -572,8 +438,6 @@ class PlotSettingsTab(qw.QWidget):
 
         categories = self._working_plot_data.get(self._current_model, {})
         for cat_key, cat in categories.items():
-            if cat_key == src_cat:
-                continue  # don’t duplicate into same category
             display = cat.get("name") or cat_key
             self.dup_plot_dropdown.addItem(display, cat_key)
 
@@ -643,18 +507,40 @@ class PlotSettingsTab(qw.QWidget):
             del self._working_plot_data[self._current_model][cat_name]
         self._refresh_tree()
 
-    # ---------- build type panels ----------
+    # plot-type specific stuff
+    # To add or edit a plot type, it should (usually) only ever be necessary to 
+    #   1. Create (or edit) the _build_<plot_type>_panel method. Don't forget to maintain self.field_widgets
+    #   2. Create (or edit) the _load_<plot_type>_info method.
+    #   3. Create (or edit) the _get_new_<plot_type>_data method.
+    #   4. If a new plot type, add relevant info to the self.plot_dir dictionary
+    # As long as widgets are of an already recognized type, everything else should be handled automatically!
     def _build_cat_panel(self) -> qw.QWidget:
         w = qw.QWidget()
         layout = qw.QVBoxLayout(w)
 
         form_widget = qw.QWidget()
-        form_layout = qw.QFormLayout(form_widget)
+        form_layout = HelpFormLayout(form_widget)
 
         self.cat_title = qw.QLineEdit()
         self.x_label = qw.QLineEdit()
         self.y_label = qw.QLineEdit()
         self.tooltip = qw.QTextEdit()
+
+        
+        checkbox_grid = qw.QWidget()
+        checkbox_grid_layout = qw.QHBoxLayout(checkbox_grid)
+        self.is_3d = qw.QCheckBox("3D Plot")
+        self.axis_visible = qw.QCheckBox("Show Axis")
+        self.grid_visible = qw.QCheckBox("Show Grid")
+        self.ticks_visible = qw.QCheckBox("Show Ticks")
+        self.frame_visible = qw.QCheckBox("Show Frame")
+
+        checkbox_grid_layout.addWidget(self.axis_visible)
+        checkbox_grid_layout.addWidget(self.grid_visible)
+        checkbox_grid_layout.addWidget(self.ticks_visible)
+        checkbox_grid_layout.addWidget(self.frame_visible)
+        checkbox_grid_layout.addWidget(self.is_3d)
+
         self.hint = qw.QLabel(
             "Hint: The only necessary field here is the title. \n"
        "All others can be left blank. x-axis defaults to 'Time [s]'. \n"
@@ -666,16 +552,74 @@ class PlotSettingsTab(qw.QWidget):
         form_layout.addRow("Title: ", self.cat_title)
         form_layout.addRow("x-Axis Label: ", self.x_label)
         form_layout.addRow("y-Axis Label: ", self.y_label)
+        form_layout.addRow("Options: ", checkbox_grid)
         form_layout.addRow("Tooltip Info: ", self.tooltip)
 
         layout.addWidget(form_widget, stretch= 1)
         layout.addWidget(self.hint, stretch= 0)
 
+        self.field_widgets += [
+            self.cat_title, self.x_label, self.y_label, self.tooltip,
+            self.is_3d, self.axis_visible, self.grid_visible, self.ticks_visible,
+            self.frame_visible, 
+        ]
+
         return w
+
+    def _load_category_info(self, cat_key):
+        self.form.setRowVisible(self.toggled_check, False)
+        self.form.setRowVisible(self.plot_type_combo, False)
+
+        name = self._working_plot_data[self._current_model][cat_key].get("name", "")
+        title = self._working_plot_data[self._current_model][cat_key].get("title", "")
+        x_label = self._working_plot_data[self._current_model][cat_key].get("x_label", "")
+        y_label = self._working_plot_data[self._current_model][cat_key].get("y_label", "")
+        is_3d = self._working_plot_data[self._current_model][cat_key].get("projection", "")
+        axis_vis = self._working_plot_data[self._current_model][cat_key].get("axis_visible", True)
+        grid_vis = self._working_plot_data[self._current_model][cat_key].get("grid_visible", True)
+        ticks_vis = self._working_plot_data[self._current_model][cat_key].get("ticks_visible", True)
+        frame_vis = self._working_plot_data[self._current_model][cat_key].get("frame_visible", True)
+
+        tooltip = self._working_plot_data[self._current_model][cat_key].get("tooltip", "")
+
+        self._loading_editor = True
+        self._block_editor_signals(True)
+        try:
+            self.name_edit.setText(name)
+            self.lbl_internal_name.setText(cat_key)
+            self.cat_title.setText(title)
+            self.x_label.setText(x_label)
+            self.y_label.setText(y_label)
+            self.is_3d.setChecked(True if is_3d == "3d" else False)
+            self.axis_visible.setChecked(axis_vis)
+            self.grid_visible.setChecked(grid_vis)
+            self.ticks_visible.setChecked(ticks_vis)
+            self.frame_visible.setChecked(frame_vis)
+            self.tooltip.setText(tooltip)
+            self.type_stack.setCurrentIndex(0)
+        finally:
+            self._block_editor_signals(False)
+            self._loading_editor = False
+
+    def _get_new_cat_data(self, new_data):
+        new_data["name"] = self.name_edit.text()
+        if self.cat_title.text():
+            new_data["title"] = self.cat_title.text()
+        if self.x_label.text():
+            new_data["x_label"] = self.x_label.text()
+        if self.y_label.text():
+            new_data["y_label"] = self.y_label.text()
+        new_data["projection"] = "3d" if self.is_3d.isChecked() else "2d"
+        new_data["axis_visible"] = self.axis_visible.isChecked()
+        new_data["grid_visible"] = self.grid_visible.isChecked()
+        new_data["ticks_visible"] = self.ticks_visible.isChecked()
+        new_data["frame_visible"] = self.frame_visible.isChecked()
+        if self.tooltip.toPlainText():
+            new_data["tooltip"] = self.tooltip.toPlainText()
 
     def _build_curve_panel(self) -> qw.QWidget:
         w = qw.QWidget()
-        layout = qw.QFormLayout(w)
+        layout = HelpFormLayout(w)
 
         self.curve_traj_key = qw.QLineEdit()
         self.curve_traj_key_x = qw.QLineEdit()
@@ -689,31 +633,264 @@ class PlotSettingsTab(qw.QWidget):
         self.curve_linewidth.setValue(1.5)
         self.curve_linewidth.setDecimals(1)
         self.curve_linewidth.setSingleStep(0.1)
+        self.curve_linewidth.setProperty("default_value", 1.5)
 
         self.curve_marker_and_color = LabelColorRow(indep= True, extra_picker= True)
         self.curve_markersize = qw.QDoubleSpinBox()
+        self.curve_label_template = qw.QCheckBox("Use label template")
+        label_template_helptext = "If this is checked, you only need to fill in a single label for all of your curves, in the form 'Quantity {i}'. The {i} here will be replaced with a number based on the number of curves in the vector trajectory. Colors will also be chosen automatically, but you can create additional series and fill in just the colors to manually specificy colors for an initial segment of curves. Useful if the number of quantities in your vector trajectory is variable."
         self.curve_markersize.setRange(1.0, 10.0)
         self.curve_markersize.setSingleStep(1.0)
         self.curve_markersize.setValue(6.0)
         self.curve_markersize.setDecimals(1)
+        self.curve_markersize.setProperty("default_value", 6.0)
 
-        self.curve_series_editor = LabelColorListEditor()
-        self.curve_tip1 = qw.QLabel("Tips: x-Axis Key is only for breaking with your default.")
+        # self.curve_series_editor = LabelColorListEditor()
+        self.curve_series_editor = DynamicRowStack[LabelColor](
+            row_widget= LabelColorRow,
+            make_row_kwargs= label_color_make_kwargs,
+            get_row_data= label_color_get_data,
+            connect_row_signals= label_color_connect_signals,
+            add_button_text= "+ Add series",
+            default_item= ("", "")
+        )
         # autosave wiring is done in _wire_autosave_signals
 
-        layout.addRow("Trajectory Key:", self.curve_traj_key)
-        layout.addRow("Trajectory Key for x-Axis:", self.curve_traj_key_x)
+        layout.addRow("Trajectory Key*:", self.curve_traj_key, help_text= "The key for the stuff you're plotting")
+        layout.addRow("Trajectory Key for x-Axis:", self.curve_traj_key_x, help_text= "By default, will use your 't' array for the x-axis, but you can deviate from that using this field.")
         layout.addRow("Line Style:", self.curve_linestyle)
         layout.addRow("Line Width:", self.curve_linewidth)
         layout.addRow("Marker Type/Color/Edgecolor:", self.curve_marker_and_color)
         layout.addRow("Marker Size:", self.curve_markersize)
+        layout.addRow("", self.curve_label_template, help_text= label_template_helptext)
         layout.addRow("Curves (label + color):", self.curve_series_editor)
-        layout.addRow("", self.curve_tip1)
+        # layout.addRow("", self.curve_tip1)
+
+        self.field_widgets += [
+            self.curve_traj_key, self.curve_traj_key_x, self.curve_linestyle, self.curve_marker_and_color.label_edit,
+            self.curve_marker_and_color.color_edit, self.curve_marker_and_color.color_edit2, self.curve_linewidth,
+
+            self.curve_markersize, self.curve_series_editor, self.curve_label_template
+        ]
+
         return w
+
+    def _load_curve_info(self, plot):
+        self.curve_traj_key.setText(plot.get("traj_key", "") or "")
+        self.curve_traj_key_x.setText(plot.get("traj_key_x", "") or "")
+        val = (plot.get("linestyle") or "solid").strip().lower()
+        idx = self.curve_linestyle.findData(val)
+        if idx >= 0:
+            self.curve_linestyle.setCurrentIndex(idx)
+        else:
+            self.curve_linestyle.setCurrentIndex(self.curve_linestyle.findData("solid"))
+        self.curve_linewidth.setValue(plot.get("linewidth", 1.5))
+        self.curve_markersize.setValue(plot.get("markersize", 6.0))
+        self.curve_marker_and_color.label_edit.setText(plot.get("marker", "") or "")
+        self.curve_marker_and_color.color_edit.set_hex(plot.get("markerfacecolor", "") or "")
+        self.curve_marker_and_color.color_edit2.set_hex(plot.get("markeredgecolor", "") or "")
+        template_mode = True if plot.get("label_template") else False
+        self.curve_label_template.setChecked(template_mode)
+        colors = plot.get("colors", []) or []
+        if template_mode:
+            labels = [""]*len(colors)
+            labels[0] = plot.get("label_template")
+        else:
+            labels = plot.get("labels", []) or []
+        colors = plot.get("colors", []) or []
+        pairs = list(zip(labels, colors))
+        self.curve_series_editor.set_items(pairs)
+
+    def _get_new_curve_data(self, new_data):
+        new_data["linestyle"] = (self.curve_linestyle.currentData() or "solid")
+        if self.curve_marker_and_color.label_edit.text().strip():
+            new_data["marker"] = (self.curve_marker_and_color.label_edit.text().strip() or None)
+            new_data["markerfacecolor"] = (self.curve_marker_and_color.color_edit.text().strip() or None)
+            new_data["markeredgecolor"] = (self.curve_marker_and_color.color_edit2.text().strip() or None)
+        pairs = self.curve_series_editor.get_items()
+        try:
+            labels, colors = zip(*pairs) # unzipping magic
+        except ValueError:
+            labels, colors = [], []
+           
+        new_data["linewidth"] = self.curve_linewidth.value()
+        new_data["markersize"] = self.curve_markersize.value()
+        if self.curve_label_template.isChecked():
+            new_data["label_template"] = labels[0]
+            if new_data.get("labels"):
+                del new_data["labels"]
+        else:
+            new_data["labels"] = labels
+        new_data["colors"] = colors
+        new_data["traj_key"] = self.curve_traj_key.text()
+        new_data["traj_key_x"] = self.curve_traj_key_x.text()
+        if self.name_edit.text(): new_data["toggled"] = self.toggled_check.isChecked()
+
+    def _build_heatmap_panel(self) -> qw.QWidget:
+        w = qw.QWidget()
+        overall_layout = qw.QVBoxLayout(w)
+        form_widget = qw.QWidget()
+        form_layout = HelpFormLayout(form_widget)
+
+        self.heatmap_traj_key = qw.QLineEdit()
+        self.heatmap_type = qw.QComboBox()
+        self.heatmap_type.addItem("Discrete", "discrete")
+        self.heatmap_type.addItem("Continuous", "continuous")
+
+        self.heatmap_options = qw.QWidget()
+        self.heatmap_options_lay = qw.QHBoxLayout(self.heatmap_options)
+        
+        self.heatmap_colorbar = qw.QCheckBox("Display Color Bar")
+        self.heatmap_colorbar_labels = qw.QCheckBox("Color Bar Labels")
+
+        self.heatmap_options_lay.addWidget(self.heatmap_colorbar)
+        self.heatmap_options_lay.addWidget(self.heatmap_colorbar_labels)
+        self.heatmap_aspect = qw.QComboBox()
+        self.heatmap_aspect.addItem("Equal", "equal")
+        self.heatmap_aspect.addItem("Auto", "auto")
+        interp_options = [
+            'none', 'auto', 'nearest', 'bilinear',
+            'bicubic', 'spline16', 'spline36', 'hanning', 'hamming', 'hermite',
+            'kaiser', 'quadric', 'catrom', 'gaussian', 'bessel', 'mitchell',
+            'sinc', 'lanczos', 'blackman'
+        ]
+        self.heatmap_interp = qw.QComboBox()
+        self.heatmap_interp.addItems(interp_options)
+        self.heatmap_origin = qw.QComboBox()
+        self.heatmap_origin.addItem("Upper", "upper")
+        self.heatmap_origin.addItem("Lower", "lower")
+
+        disc_widget = qw.QWidget()
+        cts_widget = qw.QWidget()
+        disc_layout = HelpFormLayout(disc_widget)
+
+        self.heatmap_disc_cell_coloring = ValueColorLabelRow(indep= True)
+        self.heatmap_disc_cell_coloring.value_edit.setPlaceholderText("Values")
+        self.heatmap_disc_cell_coloring.color_edit.setPlaceholderText("Associated Colors")
+        self.heatmap_disc_cell_coloring.label_edit.setPlaceholderText("Labels")
+
+        self.heatmap_marker_editor = DynamicRowStack[OverlayMarkerLabel](
+            row_widget= OverlayMarkerRow,
+            make_row_kwargs= overlay_marker_make_kwargs,
+            get_row_data= overlay_marker_get_data,
+            connect_row_signals= overlay_marker_connect_signals,
+            add_button_text= "+ Add marker",
+            default_item= ("", "", "", "", "", "")
+        )
+        disc_layout.addRow("Cell Coloring: ", self.heatmap_disc_cell_coloring)
+        disc_layout.addRow("Cell Markers: ", self.heatmap_marker_editor)
+
+
+        self.heatmap_type_stack = qw.QStackedWidget()
+        self.heatmap_type_stack.addWidget(disc_widget)
+        self.heatmap_type_stack.addWidget(cts_widget)
+
+        self.heatmap_type.currentIndexChanged.connect(self._on_heatmap_type_changed)
+
+        form_layout.addRow("Trajectory Key: ", self.heatmap_traj_key)
+        form_layout.addRow("", self.heatmap_options)
+        form_layout.addRow("Aspect Ratio: ", self.heatmap_aspect)
+        form_layout.addRow("Interpolation: ", self.heatmap_interp)
+        form_layout.addRow("Origin: ", self.heatmap_origin)
+        form_layout.addRow("Type: ", self.heatmap_type)
+
+        overall_layout.addWidget(form_widget, 1)
+        overall_layout.addWidget(self.heatmap_type_stack, 1)
+
+        self.field_widgets += [
+            self.heatmap_traj_key, self.heatmap_type, self.heatmap_colorbar,
+            self.heatmap_colorbar_labels, self.heatmap_aspect, self.heatmap_interp, self.heatmap_origin,
+            self.heatmap_disc_cell_coloring.value_edit, self.heatmap_disc_cell_coloring.color_edit, 
+            self.heatmap_disc_cell_coloring.label_edit, self.heatmap_marker_editor,
+        ]
+
+        return w
+
+    def _on_heatmap_type_changed(self, idx: int) -> None:
+        # stack_idx = {0: 1, 1: 2}.get(idx, 1)
+        self.heatmap_type_stack.setCurrentIndex(idx)
+        self._save_changes()
+
+    def _load_heatmap_info(self, plot):
+        values = plot.get("values", "") or ""
+        colors = plot.get("colors", "") or ""
+        labels = plot.get("labels", "") or ""
+
+        self.heatmap_traj_key.setText(plot.get("traj_key", "") or "")
+        self.heatmap_colorbar.setChecked(plot.get("colorbar", False))
+
+        val = plot.get("discrete", False)
+        if val:
+            self.heatmap_type.setCurrentIndex(0)
+        else:
+            self.heatmap_type.setCurrentIndex(1)
+
+        val = plot.get("aspect", "equal")
+        idx = self.heatmap_aspect.findText(val)
+        if idx >= 0:
+            self.heatmap_aspect.setCurrentIndex(idx)
+        else:
+            self.heatmap_aspect.setCurrentIndex(self.heatmap_aspect.findData("equal"))
+
+        val = plot.get("interpolation", "nearest")
+        idx = self.heatmap_interp.findText(val)
+        if idx >= 0:
+            self.heatmap_interp.setCurrentIndex(idx)
+        else:
+            self.heatmap_interp.setCurrentIndex(self.heatmap_interp.findText("nearest"))
+
+        val = plot.get("origin", "lower")
+        idx = self.heatmap_origin.findData(val)
+        if idx >= 0:
+            self.heatmap_origin.setCurrentIndex(idx)
+        else:
+            self.heatmap_origin.setCurrentIndex(self.heatmap_origin.findData("lower"))
+
+        self.heatmap_disc_cell_coloring.value_edit.setText(values)
+        self.heatmap_disc_cell_coloring.color_edit.setText(colors)
+        self.heatmap_disc_cell_coloring.label_edit.setText(labels)
+
+        overlay = plot.get("overlay_markers", {}) or {}
+        if overlay:
+            codes = overlay.get("codes", []) or []
+            sizes = overlay.get("sizes", []) or []
+            labels = overlay.get("labels", []) or []
+            markers = overlay.get("markers", []) or []
+            colors = overlay.get("colors", []) or []
+            edgecolors = overlay.get("edgecolors", []) or []
+
+            sex = list(zip(codes, sizes, labels, markers, colors, edgecolors))
+            self.heatmap_marker_editor.set_items(sex)
+
+    def _get_new_heatmap_data(self, new_data):
+        new_data["traj_key"] = self.heatmap_traj_key.text()
+        new_data["discrete"] = True if self.heatmap_type.currentText() == "Discrete" else False
+        new_data["colorbar"] = self.heatmap_colorbar.isChecked()
+
+        if self.heatmap_disc_cell_coloring.value_edit.text():
+            new_data["values"] = self.heatmap_disc_cell_coloring.value_edit.text()
+        if self.heatmap_disc_cell_coloring.color_edit.text():
+            new_data["colors"] = self.heatmap_disc_cell_coloring.color_edit.text()
+        if self.heatmap_disc_cell_coloring.label_edit.text():
+            new_data["labels"] = self.heatmap_disc_cell_coloring.label_edit.text()
+
+        pairs = self.heatmap_marker_editor.get_items()
+        try:
+            codes, sizes, labels, markers, colors, edgecolors = zip(*pairs) # unzipping magic
+        except ValueError:
+            codes, sizes, labels, markers, colors, edgecolors = [], [], [], [], [], []
+
+        if len(codes) > 0:
+            new_data["overlay_markers"] = {"codes": codes}
+            if sizes: new_data["overlay_markers"]["sizes"] = sizes
+            if labels: new_data["overlay_markers"]["labels"] = labels
+            if markers: new_data["overlay_markers"]["markers"] = markers
+            if colors: new_data["overlay_markers"]["colors"] = colors
+            if edgecolors: new_data["overlay_markers"]["edgecolors"] = colors
 
     def _build_hist_panel(self) -> qw.QWidget:
         w = qw.QWidget()
-        layout = qw.QFormLayout(w)
+        layout = HelpFormLayout(w)
 
         self.hist_data = qw.QLineEdit()
         self.hist_bins = qw.QLineEdit()
@@ -744,11 +921,72 @@ class PlotSettingsTab(qw.QWidget):
         layout.addRow("Gradient:", self.hist_cmap)
         layout.addRow("", self.hist_tip)
         layout.addRow("", self.hist_tip2)
+
+        self.field_widgets += [
+            self.hist_data, self.hist_bins, self.hist_weights, self.hist_density,
+            self.hist_label_color_edgecolor.label_edit, self.hist_label_color_edgecolor.color_edit, self.hist_label_color_edgecolor.color_edit2,
+            self.hist_type, self.hist_align, self.hist_cmap,
+        ]
+
         return w
+
+    def _load_hist_info(self, plot):
+        self.hist_data.setText(plot.get("dist", "") or "")
+        self.hist_bins.setText(plot.get("bins", ""))  # your row data type (tuple, dict, dataclass, etc.)) or "")
+        self.hist_weights.setText(plot.get("weights", "") or "")
+        self.hist_density.setChecked(plot.get("density", False) or False)
+        val = (plot.get("histtype") or "bar").strip().lower()
+        idx = self.hist_type.findText(val)
+        if idx >= 0:
+            self.hist_type.setCurrentIndex(idx)
+        else:
+            self.hist_type.setCurrentIndex(self.hist_type.findText("bar"))
+
+        val = (plot.get("align") or "mid").strip().lower()
+        idx = self.hist_align.findText(val)
+        if idx >= 0:
+            self.hist_align.setCurrentIndex(idx)
+        else:
+            self.hist_align.setCurrentIndex(self.hist_align.findText("bar"))
+
+        val = (plot.get("gradient") or "None").strip()
+        idx = self.hist_cmap.findText(val)
+        if idx >= 0:
+            self.hist_cmap.setCurrentIndex(idx)
+        else:
+            self.hist_cmap.setCurrentIndex(self.hist_cmap.findText("bar"))
+
+        self.hist_label_color_edgecolor.label_edit.setText(plot.get("label", "") or "")
+        self.hist_label_color_edgecolor.color_edit.set_hex(plot.get("color", "") or "")
+        self.hist_label_color_edgecolor.color_edit2.set_hex(plot.get("edgecolor", "") or "")
+
+    def _get_new_hist_data(self, new_data):
+        new_data["dist"] = self.hist_data.text()
+        try:
+            bins = int(self.hist_bins.text())
+        except ValueError:
+            bins = self.hist_bins.text()
+        if bins:
+            new_data["bins"] = bins
+        if self.hist_weights.text().strip():
+            new_data["weights"] = self.hist_weights.text().strip()
+        new_data["density"] = bool(self.hist_density.isChecked())
+        if self.hist_label_color_edgecolor.label_edit.text().strip():
+            new_data["label"] = self.hist_label_color_edgecolor.label_edit.text().strip()
+        if self.hist_label_color_edgecolor.color_edit.text().strip():
+            new_data["color"] = self.hist_label_color_edgecolor.color_edit.text().strip()
+        if self.hist_label_color_edgecolor.color_edit2.text().strip():
+            new_data["edgecolor"] = self.hist_label_color_edgecolor.color_edit2.text().strip()
+        histtype = self.hist_type.currentText()
+        new_data["histtype"] = histtype
+        gradient = self.hist_cmap.currentText()
+        new_data["gradient"] = gradient
+        align = self.hist_align.currentText()
+        new_data["align"] = align
 
     def _build_scatter_panel(self) -> qw.QWidget:
         w = qw.QWidget()
-        layout = qw.QFormLayout(w)
+        layout = HelpFormLayout(w)
 
         self.scatter_traj_key_x = qw.QLineEdit()
         self.scatter_traj_key_y = qw.QLineEdit()
@@ -759,9 +997,62 @@ class PlotSettingsTab(qw.QWidget):
         layout.addRow("y-Axis Key*:", self.scatter_traj_key_y)
         layout.addRow("Label/Color:", self.scatter_label_color)
         layout.addRow("Marker:", self.scatter_marker)
+
+        self.field_widgets += [
+            self.scatter_traj_key_x, self.scatter_traj_key_y, self.scatter_label_color.label_edit,
+            self.scatter_label_color.color_edit, self.scatter_marker
+        ]
+
         return w
 
-    # ---------- model loading ----------
+    def _load_scatter_info(self, plot):
+        self.scatter_traj_key_x.setText(plot.get("traj_key_x", "") or "")
+        self.scatter_traj_key_y.setText(plot.get("traj_key_y", "") or "")
+        try:
+            label = plot.get("labels", "")[0]
+        except Exception:
+            label = ""
+        self.scatter_label_color.label_edit.setText(label)
+        self.scatter_label_color.color_edit.set_hex(plot.get("color", "") or "")
+        self.scatter_marker.setText(plot.get("marker", "") or "")
+
+    def _get_new_scatter_data(self, new_data):
+        new_data["traj_key_x"] = self.scatter_traj_key_x.text()
+        new_data["traj_key_y"] = self.scatter_traj_key_y.text()
+        new_data["labels"] = [self.scatter_label_color.label_edit.text()]
+        new_data["color"] = self.scatter_label_color.color_edit.text()
+        new_data["marker"] = self.scatter_marker.text()
+
+    def _build_pie_panel(self) -> qw.QWidget:
+        w = qw.QWidget()
+        layout = HelpFormLayout(w)
+
+        self.pie_data = qw.QLineEdit()
+        self.pie_values = qw.QLineEdit()
+        self.pie_colors = qw.QLineEdit()
+        self.pie_labels = qw.QLineEdit()
+
+        layout.addRow("Data Key: ", self.pie_data)
+        layout.addRow("Color Mapping Key: ", self.pie_colors)
+        layout.addRow("Label Mapping Key: ", self.pie_labels)
+
+        self.field_widgets += [
+            self.pie_data, self.pie_colors, self.pie_labels
+        ]
+
+        return w
+
+    def _load_pie_info(self, plot):
+        self.pie_data.setText(plot.get("traj_key", "") or "")
+        self.pie_colors.setText(plot.get("color_map", "") or "")
+        self.pie_labels.setText(plot.get("label_map", "") or "")
+
+    def _get_new_pie_data(self, new_data):
+        new_data["traj_key"] = self.pie_data.text().strip()
+
+        new_data["color_map"] = self.pie_colors.text()
+        new_data["label_map"] = self.pie_labels.text()
+
     def _refresh_models(self) -> None:
         models = list_subdirs(rpath("models"))
         self.model_combo.clear()
@@ -805,7 +1096,6 @@ class PlotSettingsTab(qw.QWidget):
             self._working_plot_data[self._current_model] = {}
             return
 
-    # ---------- tree refresh + selection ----------
     def _refresh_tree(self) -> None:
         selected = self._selected_payload()
 
@@ -878,7 +1168,10 @@ class PlotSettingsTab(qw.QWidget):
             new_cat = {}
 
             # preserve category metadata
-            for k in ("name", "title", "tooltip", "x_label", "y_label"):
+            for k in ("name", "title", "tooltip", "x_label",
+                      "y_label", "projection", "axis_visible",
+                      "grid_visible", "ticks_visible", "frame_visible"
+                      ):
                 if k in old_cat:
                     new_cat[k] = old_cat[k]
 
@@ -937,38 +1230,15 @@ class PlotSettingsTab(qw.QWidget):
             self._clear_editor()
             return
 
-        kind = payload[0]
-        if kind == "category":
+        if payload[0] == "category":
             self._clear_editor()
-            self.form.setRowVisible(self.toggled_check, False)
-            self.form.setRowVisible(self.plot_type_combo, False)
-
-            name = self._working_plot_data[self._current_model][payload[1]].get("name", "")
-            title = self._working_plot_data[self._current_model][payload[1]].get("title", "")
-            x_label = self._working_plot_data[self._current_model][payload[1]].get("x_label", "")
-            y_label = self._working_plot_data[self._current_model][payload[1]].get("y_label", "")
-            tooltip = self._working_plot_data[self._current_model][payload[1]].get("tooltip", "")
-
-            self._loading_editor = True
-            self._block_editor_signals(True)
-            try:
-                self.name_edit.setText(name)
-                self.lbl_internal_name.setText(payload[1])
-                self.cat_title.setText(title)
-                self.x_label.setText(x_label)
-                self.y_label.setText(y_label)
-                self.tooltip.setText(tooltip)
-                self.type_stack.setCurrentIndex(0)
-            finally:
-                self._block_editor_signals(False)
-                self._loading_editor = False
+            self._load_category_info(payload[1])
             return
 
+        _, cat_key, plot_key = payload
         # plot
         self.form.setRowVisible(self.toggled_check, True)
         self.form.setRowVisible(self.plot_type_combo, True)
-
-        _, cat_key, plot_key = payload
         cat = self._working_plot_data[self._current_model].get(cat_key, {}) if self._working_plot_data[self._current_model] else {}
         plot = ((cat or {}).get("plots") or {}).get(plot_key, {}) or {}
 
@@ -982,41 +1252,41 @@ class PlotSettingsTab(qw.QWidget):
 
         self._refresh_dup_targets()
 
-    # ---------- existing editor methods (unchanged) ----------
     def _clear_editor(self) -> None:
         self._loading_editor = True
+
         self._block_editor_signals(True)
-        self.lbl_internal_name.clear()
-        self.name_edit.clear()
-        self.toggled_check.setChecked(False)
 
-        self.curve_traj_key.blockSignals(True)
-        self.curve_traj_key.clear()
-        self.curve_traj_key.blockSignals(False)
-        idx = self.curve_linestyle.findData("solid")
-        if idx >= 0:
-            self.curve_linestyle.setCurrentIndex(idx)
-        self.curve_series_editor.set_pairs([], [])
-        self.curve_marker_and_color.label_edit.clear()
-        self.curve_marker_and_color.color_edit.clear()
-        self.curve_marker_and_color.color_edit2.clear()
-        self.curve_traj_key_x.clear()
-        self.curve_linewidth.setValue(1.5)
-        self.curve_markersize.setValue(6.0)
-
-        self.hist_data.clear()
-        self.hist_bins.clear()
-        self.hist_weights.clear()
-        self.hist_label_color_edgecolor.label_edit.clear()
-        self.hist_label_color_edgecolor.color_edit.clear()
-        self.hist_label_color_edgecolor.color_edit2.clear()
-        self.hist_density.setChecked(False)
-
-        self.scatter_traj_key_x.clear()
-        self.scatter_traj_key_y.clear()
-        self.scatter_label_color.label_edit.clear()
-        self.scatter_label_color.color_edit.clear()
-        self.scatter_marker.clear()
+        try:
+            for widget in self.field_widgets:
+                default = widget.property("default_value")
+                if isinstance(widget, (qw.QLineEdit, qw.QTextEdit, ColorLineEdit)):
+                    if default is not None:
+                        widget.setText(default)
+                    else:
+                        widget.clear()
+                elif isinstance(widget, qw.QCheckBox):
+                    if default is not None:
+                        widget.setChecked(default)
+                    else:
+                        widget.setChecked(False)
+                elif isinstance(widget, qw.QDoubleSpinBox):
+                    if default is not None:
+                        widget.setValue(default)
+                elif isinstance(widget, qw.QComboBox):
+                    if default is not None:
+                        widget.setCurrentIndex(default)
+                    else:
+                        try:
+                            widget.setCurrentIndex(0)
+                        except IndexError:
+                            continue
+                elif isinstance(widget, DynamicRowStack):
+                    widget.set_items([])
+                else:
+                    print(f"We missed something: {type(widget)=}")
+        finally:
+            self._block_editor_signals(True)
 
         self.plot_type_combo.setCurrentText("Curve")
         self.type_stack.setCurrentIndex(1)
@@ -1024,168 +1294,69 @@ class PlotSettingsTab(qw.QWidget):
         self._block_editor_signals(False)
         self._loading_editor = False
 
+    def _get_name_from_plot_data(self, special):
+        for name in self.plot_dir:
+            if self.plot_dir[name].get("yaml_name", "") == special:
+                return name
+        return ""
+
     def _load_plot_into_editor(self, plot_key: str, plot: dict) -> None:
         self.lbl_internal_name.setText(plot_key)
         self.name_edit.setText(plot.get("checkbox_name", "") or "")
         self.toggled_check.setChecked(bool(plot.get("toggled", False)))
 
         special = (plot.get("special") or "curve").strip().lower()
-        if special == "scatter" or ("traj_key_x" in plot and "traj_key_y" in plot):
-            self.plot_type_combo.setCurrentText("Scatter")
-            self.type_stack.setCurrentIndex(3)
-        elif special == "hist":
-            self.plot_type_combo.setCurrentText("Histogram")
-            self.type_stack.setCurrentIndex(2)
-        elif special == "curve":
+        # only curves aren't special
+        if special == "curve":
             self.plot_type_combo.setCurrentText("Curve")
             self.type_stack.setCurrentIndex(1)
+        else:
+            name = self._get_name_from_plot_data(special)
+            if name == "": return
+            idx = self.plot_dir[name]["stack_idx"]
+            self.plot_type_combo.setCurrentText(name)
+            self.type_stack.setCurrentIndex(idx)
 
-        if self.plot_type_combo.currentText() == "Curve":
-            self.curve_traj_key.setText(plot.get("traj_key", "") or "")
-            self.curve_traj_key_x.setText(plot.get("traj_key_x", "") or "")
-            val = (plot.get("linestyle") or "solid").strip().lower()
-            idx = self.curve_linestyle.findData(val)
-            if idx >= 0:
-                self.curve_linestyle.setCurrentIndex(idx)
-            else:
-                self.curve_linestyle.setCurrentIndex(self.curve_linestyle.findData("solid"))
-            self.curve_linewidth.setValue(plot.get("linewidth", 1.5))
-            self.curve_markersize.setValue(plot.get("markersize", 6.0))
-            self.curve_marker_and_color.label_edit.setText(plot.get("marker", "") or "")
-            self.curve_marker_and_color.color_edit.set_hex(plot.get("markerfacecolor", "") or "")
-            self.curve_marker_and_color.color_edit2.set_hex(plot.get("markeredgecolor", "") or "")
-            labels = plot.get("labels", []) or []
-            colors = plot.get("colors", []) or []
-            self.curve_series_editor.set_pairs(labels, colors)
-
-        elif self.plot_type_combo.currentText() == "Histogram":
-            self.hist_data.setText(plot.get("dist", "") or "")
-            self.hist_bins.setText(plot.get("bins", "") or "")
-            self.hist_weights.setText(plot.get("weights", "") or "")
-            self.hist_density.setChecked(plot.get("density", False) or False)
-            val = (plot.get("histtype") or "bar").strip().lower()
-            idx = self.hist_type.findText(val)
-            if idx >= 0:
-                self.hist_type.setCurrentIndex(idx)
-            else:
-                self.hist_type.setCurrentIndex(self.hist_type.findText("bar"))
-
-            val = (plot.get("align") or "mid").strip().lower()
-            idx = self.hist_align.findText(val)
-            if idx >= 0:
-                self.hist_align.setCurrentIndex(idx)
-            else:
-                self.hist_align.setCurrentIndex(self.hist_align.findText("bar"))
-
-            val = (plot.get("gradient") or "None").strip()
-            idx = self.hist_cmap.findText(val)
-            if idx >= 0:
-                self.hist_cmap.setCurrentIndex(idx)
-            else:
-                self.hist_cmap.setCurrentIndex(self.hist_cmap.findText("bar"))
-
-            self.hist_label_color_edgecolor.label_edit.setText(plot.get("label", "") or "")
-            self.hist_label_color_edgecolor.color_edit.set_hex(plot.get("color", "") or "")
-            self.hist_label_color_edgecolor.color_edit2.set_hex(plot.get("edgecolor", "") or "")
-
-        else:  # Scatter
-            self.scatter_traj_key_x.setText(plot.get("traj_key_x", "") or "")
-            self.scatter_traj_key_y.setText(plot.get("traj_key_y", "") or "")
-            try:
-                label = plot.get("labels", "")[0]
-            except Exception:
-                label = ""
-            self.scatter_label_color.label_edit.setText(label)
-            self.scatter_label_color.color_edit.set_hex(plot.get("color", "") or "")
-            self.scatter_marker.setText(plot.get("marker", "") or "")
-
-    def _get_plot_data(self):
-        data_type = self.type_stack_dict.get(self.type_stack.currentIndex(), "")
-        if data_type == "":
+        plot_type = self.plot_type_combo.currentText()
+        loading_func = self.plot_dir.get(plot_type, {}).get("load", None)
+        if loading_func is None:
+            print(f"No loading function found for {plot_type}.")
             return
-        
+
+        loading_func(plot)
+
+    def _get_name_from_type_stack_idx(self, idx: int):
+        """ Helper function which retrieves the name of a plot type from the type_stack index. """
+        for name in self.plot_dir:
+            if self.plot_dir[name]["stack_idx"] == idx:
+                return name
+        return ""
+
+    def _get_new_data(self):
         item = self.tree.currentItem()
         data = item.data(0, self.ROLE)
         new_data = {}
 
+        inter_name = self.lbl_internal_name.text()
+
         if data[0] == "category":
             old_dict = self._working_plot_data[self._current_model][data[1]]
-            new_data["name"] = self.name_edit.text()
-            inter_name = self.lbl_internal_name.text()
-            if self.cat_title.text():
-                new_data["title"] = self.cat_title.text()
-            if self.x_label.text():
-                new_data["x_label"] = self.x_label.text()
-            if self.y_label.text():
-                new_data["y_label"] = self.y_label.text()
-            if self.tooltip.toPlainText():
-                new_data["tooltip"] = self.tooltip.toPlainText()
+            self._get_new_cat_data(new_data)
             new_data["plots"] = old_dict["plots"]
             return inter_name, new_data
 
-        if data_type == "curve":
-            if self.name_edit.text(): new_data["checkbox_name"] = self.name_edit.text()
-            new_data["linestyle"] = (self.curve_linestyle.currentData() or "solid")
-            if self.curve_marker_and_color.label_edit.text().strip():
-                new_data["marker"] = (self.curve_marker_and_color.label_edit.text().strip() or None)
-                new_data["markerfacecolor"] = (self.curve_marker_and_color.color_edit.text().strip() or None)
-                new_data["markeredgecolor"] = (self.curve_marker_and_color.color_edit2.text().strip() or None)
-            labels, colors = self.curve_series_editor.get_pairs()
-            new_data["linewidth"] = self.curve_linewidth.value()
-            new_data["markersize"] = self.curve_markersize.value()
-            new_data["labels"] = labels
-            new_data["colors"] = colors
-            new_data["traj_key"] = self.curve_traj_key.text()
-            new_data["traj_key_x"] = self.curve_traj_key_x.text()
-            if self.name_edit.text(): new_data["toggled"] = self.toggled_check.isChecked()
-            inter_name = self.lbl_internal_name.text()
+        data_type = self._get_name_from_type_stack_idx(self.type_stack.currentIndex())
+        if data_type == "":
+            return
 
-            return inter_name, new_data
+        if self.plot_dir[data_type].get("yaml_name", ""):
+            new_data["special"] = self.plot_dir[data_type]["yaml_name"]
+        if self.name_edit.text(): new_data["checkbox_name"] = self.name_edit.text()
+        if self.name_edit.text(): new_data["toggled"] = self.toggled_check.isChecked()
 
-        if data_type == "scatter":
-            new_data["special"] = "scatter"
-            if self.name_edit.text(): new_data["checkbox_name"] = self.name_edit.text()
-            if self.name_edit.text(): new_data["toggled"] = self.toggled_check.isChecked()
-            new_data["traj_key_x"] = self.scatter_traj_key_x.text()
-            new_data["traj_key_y"] = self.scatter_traj_key_y.text()
-            new_data["labels"] = [self.scatter_label_color.label_edit.text()]
-            new_data["color"] = self.scatter_label_color.color_edit.text()
-            new_data["marker"] = self.scatter_marker.text()
-            inter_name = self.lbl_internal_name.text()
-
-            return inter_name, new_data
-
-        if data_type == "hist":
-            new_data["special"] = "hist"
-            if self.name_edit.text():
-                new_data["checkbox_name"] = self.name_edit.text()
-                new_data["toggled"] = self.toggled_check.isChecked()
-
-            new_data["dist"] = self.hist_data.text()
-            try:
-                bins = int(self.hist_bins.text())
-            except ValueError:
-                bins = self.hist_bins.text()
-            if bins:
-                new_data["bins"] = bins
-            if self.hist_weights.text().strip():
-                new_data["weights"] = self.hist_weights.text().strip()
-            new_data["density"] = bool(self.hist_density.isChecked())
-            if self.hist_label_color_edgecolor.label_edit.text().strip():
-                new_data["label"] = self.hist_label_color_edgecolor.label_edit.text().strip()
-            if self.hist_label_color_edgecolor.color_edit.text().strip():
-                new_data["color"] = self.hist_label_color_edgecolor.color_edit.text().strip()
-            if self.hist_label_color_edgecolor.color_edit2.text().strip():
-                new_data["edgecolor"] = self.hist_label_color_edgecolor.color_edit2.text().strip()
-            histtype = self.hist_type.currentText()
-            new_data["histtype"] = histtype
-            gradient = self.hist_cmap.currentText()
-            new_data["gradient"] = gradient
-            align = self.hist_align.currentText()
-            new_data["align"] = align
-
-            inter_name = self.lbl_internal_name.text()
-            return inter_name, new_data
+        save_func = self.plot_dir[data_type]["save"]
+        save_func(new_data)
+        return inter_name, new_data
 
     def on_apply_clicked(self) -> None:
         self._rebuild_plot_data_from_tree()
@@ -1205,42 +1376,32 @@ class PlotSettingsTab(qw.QWidget):
                 new_dict = self._working_plot_data[model]
                 self._original_plot_data[model] = copy.deepcopy(new_dict)
             
-    # def on_apply_clicked(self):
-    #     self._rebuild_plot_data_from_tree()
-    #     self._normalize_flowseqs_for_dump(self._working_plot_data)
-    #     self._normalize_flowseqs_for_dump(self._original_plot_data)
-
-    #     try: 
-    #         for model_name, model_dict in self._original_plot_data.items():
-    #             with open(rpath("models", model_name, "data", "plotting_data.yml.bak"), "w") as f:
-    #                 yaml.safe_dump(model_dict, f, sort_keys= False, allow_unicode= True)
-
-    #         for model_name, model_dict in self._working_plot_data.items():
-    #             with open(rpath("models", model_name, "data", "plotting_data.yml"), "w") as f:
-    #                 yaml.safe_dump(model_dict, f, sort_keys= False, allow_unicode= True)
-    #     except OSError as e:
-    #         self.window.status.show(f"Error saving your plotting files: {e}. Backups should be available in their respective folders for anything deleted.")
-    #         logger.error(f"Error applying changes.", )
-    #     finally:
-    #         try:
-    #             os.remove(bak)
-    #         except OSError as e:
-    #             self.window.status.show("Error removing backup, you should check your directory.", 5000)
-    #             logger.log(warning, f"Error removing directory {bak}", exc_info= e)
-
-            
-    #     self._get_new_plotting_data(self._current_model)
-        
     def _normalize_flowseqs_for_dump(self, data: dict) -> dict:
         for model_name, model_dict in data.items():
             for cat_name, cat_dict in model_dict.items():
                 plots_dict = cat_dict["plots"]
                 for plot_name, plot_dict in plots_dict.items():
-                    labels, colors = plot_dict.get("labels"), plot_dict.get("colors")
-                    if isinstance(labels, (list, tuple)):
-                        plot_dict["labels"] = FlowSeq(labels)
-                    if isinstance(colors, (list, tuple)):
-                        plot_dict["colors"] = FlowSeq(colors)
+                    if not plot_dict.get("special", False):
+                        labels, colors = plot_dict.get("labels"), plot_dict.get("colors")
+                        if isinstance(labels, (list, tuple)):
+                            plot_dict["labels"] = FlowSeq(labels)
+                        if isinstance(colors, (list, tuple)):
+                            plot_dict["colors"] = FlowSeq(colors)
+                    if plot_dict.get("special") == "heatmap" and plot_dict.get("overlay_markers", None):
+                        overlay_dict = plot_dict["overlay_markers"]
+                        codes = overlay_dict.get("codes")
+                        sizes = overlay_dict.get("sizes", [])
+                        labels = overlay_dict.get("labels", [])
+                        markers = overlay_dict.get("markers", [])
+                        colors = overlay_dict.get("colors", [])
+                        edgecolors = overlay_dict.get("edgecolors", [])
+
+                        overlay_dict["codes"] = FlowSeq(codes)
+                        if len(sizes) > 0: overlay_dict["sizes"] = FlowSeq(sizes)
+                        if len(labels) > 0: overlay_dict["labels"] = FlowSeq(labels)
+                        if len(markers) > 0: overlay_dict["markers"] = FlowSeq(markers)
+                        if len(colors) > 0: overlay_dict["colors"] = FlowSeq(colors)
+                        if len(edgecolors) > 0: overlay_dict["edgecolors"] = FlowSeq(edgecolors)
 
         demos = data.get("demos", {})
         for _k, demo in demos.items():

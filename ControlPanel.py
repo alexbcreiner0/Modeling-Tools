@@ -4,6 +4,7 @@ from PyQt6 import (
     QtWidgets as qw,
     QtGui as qg
 )
+import numpy as np
 from matplotlib import pyplot as plt
 from widgets.SectionDivider import SectionDivider
 from widgets.EntryBlock import EntryBlock
@@ -15,6 +16,7 @@ from widgets.AxesControlWidget import AxesControlWidget
 from widgets.SlotControlsWidget import SlotControlsWidget
 from dataclasses import asdict
 import math, importlib, inspect
+from typing import Dict
 # import scienceplots
 # plt.style.use(["grid", "notebook"])
 
@@ -171,8 +173,16 @@ class ControlPanel(qw.QWidget):
             for entry in panel_data[row]:
                 info = panel_data[row][entry]
                 widget = self.make_widget(info, params)
+                pos = wlay.count()
                 wlay.addWidget(widget, stretch= 1, alignment= qc.Qt.AlignmentFlag.AlignTop)
 
+                if info.get("control_type") == "entry_block":
+                    pname = info["param_name"]
+                    self.entry_blocks[pname]["row_layout"] = wlay
+                    self.entry_blocks[pname]["row_index"] = pos
+                    self.entry_blocks[pname]["panel_info"] = info
+
+        self._meta_dependents = self._get_metadeps()
 
         for wrapper in self.row_wrappers:
             main_control_layout.addWidget(wrapper, alignment= qc.Qt.AlignmentFlag.AlignTop, stretch= 0)
@@ -186,6 +196,58 @@ class ControlPanel(qw.QWidget):
 
         self.block_signals = False
         self.constructing = False
+
+    def _collect_metadeps_from_info(self, info, meta_deps):
+        control_type = info.get("control_type", "")
+
+        if control_type == "entry_block" and "dim_from" in info:
+            meta = info["dim_from"]
+            deps = []
+
+            if isinstance(meta, str):
+                deps.append(meta)
+            elif isinstance(meta, list):
+                for x in meta:
+                    if isinstance(x, str):
+                        deps.append(x)
+
+            for param in deps:
+                meta_deps.setdefault(param, []).append(info["param_name"])
+            return
+
+        if control_type.startswith("hsub_panel") or control_type.startswith("vsub_panel"):
+            for _, subinfo in info.get("entries", {}).items():
+                self._collect_metadeps_from_info(subinfo, meta_deps)
+
+    def _get_metadeps(self):
+        meta_deps = {}
+        for row_name, row in self.panel_data.items():
+            if row_name.startswith("divider"):
+                continue
+            for _, info in row.items():
+                self._collect_metadeps_from_info(info, meta_deps)
+        return meta_deps
+
+    # def _get_metadeps(self) -> Dict[str, list]:
+    #     meta_deps = {} # will be a mapping from metaparameters to lists of the parameters they influence
+    #     for row_name, row in self.panel_data.items():
+    #         if row_name.startswith("divider"):
+    #             continue
+    #         for entry_key, info in row.items():
+    #             if info.get("control_type") == "entry_block" and "dim_from" in info:
+    #                 meta = info["dim_from"]
+    #                 new_deps = []
+    #                 if isinstance(meta, str):
+    #                     new_deps.append(meta)
+    #                 if isinstance(meta, list):
+    #                     if isinstance(meta[0], str):
+    #                         new_deps.append(meta[0])
+    #                     if isinstance(meta[1], str):
+    #                         new_deps.append(meta[1])
+    #                 for param in new_deps:
+    #                     meta_deps.setdefault(param, []).append(info["param_name"])
+
+    #     return meta_deps
 
     def set_slot_dropdown_index(self, slot_index: int, idx: int):
         if 0 <= slot_index < len(self.slot_dropdowns):
@@ -375,7 +437,6 @@ class ControlPanel(qw.QWidget):
     def _on_info_hovered(self, slot_index: int):
         self.get_tooltip(slot_index)
 
-
     def _normalize_slot_settings(self, settings: dict) -> dict:
         if not settings:
             return {}
@@ -448,173 +509,392 @@ class ControlPanel(qw.QWidget):
         control_type = info["control_type"]
 
         if control_type == "checkbox":
-            param_name, label, tooltip = (
-                info["param_name"], info['label'], info['tooltip']
-            )
-            widget = qw.QCheckBox(label)
-            widget.setToolTip(tooltip)
-            widget.stateChanged.connect(self.update_plot)
+            w = self._build_checkbox(info, params)
+            return w
 
-        if control_type == "dropdown":
-            outer_widget = qw.QWidget()
-            # outer_widget.setSizePolicy(qw.QSizePolicy.Policy.Preferred, qw.QSizePolicy.Policy.Maximum)
-            outer_layout = qw.QVBoxLayout(outer_widget)
-            outer_layout.setContentsMargins(0, 0, 0, 0)
-            outer_layout.setSpacing(2)
-
-            param_name, label, names, values, tooltip_plain = (
-                info["param_name"], info["label"], info["names"], info["values"], info["tooltip"]
-            )
-            tooltip = f"""{tooltip_plain}"""
-
-            label_widget = qw.QLabel(label)
-            label_widget.setSizePolicy(
-                qw.QSizePolicy.Policy.Expanding,
-                qw.QSizePolicy.Policy.Preferred
-            )
-            outer_layout.addWidget(label_widget, alignment = qc.Qt.AlignmentFlag.AlignCenter)
-
-            top_row = qw.QWidget()
-            # top_row.setSizePolicy(qw.QSizePolicy.Policy.Preferred, qw.QSizePolicy.Policy.Maximum)
-            row_layout = qw.QHBoxLayout(top_row)
-            row_layout.setContentsMargins(5, 0, 5, 0)
-            row_layout.setSpacing(0)
-
-            dropdown = qw.QComboBox()
-            dropdown.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
-
-            def no_wheel(event):
-                event.ignore()
-            dropdown.wheelEvent = no_wheel
-
-            for name in names:
-                dropdown.addItem(name)
-
-            init_val = getattr(params, param_name)
-            dropdown.setCurrentIndex(values.index(init_val))
-            dropdown.currentIndexChanged.connect(
-                lambda idx, pn=param_name, vals=values: self.update_plot(pn, vals[idx])
-            )
-
-            row_layout.addWidget(dropdown, stretch=1, alignment= qc.Qt.AlignmentFlag.AlignTop)
-            row_layout.addWidget(HelpButton("?", tooltip), stretch=0)
-
-            outer_layout.addWidget(top_row, alignment= qc.Qt.AlignmentFlag.AlignTop)
-
-            self.dropdowns[param_name] = {"widget": dropdown, "values": values}
-            return outer_widget
+        elif control_type == "dropdown":
+            w = self._build_dropdown(info, params)
+            return w
         
         elif control_type == "button_group":
-            widget = qw.QWidget()
-            if info["display"] == "horizontal":
-                button_layout = qw.QHBoxLayout(widget)
-            else:
-                button_layout = qw.QVBoxLayout(widget)
-            
-            names, functions = info["names"], info["functions"]
-            for i,name in enumerate(names):
-                button = qw.QPushButton(name)
-
-                extra_functions_module = importlib.import_module(f"models.{self.sim_model}.simulation.extra_functions")
-
-                functions_dict = dict(inspect.getmembers(extra_functions_module, inspect.isfunction))
-                try:
-                    function = functions_dict[functions[i]]
-                    def outer_func(_checked= False):
-                        new_params = None
-                        sector_names = None
-                        try:
-                            new_params, sector_names = function(self.params)
-                        except Exception as e:
-                            print(f"Error: {e}")
-
-                        if new_params is None: return
-
-                        self.params = new_params
-                        self.load_new_params(new_params)
-                        self.paramsReplaced.emit((new_params, sector_names))
-
-                        # self.load_new_params(output)
-
-                    button.clicked.connect(outer_func)
-                    button_layout.addWidget(button)
-
-                except ValueError:
-                    print(f"Error loading function: {functions[i]}. Skipping button")
-                    continue
-
-                button_layout.addWidget(button)
-                
-            return widget
+            w = self._build_button_group(info)
+            return w
 
         elif control_type == "entry_block": 
-            param_name, label, tooltip_plain = info["param_name"], info["label"], info["tooltip"]
-            tooltip = f"""{tooltip_plain}"""
-            if hasattr(params, param_name):
-                init_val = getattr(params, param_name)
-            # print(getattr(params, param_name))
-
-            if info["type"] == "scalar":
-                scalar_range, scalar_type = tuple(info["range"]), info["scalar_type"]
-                widget = EntryBlock(param_name, label, scalar_range, init_val, tooltip, scalar_type)
-                self.entry_blocks[param_name] = {"widget": widget, "is_matrix": False}
-                widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
-                widget.valueChanged.connect(self.update_plot)
-
-            elif info["type"] == "matrix":
-                dim = tuple(info["dim"])
-                widget = MatrixEntry(param_name, label, dim, init_val, tooltip)
-                widget.textChanged.connect(self.update_plot)
-                if "vsize_policy" in info:
-                    if info["vsize_policy"] == "expanding":
-                        widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Minimum)
-                else:
-                    widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Preferred)
-                self.entry_blocks[param_name] = {"widget": widget, "is_matrix": True}
-                
-            elif info["type"] == "vector":
-                dim1 = info["dim"]
-                dim = (dim1, 1)
-                widget = MatrixEntry(param_name, label, dim, init_val.reshape(-1,1), tooltip)
-                widget.textChanged.connect(self.update_plot)
-                widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
-                self.entry_blocks[param_name] = {"widget": widget, "is_matrix": True}
-            else:
-                print(f"Unrecognized type: {info["type"]}. Options for type are scalar, vector, and matrix.")
-                return qw.QWidget()
-
-            return widget
+            w = self._build_entry_block(info, params)
+            return w
 
         elif control_type[0:10] == "vsub_panel":
-
-            widget = qw.QWidget()
-            vlayout = qw.QVBoxLayout(widget)
-            widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
-
-            subentries = info["entries"]
-            for entry in subentries:
-                subinfo = subentries[entry]
-                subwidget = self.make_widget(subinfo, params)
-                vlayout.addWidget(subwidget)
-
-            return widget
+            w = self._build_sub_panel(info, params, orientation= "v")
+            return w
 
         elif control_type[0:10] == "hsub_panel":
-            widget = qw.QWidget()
-            widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
-            vlayout = qw.QHBoxLayout(widget)
-
-            subentries = info["entries"]
-            for entry in subentries:
-                subinfo = subentries[entry]
-                subwidget = self.make_widget(subinfo, params)
-                vlayout.addWidget(subwidget)
-
-            return widget
+            w = self._build_sub_panel(info, params, orientation= "h")
+            return w
 
         else:
             print("Unrecognized control type.")
             return qw.QWidget()
+
+    def _build_checkbox(self, info, params) -> qw.QWidget:
+        param_name, label, tooltip_plain = (
+            info["param_name"], info['label'], info['tooltip']
+        )
+        tooltip = f"""{tooltip_plain}"""
+
+        row_widget = qw.QWidget()
+        row_layout = qw.QHBoxLayout(row_widget)
+        widget = qw.QCheckBox(label)
+        if hasattr(params, param_name):
+            init_val = getattr(params, param_name)
+            widget.setChecked(init_val)
+        widget.setToolTip(tooltip)
+        widget.checkStateChanged.connect(
+            lambda state, pm= param_name: self.update_plot(pm, state == qc.Qt.CheckState.Checked))
+
+        row_layout.addWidget(HelpButton("?", tooltip), stretch=0)
+        row_layout.addWidget(widget)
+
+        return row_widget
+
+    def _build_dropdown(self, info, params) -> qw.QWidget:
+        outer_widget = qw.QWidget()
+        # outer_widget.setSizePolicy(qw.QSizePolicy.Policy.Preferred, qw.QSizePolicy.Policy.Maximum)
+        outer_layout = qw.QVBoxLayout(outer_widget)
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(2)
+
+        param_name, label, names, values, tooltip_plain = (
+            info["param_name"], info["label"], info["names"], info["values"], info["tooltip"]
+        )
+        tooltip = f"""{tooltip_plain}"""
+
+        label_widget = qw.QLabel(label)
+        label_widget.setSizePolicy(
+            qw.QSizePolicy.Policy.Expanding,
+            qw.QSizePolicy.Policy.Preferred
+        )
+        outer_layout.addWidget(label_widget, alignment = qc.Qt.AlignmentFlag.AlignCenter)
+
+        top_row = qw.QWidget()
+        # top_row.setSizePolicy(qw.QSizePolicy.Policy.Preferred, qw.QSizePolicy.Policy.Maximum)
+        row_layout = qw.QHBoxLayout(top_row)
+        row_layout.setContentsMargins(5, 0, 5, 0)
+        row_layout.setSpacing(0)
+
+        dropdown = qw.QComboBox()
+        dropdown.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
+
+        def no_wheel(event):
+            event.ignore()
+        dropdown.wheelEvent = no_wheel
+
+        for name in names:
+            dropdown.addItem(name)
+
+        init_val = getattr(params, param_name)
+        dropdown.setCurrentIndex(values.index(init_val))
+        dropdown.currentIndexChanged.connect(
+            lambda idx, pn=param_name, vals=values: self.update_plot(pn, vals[idx])
+        )
+
+        row_layout.addWidget(dropdown, stretch=1, alignment= qc.Qt.AlignmentFlag.AlignTop)
+        row_layout.addWidget(HelpButton("?", tooltip), stretch=0)
+
+        outer_layout.addWidget(top_row, alignment= qc.Qt.AlignmentFlag.AlignTop)
+
+        self.dropdowns[param_name] = {"widget": dropdown, "values": values}
+        return outer_widget
+
+    def _build_button_group(self, info) -> qw.QWidget:
+        widget = qw.QWidget()
+        if info["display"] == "horizontal":
+            button_layout = qw.QHBoxLayout(widget)
+        else:
+            button_layout = qw.QVBoxLayout(widget)
+        
+        names, functions = info["names"], info["functions"]
+        for i,name in enumerate(names):
+            button = qw.QPushButton(name)
+
+            extra_functions_module = importlib.import_module(f"models.{self.sim_model}.simulation.extra_functions")
+
+            functions_dict = dict(inspect.getmembers(extra_functions_module, inspect.isfunction))
+            try:
+                function = functions_dict[functions[i]]
+                def outer_func(_checked= False):
+                    new_params = None
+                    sector_names = None
+                    try:
+                        new_params, sector_names = function(self.params)
+                    except Exception as e:
+                        print(f"Error: {e}")
+
+                    if new_params is None: return
+
+                    self.params = new_params
+                    self.load_new_params(new_params)
+                    self.paramsReplaced.emit((new_params, sector_names))
+
+                    # self.load_new_params(output)
+
+                button.clicked.connect(outer_func)
+                button_layout.addWidget(button)
+
+            except ValueError:
+                print(f"Error loading function: {functions[i]}. Skipping button")
+                continue
+
+            button_layout.addWidget(button)
+
+            return widget
+
+    def _build_entry_block(self, info, params) -> qw.QWidget:
+        param_name, label, tooltip_plain = info["param_name"], info["label"], info["tooltip"]
+        tooltip = f"""{tooltip_plain}"""
+        if hasattr(params, param_name):
+            init_val = getattr(params, param_name)
+        else:
+            init_val = -1
+        # print(getattr(params, param_name))
+
+        if info["type"] == "scalar":
+            scalar_range, scalar_type = tuple(info["range"]), info["scalar_type"]
+            widget = EntryBlock(param_name, label, scalar_range, init_val, tooltip, scalar_type)
+            self.entry_blocks[param_name] = {"widget": widget, "is_matrix": False}
+            widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
+            widget.valueChanged.connect(self.update_plot)
+
+        elif info["type"] == "matrix":
+            dim = self._resolve_entry_dim(info, params)
+            widget = MatrixEntry(param_name, label, dim, init_val, tooltip)
+            widget.textChanged.connect(self.update_plot)
+            if "vsize_policy" in info:
+                if info["vsize_policy"] == "expanding":
+                    widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Minimum)
+            else:
+                widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Preferred)
+            self.entry_blocks[param_name] = {"widget": widget, "is_matrix": True}
+            
+        elif info["type"] == "vector":
+            if info.get("dim_from", None) is not None:
+                dep_param_name = info.get("dim_from")
+                dim1 = getattr(params, dep_param_name)
+            else:
+                dim1 = info["dim"]
+            dim = (dim1, 1)
+            widget = MatrixEntry(param_name, label, dim, init_val.reshape(-1,1), tooltip)
+            widget.textChanged.connect(self.update_plot)
+            widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
+            self.entry_blocks[param_name] = {"widget": widget, "is_matrix": True}
+        else:
+            print(f"Unrecognized type: {info["type"]}. Options for type are scalar, vector, and matrix.")
+            return qw.QWidget()
+
+        return widget
+
+    def _build_sub_panel(self, info, params, orientation= "v") -> qw.QWidget:
+        widget = qw.QWidget()
+        if orientation == "v":
+            layout = qw.QVBoxLayout(widget)
+        elif orientation == "h":
+            layout = qw.QHBoxLayout(widget)
+        else:
+            print(f"Unrecognized sub-panel orientation.")
+            return qw.QWidget()
+
+        widget.setSizePolicy(qw.QSizePolicy.Policy.Expanding, qw.QSizePolicy.Policy.Fixed)
+
+        subentries = info["entries"]
+        for entry in subentries:
+            subinfo = subentries[entry]
+            subwidget = self.make_widget(subinfo, params)
+            pos = layout.count()
+            layout.addWidget(subwidget)
+
+            if subinfo.get("control_type") == "entry_block":
+                pname = subinfo["param_name"]
+                self.entry_blocks[pname]["row_layout"] = layout
+                self.entry_blocks[pname]["row_index"] = pos
+                self.entry_blocks[pname]["panel_info"] = subinfo
+
+        return widget
+
+    def _resize_vector(self, old: np.ndarray, n: int, safe_default= None) -> np.ndarray:
+        new = np.zeros((n,), dtype=float)
+        if old is not None:
+            m = min(len(old), n)
+            new[:m] = old[:m]
+        if safe_default is not None:
+            # extra_rows
+            if new.shape[0] > old.shape[0]:
+                for i in range(old.shape[0], new.shape[0]):
+                    new[i] = safe_default
+        return new
+
+    def _resize_matrix(self, old: np.ndarray, row: int, col: int, safe_default= None) -> np.ndarray:
+        new = np.zeros((row, col), dtype=float)
+        if old is not None:
+            r = min(old.shape[0], row)
+            c = min(old.shape[1], col)
+            new[:r, :c] = old[:r, :c]
+        if safe_default is not None:
+            # extra rows
+            if new.shape[0] > old.shape[0]:
+                for i in range(old.shape[0], new.shape[0]):
+                    for j in range(0, new.shape[1]):
+                        new[i, j] = safe_default
+            if new.shape[1] > old.shape[1]:
+                for j in range(old.shape[1], new.shape[1]):
+                    for i in range(0, new.shape[0]):
+                        new[i, j] = safe_default
+        return new
+
+    def _resolve_dim_token(self, token, params) -> int:
+        """ resolve a dimension specification as either a constant or another parameter """
+        if isinstance(token, int):
+            return token
+
+        if isinstance(token, str):
+            if hasattr(params, token):
+                return max(1, int(getattr(params, token)))
+            raise ValueError(f"Unknown dim source '{token}'")
+
+        raise TypeError(f"Bad dim token: {token!r}")
+
+    def _resolve_entry_dim(self, info, params) -> tuple[int, int]:
+        """ 
+        resolve the dimension specification to a concrete dimension
+        either based on the current value of a parameter or based on
+        a literal number in the yaml
+        """
+        typ = info["type"]
+
+        src = info.get("dim_from", info.get("dim"))
+
+        if not isinstance(src, list):
+            raise ValueError("Matrix dim must always be specified as a list.")
+        if len(src) != 2:
+            raise ValueError("Matrix dim_from/dim must have length 2")
+
+        if isinstance(src[0], str):
+            rows = getattr(params, src[0])
+        else:
+            rows = src[0]
+
+        if isinstance(src[1], str):
+            cols = getattr(params, src[1])
+        else:
+            cols = src[1]
+
+        return (rows, cols)
+
+        # wrong?
+        if typ == "scalar":
+            return (1, 1)
+
+        raise ValueError(f"Unsupported entry type: {typ}")
+
+    def _apply_dim_meta(self, meta_name: str, new_val: object) -> None:
+        # Don't let the new value be less than 1 or not an integer
+        try:
+            new_val = int(new_val)
+        except Exception:
+            return
+        new_val = max(1, new_val)
+
+        deps = self._meta_dependents.get(meta_name, [])
+        if not deps:
+            return
+
+        # 1) update dependent arrays on params
+        for pname in deps:
+            pinfo = self.entry_blocks[pname]["panel_info"]
+            typ = pinfo["type"]
+            old = getattr(self.params, pname, None)
+            safe_default = pinfo.get("safe_default", None)
+
+            if typ == "vector":
+                setattr(self.params, pname, self._resize_vector(old, new_val, safe_default))
+
+            if typ == "matrix":
+                dims = pinfo["dim_from"]
+                row, col = dims[0], dims[1]
+
+                if row == meta_name:
+                    row = new_val
+                elif isinstance(row, str):
+                    row = getattr(self.params, row)
+
+                if col == meta_name:
+                    col = new_val
+                elif isinstance(col, str):
+                    col = getattr(self.params, col)
+
+                # if row != meta_name:
+                #     if isinstance(row, str):
+                #         temp = row
+                #         row = getattr(self.params, temp)
+                #     col = new_val
+                # elif col != meta_name:
+                #     if isinstance(col, str):
+                #         temp = col
+                #         col = getattr(self.params, temp)
+                #     row = new_val
+
+                setattr(self.params, pname, self._resize_matrix(old, row, col, safe_default))
+
+        # 2) rebuild + replace widgets for those deps (vectors/matrices)
+        self.block_signals = True
+        try:
+            for pname in deps:
+                # only replace if it’s a MatrixEntry-style widget
+                if self.entry_blocks[pname]["is_matrix"]:
+                    new_w = self._make_resized_entry_widget(pname)
+                    self._replace_entry_widget(pname, new_w)
+            # now push values to widgets (uses MatrixEntry.change_values) :contentReference[oaicite:9]{index=9}
+            self.load_new_params(self.params)
+        finally:
+            self.block_signals = False
+
+        # 3) tell MainWindow “params changed as a set” so it reruns once :contentReference[oaicite:10]{index=10}
+        self.paramsReplaced.emit((self.params, None))
+
+    def _replace_entry_widget(self, param_name: str, new_widget: qw.QWidget) -> None:
+        info = self.entry_blocks[param_name]
+        old = info["widget"]
+        lay = info["row_layout"]
+        idx = info["row_index"]
+
+        lay.insertWidget(idx, new_widget, stretch=1, alignment=qc.Qt.AlignmentFlag.AlignTop)
+        lay.removeWidget(old)
+        old.setParent(None)
+        old.deleteLater()
+
+        info["widget"] = new_widget
+
+    def _make_resized_entry_widget(self, param_name: str) -> qw.QWidget:
+        pinfo = self.entry_blocks[param_name]["panel_info"]
+        label = pinfo["label"]
+        tooltip = pinfo.get("tooltip", "")
+        typ = pinfo["type"]
+
+        init_val = getattr(self.params, param_name)
+
+        if typ == "matrix":
+            dim = (init_val.shape[0], init_val.shape[1])
+            w = MatrixEntry(param_name, label, dim, init_val, tooltip)
+            w.textChanged.connect(self.update_plot)
+            return w
+
+        if typ == "vector":
+            dim = (init_val.shape[0], 1)
+            w = MatrixEntry(param_name, label, dim, init_val.reshape(-1, 1), tooltip)
+            w.textChanged.connect(self.update_plot)
+            return w
+
+        # scalar case shouldn’t need replacement for dimension changes
+        return self.entry_blocks[param_name]["widget"]
 
     def _auto_fontsize(self, rows: int, cols: int) -> int:
         font_vals = {
@@ -636,7 +916,11 @@ class ControlPanel(qw.QWidget):
             raw_settings = self.slot_options[slot_index].get_settings()
             slot_settings = self._normalize_slot_settings(raw_settings)
         else:
-            slot_settings = {"legend_visible": True, "legend_fontsize": 10, "legend_loc": "upper right"}
+            slot_settings = {
+                "legend_visible": True,
+                "legend_fontsize": 10,
+                "legend_loc": "upper right"
+            }
 
         return dropdown_index, options, slot_settings
 
@@ -649,6 +933,17 @@ class ControlPanel(qw.QWidget):
     def update_plot(self, name, new_val):
         if not self.block_signals:
             self.paramChanged.emit(name, new_val)
+
+        try:
+            setattr(self.params, name, new_val)
+        except Exception:
+            pass
+
+        if name in getattr(self, "_meta_dependents", {}):
+            self._apply_dim_meta(name, new_val)
+            return
+
+        self.paramChanged.emit(name, new_val)
 
     def get_tooltip(self, slot_index: int= 0) -> str:
         """ When user hovers their mouse on the tooltip button by a dropdown menu of plots,
@@ -671,7 +966,7 @@ class ControlPanel(qw.QWidget):
 
     def load_new_params(self, params):
         self.block_signals = True
-        params_dict = asdict(params)
+        params_dict = asdict(params) if params else {}
         for param in params_dict:
             if param in self.entry_blocks:
                 widget_info = self.entry_blocks[param]
