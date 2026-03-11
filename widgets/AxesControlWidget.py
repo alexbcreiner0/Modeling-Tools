@@ -10,7 +10,7 @@ class AxesControlWidget(qw.QWidget):
     """
     settingsChanged = qc.pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, z_axis= False, parent=None):
         super().__init__(parent)
 
         outer = qw.QHBoxLayout(self)
@@ -25,6 +25,8 @@ class AxesControlWidget(qw.QWidget):
         top_entries.setContentsMargins(0, 1, 0, 1)
         top_entries.setSpacing(8)
 
+        self.is_3d = z_axis
+
         self.save_button = qw.QPushButton("Save Current Axes")
         self.load_button = qw.QPushButton("Load Saved Axes")
 
@@ -32,8 +34,10 @@ class AxesControlWidget(qw.QWidget):
         self.xmax_edit = qw.QLineEdit()
         self.ymin_edit = qw.QLineEdit()
         self.ymax_edit = qw.QLineEdit()
+        self.zmin_edit = qw.QLineEdit()
+        self.zmax_edit = qw.QLineEdit()
 
-        for edit in (self.xmin_edit, self.xmax_edit, self.ymin_edit, self.ymax_edit):
+        for edit in (self.xmin_edit, self.xmax_edit, self.ymin_edit, self.ymax_edit, self.zmin_edit, self.zmax_edit):
             # edit.setMaximumWidth(70)
             edit.textChanged.connect(self._on_editing_finished)
 
@@ -65,6 +69,19 @@ class AxesControlWidget(qw.QWidget):
 
         entries.addLayout(bottom_entries)
 
+        self.z_row = qw.QWidget()
+        z_layout = qw.QHBoxLayout(self.z_row)
+        z_layout.setContentsMargins(0,0,0,0)
+        z_layout.setSpacing(8)
+
+        z_layout.addSpacing(8)
+        z_layout.addWidget(qw.QLabel("Z-axis from:"), stretch= 0)
+        z_layout.addWidget(self.zmin_edit, alignment = qc.Qt.AlignmentFlag.AlignLeft)
+        z_layout.addWidget(qw.QLabel("to"), stretch= 0)
+        z_layout.addWidget(self.zmax_edit, alignment = qc.Qt.AlignmentFlag.AlignLeft)
+
+        entries.addWidget(self.z_row)
+
         coords = qw.QVBoxLayout()
         coords.setContentsMargins(0,0,0,0)
         coords.setSpacing(2)
@@ -82,12 +99,23 @@ class AxesControlWidget(qw.QWidget):
 
         self.saved_x_label = qw.QLabel("Saved X: -")
         self.saved_y_label = qw.QLabel("Saved Y: -")
+        self.saved_z_label = qw.QLabel("Saved Z: -")
+
+        self.z_saved_row = qw.QWidget()
+
+        z_saved_layout = qw.QHBoxLayout(self.z_saved_row)
+        z_saved_layout.setContentsMargins(0,0,0,0)
+        z_saved_layout.setSpacing(2)
+        z_saved_layout.addWidget(self.saved_z_label, alignment= qc.Qt.AlignmentFlag.AlignRight)
+
         top_coords.addWidget(self.saved_x_label, alignment= qc.Qt.AlignmentFlag.AlignRight)
         bottom_coords.addWidget(self.saved_y_label, alignment= qc.Qt.AlignmentFlag.AlignRight)
+
         # bottom_entries.addStretch(1)
 
         coords.addLayout(top_coords)
         coords.addLayout(bottom_coords)
+        coords.addWidget(self.z_saved_row)
 
         outer.addLayout(entries)
         outer.addLayout(coords)
@@ -95,10 +123,26 @@ class AxesControlWidget(qw.QWidget):
         # per-widget saved limits
         self._saved_xlim = None
         self._saved_ylim = None
+        self._saved_zlim = None
         self._update_saved_labels()
 
         self.save_button.clicked.connect(self._on_save_clicked)
         self.load_button.clicked.connect(self._on_load_clicked)
+
+        self._update_z_visibility()
+
+    def set_projection(self, dim: str) -> None:
+        new_state = (dim == "3d")
+
+        if new_state == self.is_3d:
+            return
+
+        self.is_3d = new_state
+        self._update_z_visibility()
+
+    def _update_z_visibility(self):
+        self.z_row.setVisible(self.is_3d)
+        self.z_saved_row.setVisible(self.is_3d)
 
     def get_limits(self):
         """
@@ -110,18 +154,31 @@ class AxesControlWidget(qw.QWidget):
             x1 = float(self.xmax_edit.text())
             y0 = float(self.ymin_edit.text())
             y1 = float(self.ymax_edit.text())
+            if self.is_3d:
+                z0 = float(self.zmin_edit.text())
+                z1 = float(self.zmax_edit.text())
         except ValueError:
             return None
-        return (x0, x1), (y0, y1)
+
+        if self.is_3d:
+            return (x0, x1), (y0, y1), (z0, z1)
+        else:
+            return (x0, x1), (y0, y1)
 
     def get_saved_limits(self):
-        return self._saved_xlim, self._saved_ylim
+        if self.is_3d:
+            return self._saved_xlim, self._saved_ylim, self._saved_zlim
+        else:
+            return self._saved_xlim, self._saved_ylim
 
-    def set_limits(self, xlim, ylim):
+    def set_limits(self, xlim, ylim, zlim= None):
         """
         Programmatically update the line edits to match given limits.
         """
-        (x0, x1), (y0, y1) = xlim, ylim
+        if self.is_3d:
+            (x0, x1), (y0, y1), (z0, z1) = xlim, ylim, zlim
+        else:
+            (x0, x1), (y0, y1) = xlim, ylim
 
         edits = (
             (self.xmin_edit, x0),
@@ -129,6 +186,12 @@ class AxesControlWidget(qw.QWidget):
             (self.ymin_edit, y0),
             (self.ymax_edit, y1),
         )
+        if self.is_3d:
+            more_edits = (
+                (self.zmin_edit, z0),
+                (self.zmax_edit, z1),
+            )
+            edits += more_edits
         for edit, val in edits:
             edit.blockSignals(True)
             edit.setText(f"{val:g}")
@@ -139,11 +202,16 @@ class AxesControlWidget(qw.QWidget):
         if self._saved_xlim is None or self._saved_ylim is None:
             self.saved_x_label.setText("Saved X: –")
             self.saved_y_label.setText("Saved Y: –")
+            if self.is_3d:
+                self.saved_z_label.setText("Saved Z: -")
         else:
             x0, x1 = self._saved_xlim
             y0, y1 = self._saved_ylim
             self.saved_x_label.setText(f"Saved X: ({x0:g}, {x1:g})")
             self.saved_y_label.setText(f"Saved Y: ({y0:g}, {y1:g})")
+            if self.is_3d:
+                z0, z1 = self._saved_zlim
+                self.saved_z_label.setText(f"Saved Z: ({z0:g}, {z1:g})")
 
     def _on_editing_finished(self):
         # Whenever user finishes editing any box, tell the outside world
@@ -153,15 +221,25 @@ class AxesControlWidget(qw.QWidget):
         limits = self.get_limits()
         if limits is None:
             return
-        self._saved_xlim, self._saved_ylim = limits
+
+        if self.is_3d:
+            self._saved_xlim, self._saved_ylim, self._saved_zlim = limits
+        else:
+            self._saved_xlim, self._saved_ylim = limits
         self._update_saved_labels()
         # optional: also emit settingsChanged so that whatever is currently
         # in the boxes definitely gets applied to the plot.
         self.settingsChanged.emit()
 
     def _on_load_clicked(self):
-        if self._saved_xlim is None or self._saved_ylim is None:
-            return
-        self.set_limits(self._saved_xlim, self._saved_ylim)
+        if self.is_3d:
+            if self._saved_xlim is None or self._saved_ylim is None or self._saved_zlim is None:
+                return
+            self.set_limits(self._saved_xlim, self._saved_ylim, self._saved_zlim)
+        else:
+            if self._saved_xlim is None or self._saved_ylim is None:
+                return
+            self.set_limits(self._saved_xlim, self._saved_ylim)
+
         # After loading from saved limits, apply them to the plot:
         self.settingsChanged.emit()

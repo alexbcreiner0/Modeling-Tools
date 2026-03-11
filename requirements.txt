@@ -17,9 +17,6 @@ pandas==2.3.3
 pillow==12.0.0
 pyparsing==3.2.5
 pyqt-tools==1.0.0
-PyQt5==5.15.11
-PyQt5-Qt5==5.15.17
-PyQt5_sip==12.17.1
 PyQt6==6.10.0
 PyQt6-Qt6==6.10.0
 PyQt6-stubs==20250824

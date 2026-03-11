@@ -76,6 +76,13 @@ class PlotSettingsTab(qw.QWidget):
                 "stack_idx": 5,
                 "yaml_name": "pie"
             },
+            "Vector Field": {
+                "build": self._build_field_panel,
+                "load": self._load_field_info,
+                "save": self._get_new_field_data,
+                "stack_idx": 6,
+                "yaml_name": "vector"
+            }
         }
 
         root = qw.QVBoxLayout(self)
@@ -1052,6 +1059,81 @@ class PlotSettingsTab(qw.QWidget):
 
         new_data["color_map"] = self.pie_colors.text()
         new_data["label_map"] = self.pie_labels.text()
+
+    def _build_field_panel(self) -> qw.QWidget():
+        w = qw.QWidget()
+        layout = HelpFormLayout(w)
+
+        self.quiver_traj_key_U = qw.QLineEdit()
+        self.quiver_traj_key_V = qw.QLineEdit()
+        self.quiver_traj_key_W = qw.QLineEdit()
+        self.quiver_traj_key_X = qw.QLineEdit()
+        self.quiver_traj_key_Y = qw.QLineEdit()
+        self.quiver_traj_key_Z = qw.QLineEdit()
+        self.quiver_traj_key_C = qw.QLineEdit()
+
+        self.quiver_cmap = qw.QComboBox()
+        self.quiver_cmap.addItem("None")
+        self.quiver_cmap.addItems(list(colormaps))
+
+        self.quiver_display_cbar = qw.QCheckBox("Display Colorbar: ")
+
+        layout.addRow("U Key*: ", self.quiver_traj_key_U, help_text= "X-coord vector directions")
+        layout.addRow("V Key*: ", self.quiver_traj_key_V, help_text= "Y-coord vector directions")
+        layout.addRow("W Key*: ", self.quiver_traj_key_W, help_text= "Z-coord vector directions (only required if your field is 3D)")
+        layout.addRow("X Key: ", self.quiver_traj_key_X, help_text= "X-coord vector locations")
+        layout.addRow("Y Key: ", self.quiver_traj_key_Y, help_text= "Y-coord vector locations")
+        layout.addRow("Z Key: ", self.quiver_traj_key_Z, help_text= "Z-coord vector locations")
+        layout.addRow("Color Map: ", self.quiver_cmap, help_text= "Color map for vectors")
+        layout.addRow("Color Magnitudes Key: ", self.quiver_traj_key_C, help_text= "Magnitudes for coloring. If not specified, the Euclidean norm will be used to interpret color magnitudes.")
+        layout.addRow("", self.quiver_display_cbar)
+        
+        self.field_widgets += [
+            self.quiver_traj_key_U, self.quiver_traj_key_V, self.quiver_traj_key_X,
+            self.quiver_traj_key_Y, self.quiver_cmap, self.quiver_traj_key_C,
+            self.quiver_display_cbar, self.quiver_traj_key_W, self.quiver_traj_key_Z
+        ]
+        
+        return w
+
+    def _load_field_info(self, plot):
+        self.quiver_traj_key_U.setText(plot.get("traj_key_U", ""))
+        self.quiver_traj_key_V.setText(plot.get("traj_key_V", ""))
+        self.quiver_traj_key_W.setText(plot.get("traj_key_W", ""))
+
+        self.quiver_traj_key_X.setText(plot.get("traj_key_X", ""))
+        self.quiver_traj_key_Y.setText(plot.get("traj_key_Y", ""))
+        self.quiver_traj_key_Z.setText(plot.get("traj_key_Z", ""))
+
+        val = plot.get("cmap", "None")
+        idx = self.quiver_cmap.findText(val)
+        if idx >= 0:
+            self.quiver_cmap.setCurrentIndex(idx)
+        else:
+            self.quiver_cmap.setCurrentIndex(self.quiver_cmap.findText("None"))
+
+        self.quiver_traj_key_C.setText(plot.get("traj_key_C", ""))
+        self.quiver_display_cbar.setChecked(plot.get("colorbar", False))
+
+    def _get_new_field_data(self, new_data):
+        if self.quiver_traj_key_X.text() != "" and self.quiver_traj_key_Y.text() != "":
+            new_data["traj_key_X"] = self.quiver_traj_key_X.text()
+            new_data["traj_key_Y"] = self.quiver_traj_key_Y.text()
+            if self.quiver_traj_key_Z.text():
+                new_data["traj_key_Z"] = self.quiver_traj_key_Z.text()
+
+        new_data["traj_key_U"] = self.quiver_traj_key_U.text()
+        new_data["traj_key_V"] = self.quiver_traj_key_V.text()
+        new_data["traj_key_W"] = self.quiver_traj_key_W.text()
+
+        cmap = self.quiver_cmap.currentText()
+        new_data["cmap"] = cmap
+
+        traj_key_C = self.quiver_traj_key_C.text()
+        if traj_key_C:
+            new_data["traj_key_C"] = traj_key_C
+
+        new_data["colorbar"] = self.quiver_display_cbar.isChecked()
 
     def _refresh_models(self) -> None:
         models = list_subdirs(rpath("models"))

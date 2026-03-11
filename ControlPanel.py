@@ -295,6 +295,7 @@ class ControlPanel(qw.QWidget):
             for dropdown_choice in self.plotting_data:
                 choice_dict = self.plotting_data[dropdown_choice]
                 plots = choice_dict["plots"]
+                projection = choice_dict.get("projection", "2d")
                 for plot in plots:
                     plot_dict = plots[plot]
                     if "checkbox_name" in plot_dict:
@@ -352,18 +353,27 @@ class ControlPanel(qw.QWidget):
                     break
                 if idx is None or idx < 0:
                     continue
+                idx = min(idx, len(self.dropdown_choices) - 1) # safeguard in case user deleted a category
                 self.slot_dropdowns[i].dropdown_choices.setCurrentIndex(idx)
+
+                if i < len(self.slot_axes_controls):
+                    projection = self._get_slot_projection(idx)
+                    self.slot_axes_controls[i].set_projection(projection)
 
             # 2) For new slots, copy from last existing choice
             last_idx = None
             for idx in reversed(old_dropdown_indices):
                 if idx is not None and idx >= 0:
-                    last_idx = idx
+                    last_idx = min(idx, len(self.dropdown_choices)-1)
                     break
 
             if last_idx is not None:
                 for i in range(len(old_dropdown_indices), len(self.slot_dropdowns)):
                     self.slot_dropdowns[i].dropdown_choices.setCurrentIndex(last_idx)
+
+                    if i < len(self.slot_axes_controls):
+                        projection = self._get_slot_projection(last_idx)
+                        self.slot_axes_controls[i].set_projection(projection)
 
         # restore checkbox choices
         if old_checked is not None:
@@ -455,8 +465,20 @@ class ControlPanel(qw.QWidget):
 
         return out
 
+    def _get_slot_projection(self, idx):
+        keys = list(self.plotting_data.keys())
+        choice_name = keys[idx]
+        choice_dict = self.plotting_data.get(choice_name, {})
+        projection = choice_dict.get("projection", "2d")
+
+        return projection
+
     def _on_dropdown_changed(self, idx: int, slot_index: int):
         self.get_tooltip(slot_index)
+
+        projection = self._get_slot_projection(idx)
+        self.slot_axes_controls[slot_index].set_projection(projection)
+
         self.slotPlotChoiceChanged.emit(slot_index)
 
     def _set_initial_plot_params(self, axes_widget):

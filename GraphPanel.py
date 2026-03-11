@@ -13,6 +13,7 @@ import numpy as np
 from matplotlib.backend_bases import cursors
 from matplotlib import colormaps, colors as mcolors
 from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.ticker import FormatStrFormatter
 import scienceplots
 import logging, json, hashlib
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -150,11 +151,11 @@ class GraphPanel(qw.QWidget):
         # fall back to your existing 2D zoom logic
         self._zoom_2d(ax, event)
 
-    def set_runtime_labels(self, key: str, labels):
-        if labels is None:
-            self.runtime_labels.pop(key, None)
-        else:
-            self.runtime_labels[key] = list(labels)
+    # def set_runtime_labels(self, key: str, labels):
+    #     if labels is None:
+    #         self.runtime_labels.pop(key, None)
+    #     else:
+    #         self.runtime_labels[key] = list(labels)
 
     def _zoom_2d(self, ax, event) -> None:
         """ 2D helper for _on_scroll """
@@ -254,7 +255,7 @@ class GraphPanel(qw.QWidget):
                 "dim": 3 if is_3d else 2
             }
 
-        # scatter plots and surfaces are stored as collections
+        # scatter plots, surfaces and vector fields are stored as collections
         for j, coll in enumerate(ax.collections):
             gid = coll.get_gid() if hasattr(coll, "get_gid") else None
             key = gid or f"{choice_name}::collection::{j}"
@@ -264,6 +265,8 @@ class GraphPanel(qw.QWidget):
                 kind = "surface"
             elif isinstance(coll, Poly3DCollection):
                 kind = "surface"
+            elif gid and gid.endswith("::vector"):
+                kind = "vector"
             else:
                 kind = "collection"
 
@@ -439,7 +442,7 @@ class GraphPanel(qw.QWidget):
         self._block_axis_callback = False
         self.canvas.draw_idle()
 
-    def edit_slot_axes(self, slot_index, xlim, ylim):
+    def edit_slot_axes(self, slot_index, xlim, ylim, zlim= None):
         """ Apply (xlim, ylim) to the axes corresponding to the slot_index """
         if slot_index < 0 or slot_index >= len(self.axes):
             return
@@ -449,10 +452,13 @@ class GraphPanel(qw.QWidget):
         self._block_axis_callback = True
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
+        if hasattr(ax, "get_zlim") and zlim is not None:
+            ax.set_zlim(zlim)
         self._block_axis_callback = False
 
-        self.xlim = xlim
-        self.ylim = ylim
+        # self.xlim = xlim
+        # self.ylim = ylim
+        # self.zlim = zlim
 
         self.canvas.draw_idle()
 
@@ -532,6 +538,10 @@ class GraphPanel(qw.QWidget):
 
                 if special == "pie":
                     self._build_pie(ax, choice_name, plot_name, plot_dict)
+                    continue
+
+                if special == "vector":
+                    self._build_vector_field(ax, slot_index, choice_name, plot_name, plot_dict)
                     continue
 
                 key = plot_dict.get("traj_key")
@@ -916,6 +926,44 @@ class GraphPanel(qw.QWidget):
 
         ax.pie(counts, labels= labels, colors= colors, labeldistance= None)
         # p.set_gid(f"{choice_name}::{plot_name}::pie")
+
+    def _build_vector_field(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict):
+        want_3d = (self.data.get(choice_name, {}).get("projection", "2d") == "3d") 
+        X_key, Y_key = plot_dict.get("traj_key_X", ""), plot_dict.get("traj_key_Y", "")
+        if want_3d:
+            Z_key = plot_dict.get("traj_key_Z", "")
+        U_key, V_key = plot_dict["traj_key_U"], plot_dict["traj_key_V"]
+        if want_3d:
+            W_key = plot_dict.get("traj_key_W")
+        cmap = plot_dict.get("cmap", None)
+        colorbar = plot_dict.get("colorbar", False)
+
+        U, V = self.traj[U_key], self.traj[V_key]
+        if want_3d:
+            W = self.traj[W_key]
+
+        args = [U, V, W] if want_3d else [U, V] 
+
+        if not want_3d and cmap is not None:
+            C_key = plot_dict.get("traj_key_C")
+            C = self.traj[C_key] if C_key else np.sqrt(U**2 + V**2)
+            args = args + [C]
+
+        if want_3d:
+            if X_key and Y_key and Z_key:
+                X, Y, Z = self.traj[X_key], self.traj[Y_key], self.traj[Z_key]
+                args = [X, Y, Z] + args
+        else:
+            if X_key and Y_key:
+                X, Y = self.traj[X_key], self.traj[Y_key]
+                args = [X, Y] + args
+
+        q = ax.quiver(*args, cmap= (cmap if not want_3d else None), label= "_nolegend_")
+        q.set_gid(f"{choice_name}::{plot_name}::vector")
+        if colorbar and not want_3d:
+            cb = self.figure.colorbar(q, ax= ax)
+            cb.ax.yaxis.set_major_formatter(FormatStrFormatter('%6.2f'))
+            self._slot_cbar[slot_index] = cb
 
     def _on_canvas_draw(self, event):
         """
@@ -1422,6 +1470,9 @@ class GraphPanel(qw.QWidget):
                 expected.append(f"{choice_name}::{plot_name}::pie")
                 continue
 
+            if special == "vector":
+                expected.append(f"{choice_name}::{plot_name}::vector")
+
             if special == "hist":
                 # infer patch keys from whatever currently exists in the slot inventory
                 dist_key = plot_dict.get("dist", "dist")
@@ -1554,6 +1605,7 @@ class GraphPanel(qw.QWidget):
         if gid.endswith("::surface"): return "surface"
         if gid.endswith("::pie"): return "pie"
         if gid.endswith("::cplot") or gid.endswith("::heatmap"): return "image"
+        if gid.endswith("::vector"): return "vector"
         if "::hist::patch" in gid: return "patch"
         return "line"
 
@@ -1593,6 +1645,59 @@ class GraphPanel(qw.QWidget):
     def _update_pie_artist(self, ax, gid: str) -> None:
         choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
         self._build_pie(ax, choice_name, plot_name, plot_dict)
+
+    def _update_vector_artist(self, q, gid: str, slot_index: int) -> None:
+        choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
+        if not plot_dict:
+            return
+
+        ax = q.axes
+        is_3d = hasattr(ax, "get_zlim")
+        if is_3d:
+            self._build_vector_field(ax, slot_index, choice_name, plot_name, plot_dict)
+            return
+
+        X_key = plot_dict.get("traj_key_X", "")
+        Y_key = plot_dict.get("traj_key_Y", "")
+        U_key = plot_dict.get("traj_key_U")
+        V_key = plot_dict.get("traj_key_V")
+        c_key = plot_dict.get("traj_key_C", "")
+        cmap = plot_dict.get("cmap", None)
+
+        if not U_key or not V_key:
+            return
+
+        U = np.asarray(self.traj[U_key])
+        V = np.asarray(self.traj[V_key])
+
+        C = None
+        if cmap is not None:
+            C = self.traj[c_key] if c_key else np.sqrt(U**2 + V**2)
+
+        q.set_UVC(U, V, C)
+
+        if X_key and Y_key:
+            X = np.asarray(self.traj[X_key])
+            Y = np.asarray(self.traj[Y_key])
+
+            old_offsets = q.get_offsets()
+            new_offsets = np.column_stack([X.ravel(), Y.ravel()])
+
+            if old_offsets is None or np.shape(old_offsets) != np.shape(new_offsets) or not np.allclose(old_offsets, new_offsets):
+
+                cb = self._slot_cbar.pop(slot_index, None)
+                if cb is not None:
+                    try:
+                        cb.remove()
+                    except Exception:
+                        pass
+
+                try:
+                    q.remove()
+                except Exception:
+                    pass
+
+                self._build_vector_field(ax, slot_index, choice_name, plot_name, plot_dict)
 
     def _update_surface_artist(self, ax, slot_index: int, gid: str, traj: dict) -> None:
         choice_name, plot_name, plot_dict = self._get_spec_from_gid(gid)
@@ -2004,6 +2109,9 @@ class GraphPanel(qw.QWidget):
 
             elif kind == "pie":
                 self._update_pie_artist(ax, gid)
+
+            elif kind == "vector":
+                self._update_vector_artist(artist, gid, slot_index)
 
             else:
                 pass

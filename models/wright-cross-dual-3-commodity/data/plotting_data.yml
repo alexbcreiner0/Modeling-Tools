@@ -327,11 +327,14 @@ wages_and_unemployment:
   plots:
     employment:
       checkbox_name: Employment
-      colors: ['#e52af9']
-      labels: [Employment]
-      linestyle: solid
       toggled: true
+      linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
+      labels: [Employment]
+      colors: ['#e52af9']
       traj_key: total_labor_employed
+      traj_key_x: ''
     reserve_army:
       checkbox_name: Unemployment
       colors: [purple]

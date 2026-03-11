@@ -411,7 +411,6 @@ class MainWindow(qw.QMainWindow):
                     self.control_panel.set_slot_dropdown_index(0, idx)
 
     def _make_panels(self, plotting_data, panel_data, demo):
-        self.current_dropdown_choice = 0
         dropdown_choices, dropdown_tooltips = self._get_dropdown_choices(plotting_data)
 
         graph_panel = GraphPanel(
@@ -475,8 +474,12 @@ class MainWindow(qw.QMainWindow):
         lims = self.control_panel.get_slot_axes_limits(slot_index)
         if lims is None: return
 
-        xlim, ylim = lims
-        self.graph_panel.edit_slot_axes(slot_index, xlim, ylim)
+        if len(lims) == 3:
+            xlim, ylim, zlim = lims
+        else:
+            xlim, ylim = lims
+            zlim = None
+        self.graph_panel.edit_slot_axes(slot_index, xlim, ylim, zlim)
 
     def on_slot_plot_choice_changed(self, slot_index: int):
         # print(f"[DEBUG] Slot {slot_index} dropdown changed to index {_dropdown_index}")
@@ -936,7 +939,7 @@ class MainWindow(qw.QMainWindow):
                 self.tight_layout()
             if a0.key() == 16777270: # F7
                 self.reload_current_demo()
-            if a0.key() == 16777271: # F8?
+            if a0.key() == 16777271: # F8
                 self.refresh_control_panel_and_plots()
             if a0.key() == 32: # space
                 self.toggle_pause()
@@ -1167,7 +1170,6 @@ class MainWindow(qw.QMainWindow):
             logger.log(logging.ERROR, "Failed to reload plotting_data.yml", exc_info= e)
             return
 
-        rem_dropdown_choice = self.current_dropdown_choice
 
         # If we have sector/commodity names, apply them to plot labels.
         names = None
@@ -1198,20 +1200,21 @@ class MainWindow(qw.QMainWindow):
         if hasattr(self.control_panel, "dropdown_tooltips"):
             self.control_panel.dropdown_tooltips = dropdown_tooltips
 
-        if hasattr(self.control_panel, "slot_dropdowns"):
-            for widget in self.control_panel.slot_dropdowns:
-                combo = widget.dropdown_choices
-                if combo is None:
-                    continue
-                prev = combo.currentText()
-                combo.blockSignals(True)
-                combo.clear()
-                combo.addItems(dropdown_choices)
-                for i, tip in enumerate(dropdown_tooltips):
-                    combo.setItemData(i, tip, qc.Qt.ItemDataRole.ToolTipRole)
-                if prev in dropdown_choices:
-                    combo.setCurrentIndex(dropdown_choices.index(prev))
-                combo.blockSignals(False)
+
+        # if hasattr(self.control_panel, "slot_dropdowns"):
+        #     for widget in self.control_panel.slot_dropdowns:
+        #         combo = widget.dropdown_choices
+        #         if combo is None:
+        #             continue
+        #         prev = combo.currentText()
+        #         combo.blockSignals(True)
+        #         combo.clear()
+        #         combo.addItems(dropdown_choices)
+        #         for i, tip in enumerate(dropdown_tooltips):
+        #             combo.setItemData(i, tip, qc.Qt.ItemDataRole.ToolTipRole)
+        #         if prev in dropdown_choices:
+        #             combo.setCurrentIndex(dropdown_choices.index(prev))
+        #         combo.blockSignals(False)
 
         # Redraw using the current slot configs (new plotting_data may change expressions, labels, etc.)
         try:
@@ -1232,8 +1235,37 @@ class MainWindow(qw.QMainWindow):
             pass
 
     def refresh_control_panel_and_plots(self):
+
+        # remembering old settings
+        rows = self.control_panel.rows_spinner.value()
+        cols = self.control_panel.cols_spinner.value()
+        old_limits = [w.get_limits() for w in self.control_panel.slot_axes_controls]
+        old_saved_limits = [w.get_saved_limits() for w in self.control_panel.slot_axes_controls]
+        old_dropdown_indices = [w.dropdown_choices.currentIndex() for w in self.control_panel.slot_dropdowns]
+        old_checked = [w.get_current_checked_boxes() for w in self.control_panel.slot_dropdowns]
+        old_slot_settings = []
+        for w in self.control_panel.slot_options:
+            try:
+                old_slot_settings.append(w.get_settings())
+            except Exception:
+                old_slot_settings.append(None)
+
         self.refresh_control_panel()
         self.refresh_plots()
+
+        self.control_panel._layout_rebuild_in_progress = True
+        self.control_panel.layoutChanged.emit(rows, cols)
+        self.control_panel._rebuild_slot_dropdowns(
+            rows, cols, 
+            old_limits= old_limits, 
+            old_dropdown_indices= old_dropdown_indices,
+            old_checked=old_checked,
+            old_slot_settings=old_slot_settings,
+            old_saved_limits=old_saved_limits
+        )
+        self.control_panel._layout_rebuild_in_progress = False
+        self.control_panel.layoutChanged.emit(rows, cols)
+
         self.status_bar.showMessage("Reloaded panel settings.", msecs= 4000)
 
     def refresh_control_panel(self) -> None:
