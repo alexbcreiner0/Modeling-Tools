@@ -177,7 +177,7 @@ class EditConfigDialog(qw.QDialog):
         
         if self.stack.currentIndex() == 0:
             save_dir = self.page_global.edit_default_save_dir.text()
-            tab.on_apply_clicked(save_dir)
+            self.page_demos.on_apply_clicked(save_dir)
         else:
             tab.on_apply_clicked()
 
