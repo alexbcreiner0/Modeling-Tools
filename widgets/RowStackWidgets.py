@@ -12,6 +12,96 @@ LabelColor = tuple[str, str]
 # marker, color, color
 OverlayMarkerLabel = tuple[Any, str, str | None, str, str | None, str | None]
 
+class DynamicRowStack(qw.QWidget, Generic[T]):
+    changed = qc.pyqtSignal()
+
+    def __init__(
+        self,
+        parent=None,
+        *,
+        row_widget: Type[qw.QWidget],
+        make_row_kwargs: Callable[[T], dict[str, Any]],
+        get_row_data: Callable[[qw.QWidget], T],
+        connect_row_signals: Callable[[qw.QWidget, Callable[[], None]], None],
+        add_button_text: str = "+ Add row",
+        default_item: Optional[T] = None,
+    ):
+        super().__init__(parent)
+        self._row_widget = row_widget
+        self._make_row_kwargs = make_row_kwargs
+        self._get_row_data = get_row_data
+        self._connect_row_signals = connect_row_signals
+        self._default_item = default_item
+
+        root = qw.QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+
+        self.rows_layout = qw.QVBoxLayout()
+        self.rows_layout.setSpacing(6)
+        root.addLayout(self.rows_layout)
+
+        btn_row = qw.QHBoxLayout()
+        self.add_btn = qw.QPushButton("+ Add series")
+        btn_row.addWidget(self.add_btn)
+        btn_row.addStretch(1)
+        root.addLayout(btn_row)
+
+        self.add_btn.clicked.connect(self.add_row)
+        root.addStretch(1)
+
+    def clear_rows(self) -> None:
+        while self.rows_layout.count():
+            item = self.rows_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+
+    def _emit_changed(self, *args) -> None:
+        # Emit a single 'changed' signal for any modification, unless we're in a load
+        if self.signalsBlocked():
+            return
+        self.changed.emit()
+
+    def add_row(self, item: Optional[T] = None) -> None:
+        if item is None:
+            item = self._default_item
+
+        kwargs = self._make_row_kwargs(item) if item is not None else {}
+        row = self._row_widget(**kwargs)
+
+        row.removed.connect(lambda _=None, r= row: self._remove_row(r))
+
+        self._connect_row_signals(row, self._emit_changed)
+        self.rows_layout.addWidget(row)
+        self._emit_changed()
+
+    def _remove_row(self, row_widget: Type[qw.QWidget]) -> None:
+        row_widget.setParent(None)
+        row_widget.deleteLater()
+        self._emit_changed()
+
+    def set_items(self, items: list[T]) -> None:
+        self.blockSignals(True)
+        try:
+            self.clear_rows()
+            if not items:
+                self.add_row(self._default_item)
+            else:
+                for item in items:
+                    self.add_row(item)
+        finally:
+            self.blockSignals(False)
+        self._emit_changed()
+
+    def get_items(self) -> list[T]:
+        items: list[T] = []
+        for i in range(self.rows_layout.count()):
+            w = self.rows_layout.itemAt(i).widget()
+            if w is None:
+                continue
+            items.append(self._get_row_data(w))
+        return items
+
 def label_color_make_kwargs(item: LabelColor) -> dict[str, Any]:
     if not isinstance(item, tuple):
         return {"label": "", "color": ""}
@@ -296,92 +386,4 @@ class LabelColorRow(qw.QWidget):
     def get_pair(self) -> tuple[str, str]:
         return (self.label_edit.text().strip(), self.color_edit.text().strip())
 
-class DynamicRowStack(qw.QWidget, Generic[T]):
-    changed = qc.pyqtSignal()
 
-    def __init__(
-        self,
-        parent=None,
-        *,
-        row_widget: Type[qw.QWidget],
-        make_row_kwargs: Callable[[T], dict[str, Any]],
-        get_row_data: Callable[[qw.QWidget], T],
-        connect_row_signals: Callable[[qw.QWidget, Callable[[], None]], None],
-        add_button_text: str = "+ Add row",
-        default_item: Optional[T] = None,
-    ):
-        super().__init__(parent)
-        self._row_widget = row_widget
-        self._make_row_kwargs = make_row_kwargs
-        self._get_row_data = get_row_data
-        self._connect_row_signals = connect_row_signals
-        self._default_item = default_item
-
-        root = qw.QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-
-        self.rows_layout = qw.QVBoxLayout()
-        self.rows_layout.setSpacing(6)
-        root.addLayout(self.rows_layout)
-
-        btn_row = qw.QHBoxLayout()
-        self.add_btn = qw.QPushButton("+ Add series")
-        btn_row.addWidget(self.add_btn)
-        btn_row.addStretch(1)
-        root.addLayout(btn_row)
-
-        self.add_btn.clicked.connect(self.add_row)
-        root.addStretch(1)
-
-    def clear_rows(self) -> None:
-        while self.rows_layout.count():
-            item = self.rows_layout.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.deleteLater()
-
-    def _emit_changed(self, *args) -> None:
-        # Emit a single 'changed' signal for any modification, unless we're in a load
-        if self.signalsBlocked():
-            return
-        self.changed.emit()
-
-    def add_row(self, item: Optional[T] = None) -> None:
-        if item is None:
-            item = self._default_item
-
-        kwargs = self._make_row_kwargs(item) if item is not None else {}
-        row = self._row_widget(**kwargs)
-
-        row.removed.connect(lambda _=None, r= row: self._remove_row(r))
-
-        self._connect_row_signals(row, self._emit_changed)
-        self.rows_layout.addWidget(row)
-        self._emit_changed()
-
-    def _remove_row(self, row_widget: Type[qw.QWidget]) -> None:
-        row_widget.setParent(None)
-        row_widget.deleteLater()
-        self._emit_changed()
-
-    def set_items(self, items: list[T]) -> None:
-        self.blockSignals(True)
-        try:
-            self.clear_rows()
-            if not items:
-                self.add_row(self._default_item)
-            else:
-                for item in items:
-                    self.add_row(item)
-        finally:
-            self.blockSignals(False)
-        self._emit_changed()
-
-    def get_items(self) -> list[T]:
-        items: list[T] = []
-        for i in range(self.rows_layout.count()):
-            w = self.rows_layout.itemAt(i).widget()
-            if w is None:
-                continue
-            items.append(self._get_row_data(w))
-        return items

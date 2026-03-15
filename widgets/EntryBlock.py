@@ -30,15 +30,22 @@ class EntryBlock(qw.QWidget):
             self.current_val = initial
         self.range = slider_range
         
-        self.label = LatexLabel()
-        font = self.label.font()
-        font.setPointSize(5)
-        self.label.setFont(font)
+        self.label = LatexLabel(base_point_size= 12.0)
         self.label.setText(var_label)
+        self.label.setFixedWidth(self.label.sizeHint().width())
+        self.label.setSizePolicy(
+            qw.QSizePolicy.Policy.Maximum,
+            qw.QSizePolicy.Policy.Preferred
+        )
+        self.label.setAlignment(qc.Qt.AlignmentFlag.AlignLeft | qc.Qt.AlignmentFlag.AlignVCenter)
         
         self.entry = qw.QLineEdit()
         self.entry.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
         self.entry.setText(str(self.current_val))
+        self.entry.setSizePolicy(
+            qw.QSizePolicy.Policy.MinimumExpanding,
+            qw.QSizePolicy.Policy.Fixed
+        )
         self.debounce_timer = qc.QTimer(self)
         self.debounce_timer.setSingleShot(True)
         self.entry.textChanged.connect(lambda _: self.debounce_timer.start(300))
@@ -46,9 +53,9 @@ class EntryBlock(qw.QWidget):
 
         self.info_button = HelpButton("?", tooltip)
 
-        self.top_row_layout.addWidget(self.label)
-        self.top_row_layout.addWidget(self.entry)
-        self.top_row_layout.addWidget(self.info_button)
+        self.top_row_layout.addWidget(self.label, 0)
+        self.top_row_layout.addWidget(self.entry, 1)
+        self.top_row_layout.addWidget(self.info_button, 0)
 
         self.top_row_widget = qw.QWidget()
         self.setSizePolicy(

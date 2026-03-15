@@ -23,19 +23,24 @@ prices_and_values:
   plots:
     unit_prices:
       checkbox_name: Unit Prices
+      toggled: true
       linestyle: solid
+      linewidth: 1.5
+      markersize: 6.0
       label_template: Price of {i}
-      use_runtime_labels: true
       colors: [red, green, blue]
       traj_key: p
-      toggled: true
+      traj_key_x: ''
     unit_values:
       checkbox_name: Unit Values
+      toggled: true
       linestyle: dashed
+      linewidth: 1.5
+      markersize: 6.0
       label_template: Value of {i}
       colors: [red, green, blue]
       traj_key: wage_values
-      toggled: true
+      traj_key_x: ''
     tssi_equilibrium_prices:
       checkbox_name: TSSI Equilibrium Prices
       linestyle: solid
@@ -76,8 +81,12 @@ values_and_prices:
     and values category tooltip.
 
     - See the GitHub wiki page for more info'
-  x_label: null
   y_label: Hours [t]
+  projection: 2d
+  axis_visible: true
+  grid_visible: true
+  ticks_visible: true
+  frame_visible: true
   plots:
     values:
       checkbox_name: Unit Labor Values

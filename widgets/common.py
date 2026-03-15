@@ -5,12 +5,13 @@ import os
 import tempfile
 from pathlib import Path
 import yaml
+from .HelpFormLayout import HelpFormLayout
 
 class FormSection(qw.QGroupBox):
     """A tidy groupbox with a built-in form layout."""
     def __init__(self, title: str):
         super().__init__(title)
-        self.form = qw.QFormLayout(self)
+        self.form = HelpFormLayout(self)
         self.form.setFieldGrowthPolicy(qw.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         self.form.setLabelAlignment(qc.Qt.AlignmentFlag.AlignRight)
 

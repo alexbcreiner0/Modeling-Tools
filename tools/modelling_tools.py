@@ -9,7 +9,7 @@ from dataclasses import fields
 from numpy import ndarray
 # This mostly contains wizards for creating new simulations.
 # WARNING: THESE EXISTED BEFORE I CREATED A DEDICATED GUI SETTINGS MENU.
-# WARNING: EVERYTHING HERE IS VERY DEPRECATED AND UNSAFE TO USE. DO NOT USE THESE FUNCTIONS.
+# WARNING: NEARLY EVERYTHING HERE IS VERY DEPRECATED AND UNSAFE TO USE. DO NOT USE THESE FUNCTIONS.
 
 def list_subdirs(path):
     return [
@@ -82,7 +82,6 @@ def create_new_model_dir(name= None, gui_dialog= False):
         data = yaml.safe_load(f)
 
     with open(rpath("config.yml"), "w") as f:
-        data["model_specific_settings"][name] = None
         data = _normalize_flowseqs_for_dump(data)
         yaml.safe_dump(data, f, sort_keys= False, allow_unicode= True)
 

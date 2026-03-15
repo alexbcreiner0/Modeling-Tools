@@ -1,7 +1,5 @@
 import logging
-import traceback
 logger = logging.getLogger(__name__)
-import time
 from PyQt6 import (
     QtWidgets as qw,
     QtGui as qg,
@@ -142,7 +140,6 @@ class MainWindow(qw.QMainWindow):
 
         self.current_demo_name, self.current_demo = self._find_default(self.demos)
         self._sleep_time = self.current_demo.get("details", {}).get("simulation_speed", 0)
-        self._compute_mode = self.current_demo.get("details", {}).get("compute_mode", "single_process")
         self.sim_model = self.current_demo["details"]["simulation_model"]
 
         self.ctx = get_context("spawn")
@@ -153,7 +150,7 @@ class MainWindow(qw.QMainWindow):
         self.model_label = qw.QLabel(f"Model: {self.current_demo.get("name", "")}")
         self.status_bar.addPermanentWidget(self.model_label)
 
-        model_settings = config["model_specific_settings"][self.sim_model]
+        model_settings = config.get("model_specific_settings", {}).get(self.sim_model, None)
         
         if model_settings is not None:
             if "commodity_names" in model_settings:
@@ -1065,11 +1062,19 @@ class MainWindow(qw.QMainWindow):
         else:
             params = {}
 
-        with open(rpath("models",sim_model,"data","plotting_data.yml")) as f:
-            plotting_data = yaml.safe_load(f)
+        try:
+            with open(rpath("models",sim_model,"data","plotting_data.yml")) as f:
+                plotting_data = yaml.safe_load(f)
+        except Exception as e:
+            logger.log(logging.ERROR, "Failed to load plotting_data.yml", exc_info= e)
+            plotting_data = {}
 
-        with open(rpath("models",sim_model,"data","control_panel_data.yml")) as f:
-            panel_data = yaml.safe_load(f)
+        try:
+            with open(rpath("models",sim_model,"data","control_panel_data.yml")) as f:
+                panel_data = yaml.safe_load(f)
+        except Exception as e:
+            logger.log(logging.ERROR, "Failed to load control_panel_data.yml", exc_info= e)
+            panel_data = {}
 
         return params, sim_function, presets, panel_data, plotting_data, functions, default_dir
 
@@ -1080,7 +1085,7 @@ class MainWindow(qw.QMainWindow):
             self.sim_model = demo["details"]["simulation_model"]
             self.params, self.current_sim_func, self.presets, panel_data, plotting_data, functions, self.default_dir  = self._get_data(self.settings, demo)
 
-            model_settings = self.config["model_specific_settings"][self.sim_model]
+            model_settings = self.config.get("model_specific_settings", {}).get(self.sim_model, None)
         except Exception as e:
             self.status_bar.showMessage(f"Failed to load data for demo: {e}. Check diagnostics in the settings for more info.", msecs= 5000)
             extra = {

@@ -16,6 +16,7 @@ class GlobalSettingsTab(qw.QWidget):
         with open(rpath("config.yml"), "r") as f:
             global_settings = yaml.safe_load(f).get("global_settings")
             save_dir = global_settings.get("default_save_dir", "")
+            save_name = global_settings.get("default_save_name", "figure")
         self.edit_default_save_dir = qw.QLineEdit(save_dir)
         self.btn_browse_save_dir = qw.QToolButton()
         self.btn_browse_save_dir.setText("…")
@@ -27,7 +28,10 @@ class GlobalSettingsTab(qw.QWidget):
         save_dir_row.addWidget(self.edit_default_save_dir, 1)
         save_dir_row.addWidget(self.btn_browse_save_dir, 0)
 
+        self.save_name = qw.QLineEdit(save_name)
+
         sec.form.addRow("Default image save directory:", self._wrap_layout(save_dir_row))
+        sec.form.addRow("Default image save name:", self.save_name, help_text= "test")
 
         # TODO: make apply/save actually work this way
         # hint = qw.QLabel(

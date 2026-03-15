@@ -9,6 +9,7 @@ import yaml
 import re
 from numpy import ndarray
 from .common import atomic_write
+from .HelpFormLayout import HelpFormLayout
 
 from paths import rpath
 from tools.loader import load_presets, params_from_mapping, load_parameters_class_from_file, try_instantiate_with_defaults
@@ -79,22 +80,28 @@ class InitControlsDialog(qw.QDialog):
 
         # Defaults
         defaults_box = qw.QGroupBox("Defaults")
-        form = qw.QFormLayout(defaults_box)
+        form = HelpFormLayout(defaults_box)
         self.edit_divider_title = qw.QLineEdit("Parameters")
-        self.edit_label_template = qw.QLineEdit("${name}=$")
-        self.spin_numeric_min = qw.QDoubleSpinBox()
-        self.spin_numeric_min.setRange(-1e12, 1e12)
-        self.spin_numeric_min.setDecimals(6)
-        self.spin_numeric_min.setValue(0.0)
-        self.spin_numeric_max = qw.QDoubleSpinBox()
-        self.spin_numeric_max.setRange(-1e12, 1e12)
-        self.spin_numeric_max.setDecimals(6)
-        self.spin_numeric_max.setValue(1.0)
+        self.edit_label_template = qw.QLineEdit("{name}=")
+        self.numeric_min = qw.QLineEdit()
+        self.numeric_min.setText("0.0")
+        self.numeric_max = qw.QLineEdit()
+        self.numeric_max.setText("1.0")
+        # self.spin_numeric_min = qw.QDoubleSpinBox()
+        # self.spin_numeric_min.setRange(-1e12, 1e12)
+        # self.spin_numeric_min.setDecimals(6)
+        # self.spin_numeric_min.setValue(0.0)
+        # self.spin_numeric_max = qw.QDoubleSpinBox()
+        # self.spin_numeric_max.setRange(-1e12, 1e12)
+        # self.spin_numeric_max.setDecimals(6)
+        # self.spin_numeric_max.setValue(1.0)
 
-        form.addRow("Divider title:", self.edit_divider_title)
-        form.addRow("Label template:", self.edit_label_template)
-        form.addRow("Numeric range min:", self.spin_numeric_min)
-        form.addRow("Numeric range max:", self.spin_numeric_max)
+        label_template_help = "A string of text to accompany every control widget. Insert the placeholder {name} where you want the parameter to be substituted. For example, the default text will have your parameter name, followed by an equal sign, followed by the entry box for an entry widget. Alternatively, you could surround both sides of this with dollar signs to have the name displayed in LaTeX math mode font."
+
+        form.addRow("Divider title:", self.edit_divider_title, help_text= "A title which appears at the top of your control panel. Mostly just there to look nice. You can place more dividers to group controls together later in the actual editor.")
+        form.addRow("Label template:", self.edit_label_template, help_text= label_template_help)
+        form.addRow("Numeric range min:", self.numeric_min, help_text= "For scalar ints and floats, a slider will be created along with a text box for entering the number. These two numbers specify the upper and lower bound for every slider. (You can change individual slider settings after finishing this initialization.) Non-numeric text will be ignored. If the app detects that your parameter is an int, but the number you enter is a float, it will be truncated automatically.")
+        form.addRow("Numeric range max:", self.numeric_max)
         root.addWidget(defaults_box)
 
         btns = qw.QDialogButtonBox(
@@ -161,7 +168,7 @@ class InitControlsDialog(qw.QDialog):
                 + ", ".join(missing),
             )
 
-    def build_dividers(self) -> List[DividerModel]:
+    def build_dividers(self):
         """
         Convert table selection + defaults into internal divider list.
         Wizard still defaults to 3 controls per row.
@@ -170,12 +177,17 @@ class InitControlsDialog(qw.QDialog):
         import numpy as np  # ensure np.ndarray is available
 
         div_title = self.edit_divider_title.text().strip() or "Parameters"
-        label_tmpl = self.edit_label_template.text() or "{name}="
-        rmin = float(self.spin_numeric_min.value())
-        rmax = float(self.spin_numeric_max.value())
+        label_tmpl = self.edit_label_template.text() or ""
+        rmin_text, rmax_text = self.numeric_min.text(), self.numeric_max.text()
+        try:
+            rmin = float(rmin_text)
+            rmax = float(rmax_text)
+        except ValueError:
+            rmin = 0.0
+            rmax = 1.0
 
-        rows: List[RowModel] = []
-        current: RowModel = {"controls": []}
+        rows = []
+        current = {"controls": []}
 
         def flush_row():
             nonlocal current
@@ -212,10 +224,15 @@ class InitControlsDialog(qw.QDialog):
             f = self._param_fields.get(pname)
             ann = None if f is None else f.type
 
-            spec: ControlSpec = {"param_name": pname, "tooltip": ""}
+            spec = {"param_name": pname, "tooltip": ""}
 
             if has_val:
-                if isinstance(val, (int, float)):
+                # since bools are also ints, this must go at top!
+                if isinstance(val, bool):
+                    spec["control_type"] = "checkbox"
+                    spec["label"] = pname
+
+                elif isinstance(val, (int, float)):
                     spec["control_type"] = "entry_block"
                     spec["type"] = "scalar"
 
@@ -231,10 +248,10 @@ class InitControlsDialog(qw.QDialog):
                                              int(rmax) if is_int else rmax])
 
                     # label template: support {name}
-                    if "{name}" in label_tmpl:
+                    if label_tmpl in ["", "name"]:
+                        spec["label"] = pname
+                    elif "{name}" in label_tmpl:
                         spec["label"] = label_tmpl.replace("{name}", pname)
-                    else:
-                        spec["label"] = f"${pname}=$"
 
                 elif isinstance(val, np.ndarray):
                     spec["control_type"] = "entry_block"
@@ -245,13 +262,11 @@ class InitControlsDialog(qw.QDialog):
                     else:
                         spec["type"] = "vector"
                         spec["dim"] = int(shape[0])
-                    spec["label"] = f"${pname}=$"
 
-                elif isinstance(val, bool):
-                    spec["control_type"] = "dropdown"
-                    spec["label"] = pname
-                    spec["names"] = FlowSeq(["True", "False"])
-                    spec["values"] = FlowSeq([True, False])
+                    if label_tmpl in ["", "name"]:
+                        spec["label"] = pname
+                    elif "{name}" in label_tmpl:
+                        spec["label"] = label_tmpl.replace("{name}", pname)
 
                 elif isinstance(val, str):
                     spec["control_type"] = "dropdown"
@@ -261,10 +276,10 @@ class InitControlsDialog(qw.QDialog):
 
             else:
                 if ann is bool:
-                    spec["control_type"] = "dropdown"
+                    spec["control_type"] = "checkbox"
                     spec["label"] = pname
-                    spec["names"] = FlowSeq(["True", "False"])
-                    spec["values"] = FlowSeq([True, False])
+                    # spec["names"] = FlowSeq(["True", "False"])
+                    # spec["values"] = FlowSeq([True, False])
 
                 elif ann is str:
                     spec["control_type"] = "dropdown"
@@ -580,15 +595,11 @@ class ControlSettingsTab(qw.QWidget):
         mat_l_dims.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
         self.mat_rows_dep = qw.QCheckBox("Dependent rows")
         self.mat_rows = qw.QLineEdit()
-        # self.mat_rows.setMaximumWidth(120)
-        # self.mat_rows.setRange(1, 10**9)
         self.mat_rows.textChanged.connect(self._dim_changed)
         self.mat_cols_dep = qw.QCheckBox("Dependent columns")
         self.mat_rows_dep.checkStateChanged.connect(self._dim_changed)
         self.mat_cols = qw.QLineEdit()
         self.mat_cols.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
-        # self.mat_cols.setMaximumWidth(120)
-        # self.mat_cols.setRange(1, 10**9)
         self.mat_cols.textChanged.connect(self._dim_changed)
         self.mat_cols_dep.checkStateChanged.connect(self._dim_changed)
         mat_l_boxes.addWidget(self.mat_rows_dep, 0)
@@ -721,7 +732,6 @@ class ControlSettingsTab(qw.QWidget):
             # else: ignore unknown keys
 
         return dividers
-
 
     def _populate_param_combo(self, current: str) -> None:
         model = self._current_model
@@ -1033,7 +1043,6 @@ class ControlSettingsTab(qw.QWidget):
             return
         divs = self._working_data[self._current_model]
         divs.append({"title": f"Divider {len(divs)+1}", "rows": [{"controls": []}]})
-        # divs.append({"title": f"Divider {len(divs)+1}", "controls": []})
         self._refresh_tree()
 
     def _divider_title_changed(self, txt: str) -> None:
@@ -1066,11 +1075,6 @@ class ControlSettingsTab(qw.QWidget):
         di = 0
         if payload and payload[0] in {"divider", "row", "control"}:
             di = payload[1]
-        # di = 0
-        # if payload and payload[0] == "divider":
-        #     di = payload[1]
-        # elif payload and payload[0] == "control":
-        #     di = payload[1]
 
         div = divs[di]
         div.setdefault("rows", [])
@@ -1225,12 +1229,12 @@ class ControlSettingsTab(qw.QWidget):
 
 
         # --- dim ---
-
         if spec.get("dim_from"):
             dim = spec.get("dim_from", 1)
             self.vec_dep.setChecked(True)
         else:
             dim = spec.get("dim", 1)
+
         self.vec_dim.blockSignals(True)
         self.mat_rows.blockSignals(True)
         self.mat_cols.blockSignals(True)
@@ -1244,6 +1248,7 @@ class ControlSettingsTab(qw.QWidget):
             except Exception:
                 self.vec_dim.setText("1")
             self.dim_stack.setCurrentIndex(0)
+
         elif kind == "matrix":
             rows, cols = 1, 1
             if isinstance(dim, (list, tuple, FlowSeq)) and len(dim) == 2:
@@ -1255,8 +1260,8 @@ class ControlSettingsTab(qw.QWidget):
                         self.mat_cols_dep.setChecked(True)
                 except Exception:
                     rows, cols = 1, 1
-            self.mat_rows.setText(rows)
-            self.mat_cols.setText(cols)
+            self.mat_rows.setText(str(rows))
+            self.mat_cols.setText(str(cols))
             self.dim_stack.setCurrentIndex(1)
         else:
             # scalar

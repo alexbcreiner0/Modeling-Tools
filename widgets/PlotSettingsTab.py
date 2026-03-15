@@ -7,9 +7,10 @@ from widgets.common import make_shortname
 from tools.modelling_tools import FlowSeq, flowseq_representer
 import logging
 from .common import atomic_write
-from .ColorPickers import *
-from .FormLayoutPlusTooltips import HelpFormLayout
+from .RowStackWidgets import *
+from .HelpFormLayout import HelpFormLayout
 from matplotlib import colormaps
+import re
 
 from PyQt6 import (
     QtWidgets as qw,
@@ -236,26 +237,69 @@ class PlotSettingsTab(qw.QWidget):
         self._wire_autosave_signals()
         self._refresh_tree()
 
-        self._plot_rename_commit_requested = False
-        self._pending_plot_key = None
-        self.name_edit.returnPressed.connect(self._commit_plot_rename)  # keep textChanged autosave
-        self._cat_rename_commit_requested = False
-        self._pending_cat_key = None
-        self.name_edit.returnPressed.connect(self._commit_cat_rename)
+        # self.name_edit.returnPressed.connect(self._commit_plot_rename)  # keep textChanged autosave
+        # self._cat_rename_commit_requested = False
+        # self._pending_cat_key = None
+        # self.name_edit.returnPressed.connect(self._commit_cat_rename)
+
+    def _make_unique_internal_name(self, base_name: str, existing_names: list, current_name: str | None = None) -> str:
+        name = make_shortname(base_name).strip()
+        if not name: return ""
+
+        existing = set(existing_names)
+        if current_name:
+            existing.discard(current_name)
+
+        if name not in existing:
+            return name
+
+        match = re.match(r"^(.*?)(\d+)?$", name)
+        stem = match.group(1) if match else name
+        suffix = match.group(2) if match else None
+
+        start = int(suffix) + 1 if suffix else 1
+        i = start
+        while f"{stem}{i}" in existing:
+            i += 1
+
+        return f"{stem}{i}"
 
     def _update_internal_name(self, text):
-        self.lbl_internal_name.setText(make_shortname(text))
+        name = make_shortname(text)
+        current_sel = self.tree.currentItem()
+        if current_sel is None:
+            self.lbl_internal_name.setText(make_shortname(text))
+            return
+
+        data = current_sel.data(0, self.ROLE)
+        if data[0] == "plot":
+            cat = data[1]
+            cat_data = self._working_plot_data[self._current_model][cat]
+            current_plot_key = data[2]
+            plots = list(cat_data["plots"].keys())
+
+            name = self._make_unique_internal_name(text, plots, current_name= current_plot_key)
+        else:
+            categories = list(self._working_plot_data[self._current_model].keys())
+            current_cat_key = data[1]
+
+            name = self._make_unique_internal_name(text, categories, current_name= current_cat_key)
+
+        self.lbl_internal_name.setText(name)
+        return name
 
     def _block_editor_signals(self, block: bool) -> None:
-        for w in self.field_widgets:
-            try:
-                w.blockSignals(block)
-            except Exception:
-                pass
+            for w in self.field_widgets:
+                try:
+                    w.blockSignals(block)
+                except Exception:
+                    pass
 
     def _wire_autosave_signals(self) -> None:
         for widget in self.field_widgets:
-            if isinstance(widget, (qw.QLineEdit, qw.QTextEdit, ColorLineEdit)):
+            if isinstance(widget, (qw.QLineEdit, ColorLineEdit)):
+                widget.textEdited.connect(self._save_changes)
+            elif isinstance(widget, qw.QTextEdit):
                 widget.textChanged.connect(self._save_changes)
             elif isinstance(widget, qw.QCheckBox):
                 widget.checkStateChanged.connect(self._save_changes)
@@ -273,19 +317,24 @@ class PlotSettingsTab(qw.QWidget):
         self.type_stack.setCurrentIndex(self.plot_dir[plot_type]["stack_idx"])
         self._save_changes()
 
-    def _commit_plot_rename(self):
-        self._plot_rename_commit_requested = True
-        try:
-            self._save_changes()
-        finally:
-            self._plot_rename_commit_requested = False
+    def _restore_cursor_pos(self, w, cursor_pos):
+        if w not in self.field_widgets and w is not self.name_edit:
+            return
 
-    def _commit_cat_rename(self):
-        self._cat_rename_commit_requested = True
-        try:
-            self._save_changes()
-        finally:
-            self._cat_rename_commit_requested = False
+        if not isinstance(w, (qw.QLineEdit, qw.QTextEdit)):
+            return
+
+        w.setFocus()
+        if isinstance(w, qw.QLineEdit) and cursor_pos != -1:
+            pos = min(len(w.text()), cursor_pos)
+            w.setCursorPosition(pos)
+
+        elif isinstance(w, qw.QTextEdit):
+            if cursor_pos != -1:
+                cur = w.textCursor()
+                pos = min(len(w.toPlainText()), cursor_pos)
+                cur.setPosition(pos)
+                w.setTextCursor(cur)
 
     def _save_changes(self):
         if self._loading_editor:
@@ -307,9 +356,16 @@ class PlotSettingsTab(qw.QWidget):
         if not inter_name:
             return
 
+        w = self.focusWidget()
+
+        cursor_pos = -1
+        if isinstance(w, qw.QLineEdit):
+            cursor_pos = w.cursorPosition()
+        elif isinstance(w, qw.QTextEdit):
+            cursor_pos = w.textCursor().position()
+
         if data[0] == "category":
             old_cat_name = data[1]
-            cat_name = new_data["name"]
             cats = self._working_plot_data[self._current_model]
 
             old_cat_name = data[1]
@@ -321,6 +377,8 @@ class PlotSettingsTab(qw.QWidget):
 
             self._refresh_tree()
             self._select_cat(inter_name)
+            self._restore_cursor_pos(w, cursor_pos)
+
             return
 
         old_cat_name = data[1]
@@ -346,6 +404,7 @@ class PlotSettingsTab(qw.QWidget):
         self._replace_key_preserve_order(plots_dict, old_plot_name, inter_name, new_data)
         self._refresh_tree()
         self._select_plot(old_cat_name, inter_name)
+        self._restore_cursor_pos(w, cursor_pos)
 
     def _on_add_cat(self):
         self._working_plot_data[self._current_model]["new_category"] = {
@@ -1419,7 +1478,11 @@ class PlotSettingsTab(qw.QWidget):
         data = item.data(0, self.ROLE)
         new_data = {}
 
-        inter_name = self.lbl_internal_name.text()
+        # for some reason the internal name label is always 1 character behind what it should
+        # be here if the user was editing the name entry. the lazy fix is to just call the 
+        # name update here again, which is why this is here.
+        raw_text = self.name_edit.text()
+        inter_name = self._update_internal_name(raw_text)
 
         if data[0] == "category":
             old_dict = self._working_plot_data[self._current_model][data[1]]

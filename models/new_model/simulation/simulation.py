@@ -11,11 +11,11 @@ def get_trajectories(params: Params):
     a, b, T = params.a, params.b, params.T
 
     epsilon = 0.03
-    for i in range(params.T):
-        traj = {
-            "cos": a*np.cos(b*t),
-            "sin": a*np.sin(b*t),
-        }
-        t = np.append(t, t[-1] + epsilon)
+    t = np.linspace(0,10,300)
+    traj = {
+        "cos": a*np.cos(b*t),
+        "sin": a*np.sin(b*t),
+    }
+    # t = np.append(t, t[-1] + epsilon)
 
-        yield traj, t
+    yield traj, t

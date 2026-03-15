@@ -30,7 +30,7 @@ class HelpFormLayout(qw.QFormLayout):
         # Map original field widget -> wrapper widget (only for wrapped rows)
         self._field_to_wrapper: dict[qw.QWidget, qw.QWidget] = {}
 
-    def addRow(self, *args, **kwargs):  # noqa: N802 (Qt naming)
+    def addRow(self, *args, **kwargs):
         """
         Supports:
           addRow(QWidget)  # spanning, unchanged

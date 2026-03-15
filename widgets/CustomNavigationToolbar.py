@@ -8,11 +8,13 @@ from matplotlib.backends.qt_editor import figureoptions
 class CustomNavigationToolbar(NavigationToolbar2QT):
     titles_applied = qc.pyqtSignal()
 
-    def __init__(self, canvas, parent=None, default_dir=None):
+    def __init__(self, canvas, parent=None, default_dir=None, default_save_name= None):
         super().__init__(canvas, parent)
         self.default_dir = Path(default_dir).expanduser() if default_dir else None
         if self.default_dir:
             self.default_dir.mkdir(parents=True, exist_ok=True)
+        
+        self.default_save_name = default_save_name
 
     def save_figure(self, *args):
         """
