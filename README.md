@@ -14,7 +14,7 @@ This software was primarily developed for the visualization of a few specific mo
 
 ## Download and Run the Code Yourself
 - Install [https://www.python.org/](Python) if you don't have it, make sure you check the 'add to system path' checkbox in the process if you are a Windows user.
-- Clone the repo onto your computer (either by opening up a terminal and typing `git clone https://github.com/alexbcreiner0/Classical-Dynamic-Equilibrium-Model-Visualization-Tool.git` (must have git installed) or by downloading and extract the zip folder (found by clicking the green code button))
+- Clone the repo onto your computer (either by opening up a terminal and typing `git clone https://github.com/alexbcreiner0/Modeling-Tools.git` (must have git installed) or by downloading and extract the zip folder (found by clicking the green code button))
 - Open up a terminal, navigate inside the folder to the folder:
 ```
 cd Modeling-Tools
