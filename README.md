@@ -17,7 +17,7 @@ This software was primarily developed for the visualization of a few specific mo
 - Clone the repo onto your computer (either by opening up a terminal and typing `git clone https://github.com/alexbcreiner0/Classical-Dynamic-Equilibrium-Model-Visualization-Tool.git` (must have git installed) or by downloading and extract the zip folder (found by clicking the green code button))
 - Open up a terminal, navigate inside the folder to the folder:
 ```
-cd Classical-Dynamic-Equilibrium-Model-Visualization-Tool
+cd Modeling-Tools
 ```
 - (Optional but recommended) Create and enter a virtual environment:
 ```
