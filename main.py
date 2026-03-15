@@ -4,7 +4,7 @@ from PyQt6 import (
     QtCore as qc
 ) 
 import yaml
-import sys
+import sys, os, shutil
 from pathlib import Path
 from pathlib import Path
 from paths import rpath
@@ -58,6 +58,7 @@ def apply_dpi_scaled_font(app: qw.QApplication, base_pt: float = 10.0) -> None:
     app.setFont(f)
 
 if __name__ == "__main__":
+    logger = logging.getLogger(__name__)
 
     # mp.freeze_support()
     app = qw.QApplication(sys.argv)
@@ -89,8 +90,18 @@ if __name__ == "__main__":
     PROJECT_ROOT = Path(__file__).resolve().parent
     sys.path.insert(0, str(PROJECT_ROOT))
 
-    with open(rpath(f"config.yml"), "r") as f:
-        config = yaml.safe_load(f)
+    try:
+        with open(rpath(f"config.yml"), "r") as f:
+            config = yaml.safe_load(f)
+    except OSError as e:
+        files = os.listdir()
+        if 'config.example.yml' in files:
+            shutil.copyfile('config.example.yml', 'config.yml')
+            with open('config.yml', 'r') as f:
+                config = yaml.safe_load(f)
+        else:
+            logger.log(logging.ERROR, 'Failed to load config.yml!', exc_info= e)
+            sys.exit()
 
     window = MainWindow(config)
 
