@@ -6,6 +6,7 @@ venv/
 .venv/
 
 logs/*
+!logs/.gitkeep
 
 .ipynb_checkpoints/
 
