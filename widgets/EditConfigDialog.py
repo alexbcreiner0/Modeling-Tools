@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any, Dict, Optional
-import os, importlib, inspect
-import yaml
-from tools.loader import load_presets
-import re, copy
+from pathlib import Path
 from widgets.PlotSettingsTab import PlotSettingsTab
 from widgets.DemoSettingsTab import DemoSettingsTab
 from widgets.GlobalSettingsTab import GlobalSettingsTab
@@ -19,11 +15,14 @@ from PyQt6 import (
     QtWidgets as qw,
     QtGui as qg
 )
-from tools.modelling_tools import list_subdirs, FlowSeq, flowseq_representer, _add_demo, resave_config
 from paths import rpath
-from widgets.common import FormSection, make_shortname
 
-yaml.add_representer(FlowSeq, flowseq_representer, Dumper=yaml.SafeDumper)
+def list_subdirs(path):
+    return [
+        p.name
+        for p in Path(path).iterdir()
+        if p.is_dir()
+    ]
 
 class StatusBar(qw.QStatusBar):
     """QStatusBar that auto-clears messages after a timeout by default."""
@@ -142,11 +141,13 @@ class EditConfigDialog(qw.QDialog):
 
 
     def bootstrap(self, parent= None):
-        if self.exec() == qw.QDialog.DialogCode.Accepted: # close once the acceptance flag is flagged (in the on_save method)
-            return 1
-        else:
-            return 0
-
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        # if self.exec() == qw.QDialog.DialogCode.Accepted: # close once the acceptance flag is flagged (in the on_save method)
+        #     return 1
+        # else:
+        #     return 0
 
     def _current_model_name(self) -> Optional[str]:
         """Best-effort current model name across tabs."""
@@ -176,8 +177,8 @@ class EditConfigDialog(qw.QDialog):
         tab = self.idx_to_page[self.stack.currentIndex()]
         
         if self.stack.currentIndex() == 0:
-            save_dir = self.page_global.edit_default_save_dir.text()
-            self.page_demos.on_apply_clicked(save_dir)
+            settings = self.page_global.get_settings_for_config()
+            self.page_demos.on_apply_clicked(settings)
         else:
             tab.on_apply_clicked()
 

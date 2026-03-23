@@ -3,7 +3,7 @@ from PyQt6 import (
     QtGui as qg
 )
 import re, os
-from tools.modelling_tools import create_new_model_dir
+from tools.creation_tools import create_new_model_dir
 from paths import rpath
 
 class DescDialog(qw.QDialog):
@@ -114,10 +114,12 @@ class SaveDialog(qw.QDialog):
             desc_label = qw.QLabel("(Optional) New Description: ")
         self.name_entry = qw.QLineEdit()
         self.desc_entry = qw.QTextEdit()
+        self.save_axis_settings = qw.QCheckBox("Include Axis Settings")
         layout.addWidget(name_label, 0, 0)
         layout.addWidget(desc_label, 1, 0)
         layout.addWidget(self.name_entry, 0, 1)
         layout.addWidget(self.desc_entry, 1, 1)
+        layout.addWidget(self.save_axis_settings, 2, 0)
 
         bottom_widget = qw.QWidget()
         bottom_layout = qw.QHBoxLayout(bottom_widget)
@@ -154,7 +156,8 @@ class SaveDialog(qw.QDialog):
         return (
             make_shortname(self.name_entry.text().strip()),
             self.name_entry.text().strip(),
-            self.desc_entry.toPlainText().strip()
+            self.desc_entry.toPlainText().strip(),
+            self.save_axis_settings.isChecked()
         )
 
     def bootstrap(self, parent= None):

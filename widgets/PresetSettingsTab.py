@@ -8,24 +8,11 @@ import logging
 import copy
 import os
 import yaml
-from .common import atomic_write
 from PyQt6 import QtCore as qc, QtGui as qg, QtWidgets as qw
 
 from paths import rpath
 from tools.loader import load_parameters_class_from_file, try_instantiate_with_defaults
-
-class FlowSeq(list):
-    """A list that should be dumped in flow style (inline)"""
-    pass
-
-def flowseq_representer(dumper, data):
-    return dumper.represent_sequence(
-        "tag:yaml.org,2002:seq",
-        data,
-        flow_style=True,
-    )
-
-yaml.add_representer(FlowSeq, flowseq_representer, Dumper=yaml.SafeDumper)
+from tools.creation_tools import flow_seqify, atomic_write
 
 def list_subdirs(path: str | os.PathLike) -> List[str]:
     p = Path(path)
@@ -56,7 +43,6 @@ def _yaml_inline(value: Any) -> str:
     return str(value)
 
 
-# ---- helpers for defaults detection (mirrors the idea in ParamSettingsTab) ----
 _MISSING = object()
 
 logger = logging.getLogger(__name__)
@@ -163,23 +149,6 @@ class _PresetParamRow(qw.QWidget):
 
         # yaml.safe_load("") would be None, but we already guarded raw == ""
         return True, val, None
-
-    # def get_value(self) -> Tuple[bool, Any, Optional[str]]:
-    #     """
-    #     Returns (ok, value, error_message).
-    #     - required => must be non-empty
-    #     - optional => if empty, treated as "not included" (ok=True, value=None)
-    #     """
-    #     raw = self.edit_scalar.text().strip()
-
-    #     if not self.get_included():
-    #         return True, None, None
-
-    #     if raw == "":
-    #         return False, None, "Empty value"
-
-    #     # "plain text" behavior: store exactly what the user typed
-    #     return True, raw, None
 
 class PresetSettingsTab(qw.QWidget):
     """
@@ -335,82 +304,6 @@ class PresetSettingsTab(qw.QWidget):
             raw = {}
         raw.setdefault("presets", {})
         return raw
-
-    def _normalize_flowseqs_for_dump(self, data: dict) -> dict:
-        """
-        Wrap known array-like preset parameters in FlowSeq so they dump inline.
-        - 1D arrays/lists -> FlowSeq([...])
-        - matrices (2D)  -> FlowSeq([FlowSeq(row0), FlowSeq(row1), ...]) recursively
-        Uses self._param_meta[model]["flowseq_params"] and ["matrix_params"].
-        """
-
-        def to_python(v):
-            # Convert numpy arrays to python lists
-            try:
-                import numpy as np
-                if isinstance(v, np.ndarray):
-                    return v.tolist()
-            except Exception:
-                pass
-            return v
-
-        def flowseqify(v, force_matrix: bool) -> object:
-            """
-            Convert list/tuple structures into FlowSeq recursively.
-            If force_matrix True, enforce FlowSeq of FlowSeq rows when possible.
-            """
-            v = to_python(v)
-
-            # Already formatted
-            if isinstance(v, FlowSeq):
-                # but still recurse into nested rows if it’s matrix-like
-                if force_matrix:
-                    return FlowSeq([flowseqify(x, False) for x in v])
-                return v
-
-            if isinstance(v, (list, tuple)):
-                items = [flowseqify(x, False) for x in v]
-                fs = FlowSeq(items)
-
-                if force_matrix:
-                    # ensure each row is also FlowSeq if it’s a row-like sequence
-                    out_rows = []
-                    for row in fs:
-                        row = to_python(row)
-                        if isinstance(row, FlowSeq):
-                            out_rows.append(row)
-                        elif isinstance(row, (list, tuple)):
-                            out_rows.append(FlowSeq([to_python(x) for x in row]))
-                        else:
-                            out_rows.append(row)
-                    return FlowSeq(out_rows)
-
-                return fs
-
-            # scalar / dict / anything else: leave as-is
-            return v
-
-        for model, model_dict in (data or {}).items():
-            meta = self._param_meta.get(model, {}) or {}
-            flow_params = set(meta.get("flowseq_params", set()) or set())
-            matrix_params = set(meta.get("matrix_params", set()) or set())
-
-            presets = (model_dict or {}).get("presets", {}) or {}
-            for _preset_key, preset_dict in presets.items():
-                if not isinstance(preset_dict, dict):
-                    continue
-                params = preset_dict.get("params")
-                if not isinstance(params, dict):
-                    continue
-
-                for pname, pval in list(params.items()):
-                    if pname not in flow_params:
-                        continue
-
-                    force_matrix = pname in matrix_params
-                    params[pname] = flowseqify(pval, force_matrix)
-
-        return data
 
     def _load_param_meta_from_parameters_py(self, model: str) -> Dict[str, Any]:
         """
@@ -676,7 +569,7 @@ class PresetSettingsTab(qw.QWidget):
         self._refresh_preset_list()
 
     def on_apply_clicked(self) -> None:
-        self._normalize_flowseqs_for_dump(self._working_data)
+        flow_seqify(self._working_data)
         try:
             for model in self._working_data:
                 meta = self._param_meta.get(model, {"required": set()})

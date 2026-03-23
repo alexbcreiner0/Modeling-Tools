@@ -60,6 +60,18 @@ class GraphPanel(qw.QWidget):
         self._slot_dimensions: dict[int, str] = {}
         self._camera_overrides: dict[tuple[int, str], dict] = {}
 
+        self.box_aspect_vals = {
+            (1, 1): 0.75,
+            (1, 2): 0.95,
+            (1, 3): 1.05,
+            (2, 1): 0.75,
+            (2, 2): 0.85,
+            (2, 3): 0.95,
+            (3, 2): 0.95,
+            (3, 3): 1.0,
+        }
+        self._base_box_aspect = self.box_aspect_vals[(1,1)]
+
         self.traj = init_traj
         self.t = init_t
 
@@ -110,23 +122,33 @@ class GraphPanel(qw.QWidget):
 
         self._connect_axis_callbacks()
 
+        # self._recompute_base_box_aspect()
+
         # trying to get the axes to cooperate with the size of the window (spoilers: they do not)
-        try:
-            fig_w, fig_h = self.figure.get_size_inches()
-            dpi = self.figure.dpi
-            fig_w_px = fig_w * dpi
-            fig_h_px = fig_h * dpi
+        # try:
+        #     fig_w, fig_h = self.figure.get_size_inches()
+        #     dpi = self.figure.dpi
+        #     fig_w_px = fig_w * dpi
+        #     fig_h_px = fig_h * dpi
 
-            pos = self.axis.get_position()  # in figure-relative coordinates
-            width_px = pos.width * fig_w_px
-            height_px = pos.height * fig_h_px
+        #     pos = self.axis.get_position()  # in figure-relative coordinates
+        #     width_px = pos.width * fig_w_px
+        #     height_px = pos.height * fig_h_px
 
-            self._base_box_aspect = height_px / width_px if width_px else 1.0
-        except Exception:
-            # fallback: a reasonable wide-ish plot
-            self._base_box_aspect = 0.6
+        #     self._base_box_aspect = height_px / width_px if width_px else 1.0
+        # except Exception:
+        #     # fallback: a reasonable wide-ish plot
+        #     self._base_box_aspect = 0.6
 
         self._block_axis_callback = False
+
+
+    def refresh_box_aspects(self):
+        self._recompute_base_box_aspect()
+        for ax in self.axes:
+            if not hasattr(ax, "get_zlim"):   # 2D only
+                ax.set_box_aspect(self._base_box_aspect)
+        self.canvas.draw_idle()
 
     def _on_scroll(self, event) -> None:
         """ controls zooming and other scroll related stuff """
@@ -404,6 +426,16 @@ class GraphPanel(qw.QWidget):
             self.axes.append(ax)
         self.axis = self.axes[0]
 
+        box_aspect = self.box_aspect_vals.get((rows, cols), 0.9)
+        for i, ax in enumerate(self.axes):
+            if not hasattr(ax, "get_zlim"):
+                ax.set_box_aspect(box_aspect)
+            else:
+                try:
+                    ax.set_box_aspect((1, 1, 1))
+                except Exception:
+                    pass
+
         self._init_snap_artists()
         self._connect_axis_callbacks()
 
@@ -497,9 +529,29 @@ class GraphPanel(qw.QWidget):
     def _recompute_base_box_aspect(self) -> None:
         try:
             w_px, h_px = self.canvas.get_width_height()
+            print(f"{w_px=}, {h_px=}")
             pos = self.axis.get_position()  # figure-relative
+            print(f"{pos=}")
             width_px = pos.width * w_px
+            print(f"{width_px=}")
             height_px = pos.height * h_px
+            print(f"{height_px=}")
+            self._base_box_aspect = height_px / width_px if width_px else 1.0
+            print(f"{self._base_box_aspect}")
+        except Exception:
+            self._base_box_aspect = 0.6
+
+    def _recompute_base_box_aspect2(self):
+        try:
+            fig_w, fig_h = self.figure.get_size_inches()
+            dpi = self.figure.dpi
+            fig_w_px = fig_w * dpi
+            fig_h_px = fig_h * dpi
+
+            pos = self.axis.get_position()
+            width_px = pos.width * fig_w_px
+            height_px = pos.height * fig_h_px
+
             self._base_box_aspect = height_px / width_px if width_px else 1.0
         except Exception:
             self._base_box_aspect = 0.6
@@ -1121,7 +1173,7 @@ class GraphPanel(qw.QWidget):
         n = min(len(t), len(y))
         return t[:n], y[:n]
 
-    def plot_slot(self, slot_index, dropdown_choice, options, slot_config=None):
+    def plot_slot(self, slot_index, dropdown_choice, options, slot_config=None, load_idx_defaults= False):
         """ apply plots to a slot """
         if self.traj is None or self.t is None:
             self.canvas.draw_idle()
@@ -1143,9 +1195,26 @@ class GraphPanel(qw.QWidget):
         ax = self.axes[slot_index]
 
         # snapshot current camera pos
-        current_xlim = ax.get_xlim()
-        current_ylim = ax.get_ylim()
-        current_zlim = ax.get_zlim() if hasattr(ax, "get_zlim") else None
+        # if new_lims:
+        default_lims = self.data.get(choice_name, {}).get("default_lims")
+        if default_lims and load_idx_defaults:
+            xlims_base = default_lims[0]
+            current_xlim = tuple(float(xlim) for xlim in xlims_base)
+            
+            ylims_base = default_lims[1]
+            current_ylim = tuple(float(ylim) for ylim in ylims_base)
+
+            if len(default_lims) == 3:
+                zlims_base = default_lims[2]
+                current_zlim = tuple(float(zlim) for zlim in zlims_base)
+                self.slot_axes_limits_changed_3d.emit(slot_index, current_xlim, current_ylim, current_zlim)
+            else:
+                current_zlim = None
+                self.slot_axes_limits_changed.emit(slot_index, current_xlim, current_ylim)
+        else:
+            current_xlim = ax.get_xlim()
+            current_ylim = ax.get_ylim()
+            current_zlim = ax.get_zlim() if hasattr(ax, "get_zlim") else None
 
         legend_font_size = self._get_legend_font()
 
@@ -2262,8 +2331,8 @@ class GraphPanel(qw.QWidget):
     def resizeEvent(self, a0):
         super().resizeEvent(a0)
         # Only refresh when we're in a single-axes state (the thing you're treating as “base”)
-        if getattr(self, "axes_rows", 1) == 1 and getattr(self, "axes_cols", 1) == 1:
-            self._recompute_base_box_aspect()
+        # if getattr(self, "axes_rows", 1) == 1 and getattr(self, "axes_cols", 1) == 1:
+        #     self._recompute_base_box_aspect()
 
     def _do_tight_layout(self):
         self.figure.tight_layout()

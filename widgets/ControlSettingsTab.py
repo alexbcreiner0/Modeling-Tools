@@ -8,12 +8,11 @@ import copy
 import yaml
 import re
 from numpy import ndarray
-from .common import atomic_write
 from .HelpFormLayout import HelpFormLayout
 
 from paths import rpath
 from tools.loader import load_presets, params_from_mapping, load_parameters_class_from_file, try_instantiate_with_defaults
-from tools.modelling_tools import FlowSeq, flowseq_representer
+from tools.creation_tools import flow_seqify, FlowSeq, atomic_write
 import logging
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ def divider_index(key: str) -> int | None:
     m = _DIVIDER_RE.match(key)
     return int(m.group(1)) if m else None
 
-yaml.add_representer(FlowSeq, flowseq_representer, Dumper=yaml.SafeDumper)
+# yaml.add_representer(FlowSeq, flowseq_representer, Dumper=yaml.SafeDumper)
 logger = logging.getLogger(__name__)
 
 def list_subdirs(path: str | os.PathLike) -> List[str]:
@@ -244,7 +243,7 @@ class InitControlsDialog(qw.QDialog):
                         spec["scalar_type"] = "int" if isinstance(val, int) else "float"
 
                     is_int = (spec["scalar_type"] == "int")
-                    spec["range"] = FlowSeq([int(rmin) if is_int else rmin,
+                    spec["range"] = flow_seqify([int(rmin) if is_int else rmin,
                                              int(rmax) if is_int else rmax])
 
                     # label template: support {name}
@@ -258,7 +257,7 @@ class InitControlsDialog(qw.QDialog):
                     shape = val.shape
                     if len(shape) > 1:
                         spec["type"] = "matrix"
-                        spec["dim"] = FlowSeq(list(shape))
+                        spec["dim"] = flow_seqify(list(shape))
                     else:
                         spec["type"] = "vector"
                         spec["dim"] = int(shape[0])
@@ -271,8 +270,8 @@ class InitControlsDialog(qw.QDialog):
                 elif isinstance(val, str):
                     spec["control_type"] = "dropdown"
                     spec["label"] = pname
-                    spec["names"] = FlowSeq([val])
-                    spec["values"] = FlowSeq([val])
+                    spec["names"] = flow_seqify([val])
+                    spec["values"] = flow_seqify([val])
 
             else:
                 if ann is bool:
@@ -284,8 +283,8 @@ class InitControlsDialog(qw.QDialog):
                 elif ann is str:
                     spec["control_type"] = "dropdown"
                     spec["label"] = pname
-                    spec["names"] = FlowSeq(["(set me)"])
-                    spec["values"] = FlowSeq([""])
+                    spec["names"] = flow_seqify(["(set me)"])
+                    spec["values"] = flow_seqify([""])
 
                 elif ann is np.ndarray or (ann is not None and "ndarray" in str(ann)):
                     spec["control_type"] = "entry_block"
@@ -297,7 +296,7 @@ class InitControlsDialog(qw.QDialog):
                     spec["control_type"] = "entry_block"
                     spec["type"] = "scalar"
                     spec["scalar_type"] = "float"
-                    spec["range"] = FlowSeq([rmin, rmax])
+                    spec["range"] = flow_seqify([rmin, rmax])
                     spec["label"] = f"${pname}=$"
 
             current["controls"].append(spec)
@@ -816,7 +815,7 @@ class ControlSettingsTab(qw.QWidget):
                     # keep FlowSeq for nice YAML where relevant
                     for k in ("range", "names", "values", "dim"):
                         if k in spec2 and isinstance(spec2[k], list):
-                            spec2[k] = FlowSeq(spec2[k])
+                            spec2[k] = flow_seqify(spec2[k])
 
                     row_dict[pname] = spec2
 
@@ -1100,7 +1099,7 @@ class ControlSettingsTab(qw.QWidget):
             "control_type": "entry_block",
             "type": "scalar",
             "scalar_type": "float",
-            "range": FlowSeq([0.0, 1.0]),
+            "range": flow_seqify([0.0, 1.0]),
             "label": "$new\\_param=$",
             "tooltip": "",
         }
@@ -1214,7 +1213,7 @@ class ControlSettingsTab(qw.QWidget):
         self.combo_scalar_type.blockSignals(False)
 
         # --- range ---
-        rng = spec.get("range", FlowSeq([0.0, 1.0]))
+        rng = spec.get("range", flow_seqify([0.0, 1.0]))
         try:
             r0, r1 = list(rng)
         except Exception:
@@ -1254,9 +1253,9 @@ class ControlSettingsTab(qw.QWidget):
             if isinstance(dim, (list, tuple, FlowSeq)) and len(dim) == 2:
                 try:
                     rows, cols = dim[0], dim[1]
-                    if not rows.isnumeric():
+                    if isinstance(rows, str):
                         self.mat_rows_dep.setChecked(True)
-                    if not cols.isnumeric():
+                    if isinstance(cols, str):
                         self.mat_cols_dep.setChecked(True)
                 except Exception:
                     rows, cols = 1, 1
@@ -1321,8 +1320,8 @@ class ControlSettingsTab(qw.QWidget):
 
         # normalize shape for the chosen type
         if ctype == "dropdown":
-            spec.setdefault("names", FlowSeq(["True", "False"]))
-            spec.setdefault("values", FlowSeq([True, False]))
+            spec.setdefault("names", flow_seqify(["True", "False"]))
+            spec.setdefault("values", flow_seqify([True, False]))
             spec.pop("type", None)
             spec.pop("scalar_type", None)
             spec.pop("range", None)
@@ -1340,7 +1339,7 @@ class ControlSettingsTab(qw.QWidget):
         else:
             spec.setdefault("type", "scalar")
             spec.setdefault("scalar_type", "float")
-            spec.setdefault("range", FlowSeq([0.0, 1.0]))
+            spec.setdefault("range", flow_seqify([0.0, 1.0]))
             spec.pop("names", None)
             spec.pop("values", None)
             self.control_stack.setCurrentIndex(0)
@@ -1373,7 +1372,7 @@ class ControlSettingsTab(qw.QWidget):
         # normalize keys for kind
         if kind == "scalar":
             spec.setdefault("scalar_type", "float")
-            spec.setdefault("range", FlowSeq([0.0, 1.0]))
+            spec.setdefault("range", flow_seqify([0.0, 1.0]))
             spec.pop("dim", None)
         elif kind == "vector":
             spec.pop("scalar_type", None)
@@ -1387,7 +1386,7 @@ class ControlSettingsTab(qw.QWidget):
             spec.pop("range", None)
             d = spec.get("dim")
             if not (isinstance(d, (list, tuple, FlowSeq)) and len(d) == 2):
-                spec["dim"] = FlowSeq([1, 1])
+                spec["dim"] = flow_seqify([1, 1])
 
         self._load_entry_fields(spec)
 
@@ -1413,7 +1412,7 @@ class ControlSettingsTab(qw.QWidget):
         except ValueError:
             return
 
-        spec["range"] = FlowSeq([int(r0), int(r1)]) if spec.get("scalar_type") == "int" else FlowSeq([r0, r1])
+        spec["range"] = flow_seqify([int(r0), int(r1)]) if spec.get("scalar_type") == "int" else flow_seqify([r0, r1])
 
     def _dim_changed(self, _=None) -> None:
         ref = self._current_control_ref()
@@ -1442,11 +1441,11 @@ class ControlSettingsTab(qw.QWidget):
             dim_rows = self.mat_rows.text()
             dim_cols = self.mat_cols.text()
             if self.mat_rows_dep.isChecked() or self.mat_cols_dep.isChecked():
-                spec["dim_from"] = FlowSeq([dim_rows, dim_cols])
+                spec["dim_from"] = flow_seqify([dim_rows, dim_cols])
                 if spec.get("dim"):
                     del spec["dim"]
             else:
-                spec["dim"] = FlowSeq([dim_rows, dim_cols])
+                spec["dim"] = flow_seqify([dim_rows, dim_cols])
                 if spec.get("dim_from"):
                     del spec["dim_from"]
 
@@ -1465,8 +1464,8 @@ class ControlSettingsTab(qw.QWidget):
             v = self.dropdown_table.item(r, 1)
             names.append(n.text() if n else "")
             values.append(v.text() if v else "")
-        spec["names"] = FlowSeq(names)
-        spec["values"] = FlowSeq(values)
+        spec["names"] = flow_seqify(names)
+        spec["values"] = flow_seqify(values)
 
     def _add_dropdown_option(self) -> None:
         if self.dropdown_table is None:

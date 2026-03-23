@@ -24,32 +24,3 @@ def make_shortname(display_name: str) -> str:
     s = s.strip("_")
     return s
 
-def atomic_write(path: Path, new_text: str | dict) -> None:
-    bak = path.with_suffix(".bak")
-
-    # backup current on-disk bytes/text
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            old = f.read()
-        with open(bak, "w", encoding="utf-8") as f:
-            f.write(old)
-
-    # atomic replace
-    d = os.path.dirname(path) or "."
-    base = os.path.basename(path)
-    fd, tmp = tempfile.mkstemp(prefix=base + ".", suffix=".tmp", dir=d, text=True)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            if isinstance(new_text, dict):
-                yaml.safe_dump(new_text, f, sort_keys= False, allow_unicode= True)
-            else:
-                f.write(new_text)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, path)
-    finally:
-        if os.path.exists(tmp):
-            os.remove(tmp)
-
-    if os.path.exists(bak):
-        os.remove(bak)

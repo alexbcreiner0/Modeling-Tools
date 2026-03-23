@@ -6,7 +6,8 @@ from PyQt6 import (
     QtCore as qc
 )
 import numpy as np
-import time
+import copy
+from tools.creation_tools import flow_seqify, atomic_write
 from tools.qt_tools import recolor_icon
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from widgets.CustomNavigationToolbar import CustomNavigationToolbar
@@ -112,7 +113,6 @@ def _is_text_input_widget(w: qw.QWidget | None) -> bool:
 
     return False
 
-
 class MainWindow(qw.QMainWindow):
 
     def __init__(self, config):
@@ -122,8 +122,8 @@ class MainWindow(qw.QMainWindow):
         self.status_bar = self.statusBar()
 
         self.config = config
-        self.settings = config["global_settings"]
-        self.demos = config["demos"]
+        self.settings = config.get("global_settings", {})
+        self.demos = config.get("demos", {})
 
         self.live_animation = True
         self._run_id = 0
@@ -140,12 +140,13 @@ class MainWindow(qw.QMainWindow):
 
         self.current_demo_name, self.current_demo = self._find_default(self.demos)
         self._sleep_time = self.current_demo.get("details", {}).get("simulation_speed", 0)
-        self.sim_model = self.current_demo["details"]["simulation_model"]
+        self.sim_model = self.current_demo.get("details", {}).get("simulation_model", {})
 
         self.ctx = get_context("spawn")
         self.sim_controller = SimController(self.ctx, parent= self)
 
-        self.params, self.current_sim_func, self.presets, panel_data, plotting_data, self.functions, self.default_dir = self._get_data(self.settings, self.current_demo)
+        self.params, self.current_sim_func, self.presets, panel_data, plotting_data, self.functions = self._get_data(self.current_demo)
+        self._set_global_settings(self.settings)
 
         self.model_label = qw.QLabel(f"Model: {self.current_demo.get("name", "")}")
         self.status_bar.addPermanentWidget(self.model_label)
@@ -163,9 +164,10 @@ class MainWindow(qw.QMainWindow):
 
         # make matplotlib stuff, need toolbar for below
         self.figure, self.axis = plt.subplots(layout= "constrained")
+        # self.figure, self.axis = plt.subplots()
         # self.figure.set_constrained_layout(True)
         self.canvas = FigureCanvasQTAgg(self.figure)
-        self.toolbar = CustomNavigationToolbar(self.canvas, parent= self, default_dir= self.default_dir)
+        self.toolbar = CustomNavigationToolbar(self.canvas, parent= self, default_dir= self.default_dir, default_save_name= self.default_save_name, params= self.params)
         self.removeToolBar(self.toolbar)
         
         # make top toolbar
@@ -175,7 +177,7 @@ class MainWindow(qw.QMainWindow):
         self.traj, self.t = None, None
 
         self.graph_panel, self.control_panel, self.dropdown_choices = self._make_panels(plotting_data, panel_data, self.current_demo)
-        self._set_graph_lims(self.current_demo, plotting_data)
+        self._load_saved_axis_settings()
 
         self.graph_panel.toolbar.pan()
 
@@ -209,7 +211,95 @@ class MainWindow(qw.QMainWindow):
         self.setCentralWidget(self.main_splitter)
 
         self._install_focus_clear_filter()
-        self.start_sim()
+
+        if self._run_on_startup:
+            self.start_sim()
+
+    def _load_saved_axis_settings(self):
+        demo_config = self.current_demo.get("details", {}).get("axis_settings", {})
+        rows, cols, limits, saved_limits, dropdown_indices, slot_settings, checked = self._get_slot_settings(demo_config)
+        self.control_panel._alter_slot_layout(rows, cols, limits, saved_limits, dropdown_indices, checked, slot_settings)
+        self._set_graph_lims(limits)
+
+    def _get_slot_settings(self, demo_config):
+        dim = demo_config.get("dimension", (1,1))
+        rows, cols = dim
+        total_axes = rows*cols
+        limits = []
+        lims_dict = demo_config.get("limits", {})
+        for lim in lims_dict:
+            coords = tuple()
+            for coord in lims_dict[lim]:
+                coords += (tuple(coord),)
+            limits.append(coords)
+        saved_limits = []
+        saved_lims_dict = demo_config.get("saved_limits", {})
+        for lim in saved_lims_dict:
+            coords = tuple()
+            for coord in saved_lims_dict[lim]:
+                coords += (tuple(coord),)
+            saved_limits.append(coords)
+        dropdown_indices = demo_config.get("dropdown_indices", [])
+        slot_settings_dict = demo_config.get("settings", {})
+        slot_settings = []
+        for settings in slot_settings_dict:
+            slot_settings.append(slot_settings_dict[settings])
+        checked = []
+        checked_dict = demo_config.get("checked_plots", {})
+        for axis in checked_dict:
+            checked.append(checked_dict[axis])
+
+        return rows, cols, limits, saved_limits, dropdown_indices, slot_settings, checked
+
+    def _get_current_axis_settings(self):
+        rows, cols, limits, saved_limits, dropdown_indices, checked, slot_settings = self.control_panel.get_slot_settings()
+        
+        details = self.current_demo.get("details", {})
+        axis_settings = copy.deepcopy(details.get("axis_settings", {}))
+        axis_settings["dimension"] = [rows, cols]
+        axis_settings["limits"] = {}
+        for i in range(1,len(limits)+1):
+            lims = limits[i-1]
+            axis_coords = []
+            for coord in lims:
+                axis_coords.append(list(coord))
+            axis_settings["limits"][f"a{i}"] = axis_coords
+        axis_settings["saved_limits"] = {}
+        for i in range(1,len(saved_limits)+1):
+            lims = saved_limits[i-1]
+            if None in lims:
+                continue
+            axis_coords = []
+            for coord in lims:
+                axis_coords.append(list(coord))
+            axis_settings["saved_limits"][f"a{i}"] = axis_coords
+        if not axis_settings["saved_limits"]:
+            del axis_settings["saved_limits"]
+        axis_settings["dropdown_indices"] = dropdown_indices
+        axis_settings["checked_plots"] = {}
+        for i in range(1,len(checked)+1):
+            axis_settings["checked_plots"][f"a{i}"] = checked[i-1]
+        axis_settings["settings"] = {}
+        for i in range(1,len(slot_settings)+1):
+            axis_settings["settings"][f"a{i}"] = slot_settings[i-1]
+
+        return axis_settings
+
+    def _save_slot_settings(self):
+        self.current_demo["details"]["axis_settings"] = self._get_current_axis_settings()
+        flow_seqify(self.config)
+
+        path = rpath("config.yml")
+        atomic_write(path, self.config)
+
+    def _set_global_settings(self, settings):
+        self.default_dir = settings.get("default_save_dir", ".")
+        self.default_save_name = settings.get("default_save_name", "figure")
+        self._run_on_startup = settings.get("run_on_startup", True)
+
+        if hasattr(self, "toolbar"):
+            self.toolbar.set_default_dir(self.default_dir)
+            self.toolbar.default_save_name = self.default_save_name
 
     def _halt_sim_stack(self, *, force: bool= False, clear_pending: bool= True, clear_queue: bool = False) -> None:
         """ Safe multipurpose method for halting/killing all of the relevant moving parts of an ongoing sim """
@@ -370,42 +460,9 @@ class MainWindow(qw.QMainWindow):
 
         self.canvas.draw_idle()
 
-    def _set_graph_lims(self, demo, plotting_data):
-        lims = self.control_panel.get_slot_axes_limits(0)
-        xlim = ylim = None
-        if lims is not None:
-            xlim, ylim = lims
-
-        # Fallback to demo["details"]["starting_lims"] if needed
-        if xlim is None or ylim is None:
-            if "starting_lims" in demo["details"]:
-                try:
-                    sx, sy = demo["details"]["starting_lims"]
-                    xlim = tuple(sx)
-                    ylim = tuple(sy)
-                except Exception:
-                    xlim = (0, 100)
-                    ylim = (0, 100)
-            else:
-                xlim = (0, 100)
-                ylim = (0, 100)
-
-            # Ensure slot 0's control widget reflects these fallback limits
-            self.control_panel.set_slot_axes_limits(0, xlim, ylim)
-
-        # Apply these limits to all current axes in the GraphPanel
-        num_slots = len(self.graph_panel.axes)
-        for slot_index in range(num_slots):
-            self.graph_panel.edit_slot_axes(slot_index, xlim, ylim)
-
-        # Handle initial dropdown selection from starting_plots, if present
-        if "starting_plots" in demo["details"]:
-            choice = demo["details"]["starting_plots"]
-            if choice in plotting_data:
-                name = plotting_data[choice]["name"]
-                if name in self.dropdown_choices:
-                    idx = self.dropdown_choices.index(name)
-                    self.control_panel.set_slot_dropdown_index(0, idx)
+    def _set_graph_lims(self, limits):
+        for i, lims in enumerate(limits):
+            self.on_slot_axes_changed(i)
 
     def _make_panels(self, plotting_data, panel_data, demo):
         dropdown_choices, dropdown_tooltips = self._get_dropdown_choices(plotting_data)
@@ -429,6 +486,7 @@ class MainWindow(qw.QMainWindow):
         control_panel.slotPlotChoiceChanged.connect(self.on_slot_plot_choice_changed)
         control_panel.slotOptionsChanged.connect(self.on_slot_options_changed)
         control_panel.slotAxesChanged.connect(self.on_slot_axes_changed)
+        control_panel.slotAxesCatChanged.connect(self.on_slot_axes_cat_save_request)
         control_panel.paramsReplaced.connect(self._on_params_replaced)
 
         return graph_panel, control_panel, dropdown_choices
@@ -467,6 +525,20 @@ class MainWindow(qw.QMainWindow):
         """ Method to update the axis entries of a plot control widget when user pans a plot """
         self.control_panel.set_slot_axes_limits(slot_index, xlim, ylim)
 
+    def on_slot_axes_cat_save_request(self, slot_index):
+        lims = self.control_panel.get_slot_axes_limits(slot_index)
+        cfg = self.control_panel.get_slot_config(slot_index)
+        dropdown_index = cfg[0]
+        plotting_data = self.control_panel.plotting_data
+        dropdown_list = list(plotting_data)
+        dropdown_name = dropdown_list[dropdown_index]
+        
+        plotting_data[dropdown_name]["default_lims"] = lims
+        path = rpath("models", self.sim_model, "data", "plotting_data.yml")
+
+        flow_seqify(plotting_data)
+        atomic_write(path, plotting_data)
+
     def on_slot_axes_changed(self, slot_index: int):
         lims = self.control_panel.get_slot_axes_limits(slot_index)
         if lims is None: return
@@ -487,7 +559,7 @@ class MainWindow(qw.QMainWindow):
 
         dropdown_index, options, legend_cfg = cfg
 
-        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg)
+        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, load_idx_defaults= True)
 
     def on_slot_options_changed(self, slot_index: int):
         """Options changed for a specific slot."""
@@ -627,6 +699,9 @@ class MainWindow(qw.QMainWindow):
     def tight_layout(self):
         self.figure.tight_layout()
         # self.figure.get_constrained_layout()
+        # self.graph_panel._recompute_base_box_aspect()
+        self.graph_panel.canvas.draw_idle()
+
         self.figure.canvas.draw_idle()
 
     def grab_as_initial(self):
@@ -660,7 +735,7 @@ class MainWindow(qw.QMainWindow):
         file_menu = menu.addMenu("File")
         params_menu = menu.addMenu("Parameters")
         demo_menu = menu.addMenu("Demos")
-        # view_menu = menu.addMenu("View")
+        view_menu = menu.addMenu("View")
         functions_menu = menu.addMenu("Sim Functions")
         self.sim_choice = qg.QActionGroup(self)
         self.sim_choice.setExclusive(True)
@@ -710,6 +785,14 @@ class MainWindow(qw.QMainWindow):
         quit_button = qg.QAction("Quit", self)
         file_menu.addAction(quit_button)
         quit_button.triggered.connect(self.close)
+
+        load_saved_axes_action = qg.QAction("Load saved axis settings", self)
+        view_menu.addAction(load_saved_axes_action)
+        load_saved_axes_action.triggered.connect(self._load_saved_axis_settings)
+
+        save_current_axes_action = qg.QAction("Save current axis settings", self)
+        view_menu.addAction(save_current_axes_action)
+        save_current_axes_action.triggered.connect(self._save_slot_settings)
 
         for demo in demos:
             name = demos[demo]["name"]
@@ -942,7 +1025,7 @@ class MainWindow(qw.QMainWindow):
                 self.toggle_pause()
 
             if a0.key() == 16777216: # ESC
-                self.closeEvent(a0)
+                self.close()
 
     def _request_stop_for_rerun(self, force= False):
         try:
@@ -958,14 +1041,23 @@ class MainWindow(qw.QMainWindow):
     def closeEvent(self, event):
         try:
             self._halt_sim_stack(force= True, clear_pending= True, clear_queue= False)
+            if self.settings["autosave_axis_settings"]:
+                self._save_slot_settings()
         finally:
             event.accept()
-            qw.QApplication.quit()
+            # print(f"{self.settings['autosave_axis_settings']=}")
+            # qw.QApplication.quit()
 
     def load_preset(self, preset):
         try:
             self.params = params_from_mapping(self.presets[preset]["params"], rpath("models",self.sim_model,"simulation","parameters.py"))
+            axis_settings = self.presets[preset].get("axis_settings", {})
+            if axis_settings:
+                rows, cols, limits, saved_limits, dropdown_indices, slot_settings, checked = self._get_slot_settings(axis_settings)
+                self.control_panel._alter_slot_layout(rows, cols, limits, saved_limits, dropdown_indices, checked, slot_settings)
+                self._set_graph_lims(limits)
             self.control_panel.load_new_params(self.params)
+            self.start_sim()
         except Exception as e:
             self.status_bar.showMessage(f"Failed to load preset {preset}: {e}")
             extras = {
@@ -990,11 +1082,13 @@ class MainWindow(qw.QMainWindow):
                 panel_data,
                 plotting_data,
                 self.functions,
-                self.default_dir,
-            ) = self._get_data(self.settings, demo)
+            ) = self._get_data(demo)
+
+            self._reload_config()
+            self._set_global_settings(self.settings)
 
             # Re-apply model-specific formatting
-            model_settings = self.config["model_specific_settings"].get(self.sim_model)
+            model_settings = self.config.get("model_specific_settings", {}).get(self.sim_model)
             if model_settings and "commodity_names" in model_settings:
                 plotting_data = format_plot_config(
                     plotting_data, model_settings["commodity_names"]
@@ -1018,13 +1112,23 @@ class MainWindow(qw.QMainWindow):
         # Re-run simulation
         self.start_sim()
 
-    def _get_data(self, settings, demo):
+    def _reload_config(self):
+        try:
+            with open(rpath(f"config.yml"), "r") as f:
+                self.config = yaml.safe_load(f)
+                self.settings = self.config["global_settings"]
+                self.demos = self.config["demos"]
+                self.current_demo = self.demos[self.current_demo_name]
+        except OSError as e:
+            logger.log(logging.ERROR, 'failed to load config.yml!', exc_info= e)
+            self.status_bar.showMessage(f"Failed to load config.yml. See logs for more info.", msecs= 5000)
+
+    def _get_data(self, demo):
 
         try:
             sim_model = demo["details"]["simulation_model"]
             sim_function_name = demo["details"]["simulation_function"]
             default_preset = demo["details"].get("default_preset", None)
-            default_dir = settings["default_save_dir"]
 
             presets = load_presets(sim_model)
             module_name = f"models.{sim_model}.simulation.simulation"
@@ -1076,14 +1180,14 @@ class MainWindow(qw.QMainWindow):
             logger.log(logging.ERROR, "Failed to load control_panel_data.yml", exc_info= e)
             panel_data = {}
 
-        return params, sim_function, presets, panel_data, plotting_data, functions, default_dir
+        return params, sim_function, presets, panel_data, plotting_data, functions
 
     def load_demo(self, demo_name):
         self._halt_sim_stack(force= True, clear_pending= True, clear_queue= True)
         try:
             demo = self.demos[demo_name]
             self.sim_model = demo["details"]["simulation_model"]
-            self.params, self.current_sim_func, self.presets, panel_data, plotting_data, functions, self.default_dir  = self._get_data(self.settings, demo)
+            self.params, self.current_sim_func, self.presets, panel_data, plotting_data, functions = self._get_data(demo)
 
             model_settings = self.config.get("model_specific_settings", {}).get(self.sim_model, None)
         except Exception as e:
@@ -1104,6 +1208,8 @@ class MainWindow(qw.QMainWindow):
         self.presets_submenu.clear()
         self._create_presets_submenus(self.presets, self.presets_submenu)
 
+        if self.settings["autosave_axis_settings"]:
+            self._save_slot_settings()
         saved_state = self.main_splitter.saveState()
         if hasattr(self, "main_splitter") and self.main_splitter is not None:
             for w in (self.control_panel, self.graph_panel):
@@ -1121,7 +1227,8 @@ class MainWindow(qw.QMainWindow):
         self.current_demo_name = demo_name
         self.current_demo = self.demos[self.current_demo_name]
 
-        self._set_graph_lims(demo, plotting_data)
+        self._load_saved_axis_settings()
+
         self.main_splitter.addWidget(self.control_panel)
         self.main_splitter.addWidget(self.graph_panel)
 
@@ -1134,7 +1241,6 @@ class MainWindow(qw.QMainWindow):
         self.sim_speed_edit.setText(str(self._sleep_time))
 
         self.model_label.setText(f"Model: {demo["name"]}")
-        # qc.QTimer.singleShot(1000, lambda: (self.graph_panel.canvas.draw_idle(), self.tight_layout()))
 
         self.start_sim()
 
@@ -1152,9 +1258,10 @@ class MainWindow(qw.QMainWindow):
         dlg = EditConfigDialog(self.sim_model, tab, self)
         dlg.configApplied.connect(self._on_config_applied)
         dlg.bootstrap()
+        print("reloading config")
+        self._reload_config()
 
     def _on_config_applied(self):
-        # 1) reload config.yml
         with open(rpath("config.yml"), "r") as f:
             self.config = yaml.safe_load(f)
         self.settings = self.config["global_settings"]
@@ -1163,6 +1270,7 @@ class MainWindow(qw.QMainWindow):
         # 2) rebuild the top menus so demo list / global settings changes appear immediately
         self.menuBar().clear()
         self.presets_submenu = self._make_menu(self.presets, self.demos, self.functions)
+        self.refresh_control_panel_and_plots()
         # self.sim_actions[self.get_trajectories.__name__].setChecked(True)
 
     def refresh_plots(self) -> None:
@@ -1205,22 +1313,6 @@ class MainWindow(qw.QMainWindow):
         if hasattr(self.control_panel, "dropdown_tooltips"):
             self.control_panel.dropdown_tooltips = dropdown_tooltips
 
-
-        # if hasattr(self.control_panel, "slot_dropdowns"):
-        #     for widget in self.control_panel.slot_dropdowns:
-        #         combo = widget.dropdown_choices
-        #         if combo is None:
-        #             continue
-        #         prev = combo.currentText()
-        #         combo.blockSignals(True)
-        #         combo.clear()
-        #         combo.addItems(dropdown_choices)
-        #         for i, tip in enumerate(dropdown_tooltips):
-        #             combo.setItemData(i, tip, qc.Qt.ItemDataRole.ToolTipRole)
-        #         if prev in dropdown_choices:
-        #             combo.setCurrentIndex(dropdown_choices.index(prev))
-        #         combo.blockSignals(False)
-
         # Redraw using the current slot configs (new plotting_data may change expressions, labels, etc.)
         try:
             num_slots = len(self.graph_panel.axes)
@@ -1254,6 +1346,9 @@ class MainWindow(qw.QMainWindow):
                 old_slot_settings.append(w.get_settings())
             except Exception:
                 old_slot_settings.append(None)
+
+        self._reload_config()
+        self._set_global_settings(self.settings)
 
         self.refresh_control_panel()
         self.refresh_plots()
@@ -1340,7 +1435,7 @@ class MainWindow(qw.QMainWindow):
 
         dropdown_choices, dropdown_tooltips = self._get_dropdown_choices(formatted)
 
-        self.params, _, _, _, _, _, _ = self._get_data(self.settings, self.current_demo)
+        self.params, _, _, _, _, _ = self._get_data(self.current_demo)
 
         # Build new panel and wire signals exactly like _make_panels()
         new_cp = ControlPanel(
@@ -1423,10 +1518,13 @@ class MainWindow(qw.QMainWindow):
         params_dict = to_plain(self.params)
         dialog = SaveDialog(presets.keys(), self)
         try:
-            shortname, name, desc = dialog.bootstrap()
+            shortname, name, desc, save_axis = dialog.bootstrap()
         except TypeError:
             return
+
         presets[shortname] = {"name": name, "desc": desc, "params": params_dict}
+        if save_axis:
+            presets[shortname]["axis_settings"] = self._get_current_axis_settings()
 
         _dump_to_yaml(presets, self.sim_model)
         

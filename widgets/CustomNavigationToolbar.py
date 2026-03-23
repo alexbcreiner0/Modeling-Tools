@@ -4,28 +4,76 @@ from PyQt6 import QtCore as qc
 from pathlib import Path
 from typing import Any, Optional
 from matplotlib.backends.qt_editor import figureoptions
+from dataclasses import dataclass, fields, is_dataclass, asdict
 
 class CustomNavigationToolbar(NavigationToolbar2QT):
     titles_applied = qc.pyqtSignal()
 
-    def __init__(self, canvas, parent=None, default_dir=None, default_save_name= None):
+    def __init__(self, canvas, parent=None, default_dir=None, default_save_name= "figure", params= None):
         super().__init__(canvas, parent)
+        self.set_default_dir(default_dir)
+        
+        self.default_save_name = default_save_name
+        self.params= params
+
+    def set_default_dir(self, default_dir: str | None):
         self.default_dir = Path(default_dir).expanduser() if default_dir else None
         if self.default_dir:
             self.default_dir.mkdir(parents=True, exist_ok=True)
+
+    def _format_save_name(self) -> str:
+        template = self.default_save_name
         
-        self.default_save_name = default_save_name
+        if self.params is None or not is_dataclass(self.params):
+            return template
+        else:
+            params_dict = asdict(self.params)
+        
+        result = ""
+        i = 0
+        while i < len(template):
+            if template[i] == "{":
+                j = template.find("}", i)
+                if j == -1:
+                    # if syntax error in string (e.g. a starting { but no ending }, just treat the { like any other character)
+                    result += template[i]
+                    i += 1
+                    continue
+
+                key = template[i+1:j]
+
+                show_name = key.endswith("=")
+                if show_name:
+                    # the key doesn't include the equal sign
+                    key = key[:-1]
+                
+                if key in params_dict:
+                    value = params_dict[key]
+                    if show_name:
+                        result += f"{key}={value}"
+                    else:
+                        result += str(value)
+                    i = j + 1
+                else:
+                    result += f"{key}"
+                    i = j + 1
+            else:
+                result += template[i]
+                i += 1
+
+        return result
 
     def save_figure(self, *args):
         """
         Same as stock toolbar, but dialog starts in self.default_dir.
         """
+        name = self._format_save_name()
         if self.default_dir:
             # Use Qt dialog directly so we can force starting directory
             fname, _ = qw.QFileDialog.getSaveFileName(
                 self.parent(),                       # parent widget
                 "Save the figure",
-                str(self.default_dir / "figure.png"),# suggested path/name
+                str(self.default_dir / f"{name}.png"), # suggested path/name
                 "PNG (*.png);;PDF (*.pdf);;SVG (*.svg);;All files (*)",
             )
             if not fname:

@@ -7,7 +7,8 @@ from typing import Any, Callable, Optional
 from importlib import import_module, reload
 import numpy as np
 from PyQt6 import QtCore as qc, QtWidgets as qw
-from tools.modelling_tools import list_subdirs, create_new_model_dir
+from tools.loader import list_subdirs
+from tools.creation_tools import create_new_model_dir
 from paths import rpath
 
 class CheckFailure(Exception):

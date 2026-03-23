@@ -12,3 +12,4 @@ def get_trajectories(params: Params):
         yield economy.traj, economy.t
 
     economy.get_analytic_curves()
+    yield economy.traj, economy.t

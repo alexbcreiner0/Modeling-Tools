@@ -17,6 +17,9 @@ class GlobalSettingsTab(qw.QWidget):
             global_settings = yaml.safe_load(f).get("global_settings")
             save_dir = global_settings.get("default_save_dir", "")
             save_name = global_settings.get("default_save_name", "figure")
+            run_on_startup = global_settings.get("run_on_startup", True)
+            autosave_axis_settings = global_settings.get("autosave_axis_settings", False)
+
         self.edit_default_save_dir = qw.QLineEdit(save_dir)
         self.btn_browse_save_dir = qw.QToolButton()
         self.btn_browse_save_dir.setText("…")
@@ -29,9 +32,23 @@ class GlobalSettingsTab(qw.QWidget):
         save_dir_row.addWidget(self.btn_browse_save_dir, 0)
 
         self.save_name = qw.QLineEdit(save_name)
+        self.run_on_startup = qw.QCheckBox("Auto-run simulation on startup")
+        self.autosave_axis_settings = qw.QCheckBox("Auto-save axis settings")
+        self.checkbox_row = qw.QWidget()
+        self.run_on_startup.setChecked(run_on_startup)
+        self.autosave_axis_settings.setChecked(autosave_axis_settings)
+        self.checkbox_row_lay = qw.QHBoxLayout(self.checkbox_row)
+        self.checkbox_row_lay.addWidget(self.run_on_startup)
+        self.checkbox_row_lay.addWidget(self.autosave_axis_settings)
 
         sec.form.addRow("Default image save directory:", self._wrap_layout(save_dir_row))
-        sec.form.addRow("Default image save name:", self.save_name, help_text= "test")
+        help_text = "A template string for your save name to default to. Examples: \n \
+                    'my_pic' will result in the save name defaulting to my_pic.png. \n \
+                    'my_pic {a} {b}' will attempt to replace {a} and {b} with the values of the parameter named a and b in your model. \n \
+                    'my_pic {a=}' will attempt to replace {a=} with the string 'a=<value of a>. So same as above except it titles the parameter with its name. \n \
+                    'If a is not the name of a parameter in either of the above cases, then {a} will just be replaced with a in the name."
+        sec.form.addRow("Default image save name:", self.save_name, help_text= help_text)
+        sec.form.addRow('', self.checkbox_row)
 
         # TODO: make apply/save actually work this way
         # hint = qw.QLabel(
@@ -59,3 +76,13 @@ class GlobalSettingsTab(qw.QWidget):
         if path:
             self.edit_default_save_dir.setText(path)
             self.window.status.show("Note: To actually apply the changes, you must first click Apply.", 2000)
+
+    def get_settings_for_config(self):
+        settings = {
+            "save_dir": self.edit_default_save_dir.text(),
+            "save_name": self.save_name.text(),
+            "run_on_startup": self.run_on_startup.isChecked(),
+            "autosave_axis_settings": self.autosave_axis_settings.isChecked(),
+        }
+
+        return settings

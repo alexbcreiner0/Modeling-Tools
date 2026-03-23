@@ -9,11 +9,16 @@ class AxesControlWidget(qw.QWidget):
                        (editingFinished on any line edit OR after Load).
     """
     settingsChanged = qc.pyqtSignal()
+    catSettingsChanged = qc.pyqtSignal()
 
-    def __init__(self, z_axis= False, parent=None):
+    def __init__(self, z_axis= False, saved_limits= None, parent=None):
         super().__init__(parent)
 
-        outer = qw.QHBoxLayout(self)
+        outer_outer = qw.QVBoxLayout(self)
+        outer_outer.setContentsMargins(1,0,1,0)
+        outer_outer.setSpacing(2)
+
+        outer = qw.QHBoxLayout()
         outer.setContentsMargins(0,0,8,0)
         outer.setSpacing(10)
 
@@ -27,8 +32,9 @@ class AxesControlWidget(qw.QWidget):
 
         self.is_3d = z_axis
 
-        self.save_button = qw.QPushButton("Save Current Axes")
-        self.load_button = qw.QPushButton("Load Saved Axes")
+        self.save_button = qw.QPushButton("Store Current View")
+        self.load_button = qw.QPushButton("Load Stored View")
+        self.save_category_button = qw.QPushButton("Save View as Default")
 
         self.xmin_edit = qw.QLineEdit()
         self.xmax_edit = qw.QLineEdit()
@@ -40,8 +46,6 @@ class AxesControlWidget(qw.QWidget):
         for edit in (self.xmin_edit, self.xmax_edit, self.ymin_edit, self.ymax_edit, self.zmin_edit, self.zmax_edit):
             # edit.setMaximumWidth(70)
             edit.textChanged.connect(self._on_editing_finished)
-
-        # Layout: [Save] [Load]   X: [ .. ] to [ .. ]   Y: [ .. ] to [ .. ]
 
         top_entries.addSpacing(8)
         top_entries.addWidget(qw.QLabel("X-axis from:"), stretch= 0)
@@ -82,6 +86,14 @@ class AxesControlWidget(qw.QWidget):
 
         entries.addWidget(self.z_row)
 
+        save_load_button = qw.QWidget()
+        save_load_button_lay = qw.QHBoxLayout(save_load_button)
+        save_load_button_lay.setContentsMargins(0,0,0,0)
+        save_load_button_lay.setSpacing(2)
+        save_load_button_lay.addWidget(self.save_button)
+        save_load_button_lay.addWidget(self.load_button)
+        save_load_button_lay.addWidget(self.save_category_button)
+
         coords = qw.QVBoxLayout()
         coords.setContentsMargins(0,0,0,0)
         coords.setSpacing(2)
@@ -94,12 +106,12 @@ class AxesControlWidget(qw.QWidget):
         bottom_coords.setContentsMargins(0,0,0,0)
         bottom_coords.setSpacing(2)
 
-        top_coords.addWidget(self.save_button)
-        bottom_coords.addWidget(self.load_button)
+        # top_coords.addWidget(self.save_button)
+        # bottom_coords.addWidget(self.load_button)
 
-        self.saved_x_label = qw.QLabel("Saved X: -")
-        self.saved_y_label = qw.QLabel("Saved Y: -")
-        self.saved_z_label = qw.QLabel("Saved Z: -")
+        self.saved_x_label = qw.QLabel("Stored X: -")
+        self.saved_y_label = qw.QLabel("Stored Y: -")
+        self.saved_z_label = qw.QLabel("Stored Z: -")
 
         self.z_saved_row = qw.QWidget()
 
@@ -120,14 +132,25 @@ class AxesControlWidget(qw.QWidget):
         outer.addLayout(entries)
         outer.addLayout(coords)
 
+        outer_outer.addLayout(outer)
+        outer_outer.addWidget(save_load_button)
+
         # per-widget saved limits
-        self._saved_xlim = None
-        self._saved_ylim = None
-        self._saved_zlim = None
+        if saved_limits is not None and isinstance(saved_limits, tuple) and len(saved_limits) >= 2:
+            self._saved_xlim = saved_limits[0]
+            self._saved_ylim = saved_limits[1]
+        else:
+            self._saved_xlim = None
+            self._saved_ylim = None
+        if saved_limits is not None and isinstance(saved_limits, tuple) and len(saved_limits) >= 3:
+            self._saved_zlim = saved_limits[2]
+        else:
+            self._saved_zlim = None
         self._update_saved_labels()
 
         self.save_button.clicked.connect(self._on_save_clicked)
         self.load_button.clicked.connect(self._on_load_clicked)
+        self.save_category_button.clicked.connect(self._on_save_cat_clicked)
 
         self._update_z_visibility()
 
@@ -175,7 +198,7 @@ class AxesControlWidget(qw.QWidget):
         """
         Programmatically update the line edits to match given limits.
         """
-        if self.is_3d:
+        if zlim is not None:
             (x0, x1), (y0, y1), (z0, z1) = xlim, ylim, zlim
         else:
             (x0, x1), (y0, y1) = xlim, ylim
@@ -186,7 +209,7 @@ class AxesControlWidget(qw.QWidget):
             (self.ymin_edit, y0),
             (self.ymax_edit, y1),
         )
-        if self.is_3d:
+        if zlim is not None:
             more_edits = (
                 (self.zmin_edit, z0),
                 (self.zmax_edit, z1),
@@ -200,18 +223,18 @@ class AxesControlWidget(qw.QWidget):
     # ---- internal handlers ----
     def _update_saved_labels(self):
         if self._saved_xlim is None or self._saved_ylim is None:
-            self.saved_x_label.setText("Saved X: –")
-            self.saved_y_label.setText("Saved Y: –")
-            if self.is_3d:
-                self.saved_z_label.setText("Saved Z: -")
+            self.saved_x_label.setText("Stored X: –")
+            self.saved_y_label.setText("Stored Y: –")
+            if self._saved_zlim is not None:
+                self.saved_z_label.setText("Stored Z: -")
         else:
             x0, x1 = self._saved_xlim
             y0, y1 = self._saved_ylim
-            self.saved_x_label.setText(f"Saved X: ({x0:g}, {x1:g})")
-            self.saved_y_label.setText(f"Saved Y: ({y0:g}, {y1:g})")
-            if self.is_3d:
+            self.saved_x_label.setText(f"Stored X: ({x0:g}, {x1:g})")
+            self.saved_y_label.setText(f"Stored Y: ({y0:g}, {y1:g})")
+            if self._saved_zlim is not None:
                 z0, z1 = self._saved_zlim
-                self.saved_z_label.setText(f"Saved Z: ({z0:g}, {z1:g})")
+                self.saved_z_label.setText(f"Stored Z: ({z0:g}, {z1:g})")
 
     def _on_editing_finished(self):
         # Whenever user finishes editing any box, tell the outside world
@@ -230,6 +253,9 @@ class AxesControlWidget(qw.QWidget):
         # optional: also emit settingsChanged so that whatever is currently
         # in the boxes definitely gets applied to the plot.
         self.settingsChanged.emit()
+
+    def _on_save_cat_clicked(self):
+        self.catSettingsChanged.emit()
 
     def _on_load_clicked(self):
         if self.is_3d:

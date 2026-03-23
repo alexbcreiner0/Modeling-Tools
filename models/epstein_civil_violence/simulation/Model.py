@@ -188,8 +188,6 @@ class EpsteinModel(mesa.Model):
         }
         states= np.array([state_map[agent.state] for agent in self.agents if isinstance(agent, Citizen)])
         _, counts = np.unique(states, return_counts= True)
-        print(f"{_=}")
-        print(f"{counts=}")
 
     def get_grid(self):
         EMPTY   = 0

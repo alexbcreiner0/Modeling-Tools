@@ -1,4 +1,4 @@
-import sys
+import yaml
 from PyQt6 import (
     QtCore as qc,
     QtWidgets as qw,
@@ -34,6 +34,7 @@ class ControlPanel(qw.QWidget):
     slotPlotChoiceChanged = qc.pyqtSignal(int)
     slotOptionsChanged = qc.pyqtSignal(int)
     slotAxesChanged = qc.pyqtSignal(int)
+    slotAxesCatChanged = qc.pyqtSignal(int)
     paramsReplaced = qc.pyqtSignal(object)
 
     def __init__(self, params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data, sim_model, demo, current_tab= 0):
@@ -189,7 +190,7 @@ class ControlPanel(qw.QWidget):
 
         main_control_layout.addStretch(1)
 
-        self._rebuild_slot_dropdowns(self.rows_spinner.value(), self.cols_spinner.value())
+        # self._rebuild_slot_dropdowns(self.rows_spinner.value(), self.cols_spinner.value())
 
         for i in range(len(self.slot_dropdowns)):
             self.get_tooltip(i)
@@ -227,27 +228,6 @@ class ControlPanel(qw.QWidget):
             for _, info in row.items():
                 self._collect_metadeps_from_info(info, meta_deps)
         return meta_deps
-
-    # def _get_metadeps(self) -> Dict[str, list]:
-    #     meta_deps = {} # will be a mapping from metaparameters to lists of the parameters they influence
-    #     for row_name, row in self.panel_data.items():
-    #         if row_name.startswith("divider"):
-    #             continue
-    #         for entry_key, info in row.items():
-    #             if info.get("control_type") == "entry_block" and "dim_from" in info:
-    #                 meta = info["dim_from"]
-    #                 new_deps = []
-    #                 if isinstance(meta, str):
-    #                     new_deps.append(meta)
-    #                 if isinstance(meta, list):
-    #                     if isinstance(meta[0], str):
-    #                         new_deps.append(meta[0])
-    #                     if isinstance(meta[1], str):
-    #                         new_deps.append(meta[1])
-    #                 for param in new_deps:
-    #                     meta_deps.setdefault(param, []).append(info["param_name"])
-
-    #     return meta_deps
 
     def set_slot_dropdown_index(self, slot_index: int, idx: int):
         if 0 <= slot_index < len(self.slot_dropdowns):
@@ -304,7 +284,10 @@ class ControlPanel(qw.QWidget):
             default_font = self._auto_fontsize(rows, cols)
             options_widget = SlotControlsWidget()
             options_widget.legend_size_spin.setValue(default_font)
-            axes_widget = AxesControlWidget()
+            if isinstance(old_saved_limits, list) and slot_index < len(old_saved_limits):
+                axes_widget = AxesControlWidget(saved_limits= old_saved_limits[slot_index])
+            else:
+                axes_widget = AxesControlWidget()
 
             if self.constructing: self._set_initial_plot_params(axes_widget)
 
@@ -323,6 +306,7 @@ class ControlPanel(qw.QWidget):
             dropdown.infoBoxHovered.connect(lambda s=slot_index: self._on_info_hovered(s))
             options_widget.settingsChanged.connect(lambda s=slot_index: self.slotOptionsChanged.emit(s))
             axes_widget.settingsChanged.connect(lambda s=slot_index: self.slotAxesChanged.emit(s))
+            axes_widget.catSettingsChanged.connect(lambda s=slot_index: self.slotAxesCatChanged.emit(s))
     
         if old_limits is not None:
             for i, lims in enumerate(old_limits):
@@ -330,10 +314,17 @@ class ControlPanel(qw.QWidget):
                     break
                 if lims is None:
                     continue
-                xlim, ylim = lims
-                if xlim is None or ylim is None:
-                    continue
-                self.slot_axes_controls[i].set_limits(xlim, ylim)
+                if len(lims) == 2:
+                    xlim, ylim = lims
+                    if xlim is None or ylim is None:
+                        continue
+                    self.slot_axes_controls[i].set_limits(xlim, ylim)
+                elif len(lims) == 3:
+                    xlim, ylim, zlim = lims
+                    if xlim is None or ylim is None or zlim is None:
+                        continue
+                    print(f"{xlim=}, {ylim=}, {zlim=}")
+                    self.slot_axes_controls[i].set_limits(xlim, ylim, zlim)
 
             last_valid = None
             for lims in reversed(old_limits):
@@ -351,7 +342,9 @@ class ControlPanel(qw.QWidget):
             for i, idx in enumerate(old_dropdown_indices):
                 if i >= len(self.slot_dropdowns):
                     break
-                if idx is None or idx < 0:
+                if idx is None:
+                    continue
+                if idx < 0:
                     continue
                 idx = min(idx, len(self.dropdown_choices) - 1) # safeguard in case user deleted a category
                 self.slot_dropdowns[i].dropdown_choices.setCurrentIndex(idx)
@@ -498,23 +491,28 @@ class ControlPanel(qw.QWidget):
             return None
         return self.slot_axes_controls[slot_index].get_limits()
 
-    def _emit_plot_dim_change(self):
+    def get_slot_settings(self):
         rows = self.rows_spinner.value()
         cols = self.cols_spinner.value()
 
-        old_limits = [w.get_limits() for w in self.slot_axes_controls]
-        old_saved_limits = [w.get_saved_limits() for w in self.slot_axes_controls]
-        old_dropdown_indices = [w.dropdown_choices.currentIndex() for w in self.slot_dropdowns]
-        old_checked = [w.get_current_checked_boxes() for w in self.slot_dropdowns]
-        old_slot_settings = []
+        limits = [w.get_limits() for w in self.slot_axes_controls]
+        saved_limits = [w.get_saved_limits() for w in self.slot_axes_controls]
+        dropdown_indices = [w.dropdown_choices.currentIndex() for w in self.slot_dropdowns]
+        checked = [w.get_current_checked_boxes() for w in self.slot_dropdowns]
+        slot_settings = []
         for w in self.slot_options:
             try:
-                old_slot_settings.append(w.get_settings())
+                slot_settings.append(w.get_settings())
             except Exception:
-                old_slot_settings.append(None)
+                slot_settings.append(None)
 
+        return rows, cols, limits, saved_limits, dropdown_indices, checked, slot_settings
+
+    def _emit_plot_dim_change(self):
+
+        rows, cols, old_limits, old_saved_limits, old_dropdown_indices, old_checked, old_slot_settings = self.get_slot_settings()
         self._layout_rebuild_in_progress = True
-        self.layoutChanged.emit(rows, cols)
+        self.layoutChanged.emit(rows, cols) # this redundancy was necessary at some point I think, I can't remember what wasn't working without it
         self._rebuild_slot_dropdowns(
             rows, cols, 
             old_limits= old_limits, 
@@ -525,6 +523,27 @@ class ControlPanel(qw.QWidget):
         )
 
         self._layout_rebuild_in_progress = False
+        self.layoutChanged.emit(rows, cols)
+
+    def _alter_slot_layout(self, rows, cols, limits= [], saved_limits= [], dropdown_indices= [], checked= [], slot_settings= []):
+        self._layout_rebuild_in_progress = True
+        self.layoutChanged.emit(rows, cols)
+        self._rebuild_slot_dropdowns(
+            rows, cols,
+            old_limits= limits,
+            old_dropdown_indices= dropdown_indices,
+            old_checked= checked,
+            old_saved_limits= saved_limits,
+            old_slot_settings= slot_settings,
+        )
+        self._layout_rebuild_in_progress = False
+        self.rows_spinner.blockSignals(True)
+        self.cols_spinner.blockSignals(True)
+        self.rows_spinner.setValue(rows)
+        self.cols_spinner.setValue(cols)
+        self.rows_spinner.blockSignals(False)
+        self.cols_spinner.blockSignals(False)
+
         self.layoutChanged.emit(rows, cols)
 
     def make_widget(self, info, params):

@@ -4,9 +4,8 @@ from paths import rpath
 import os, copy
 import yaml
 from widgets.common import make_shortname
-from tools.modelling_tools import FlowSeq, flowseq_representer
+from tools.creation_tools import flow_seqify, atomic_write
 import logging
-from .common import atomic_write
 from .RowStackWidgets import *
 from .HelpFormLayout import HelpFormLayout
 from matplotlib import colormaps
@@ -18,7 +17,6 @@ from PyQt6 import (
     QtGui as qg
 )
 
-yaml.add_representer(FlowSeq, flowseq_representer, Dumper=yaml.SafeDumper)
 logger = logging.getLogger(__name__)
 
 def list_subdirs(path):
@@ -789,7 +787,8 @@ class PlotSettingsTab(qw.QWidget):
             new_data["labels"] = labels
         new_data["colors"] = colors
         new_data["traj_key"] = self.curve_traj_key.text()
-        new_data["traj_key_x"] = self.curve_traj_key_x.text()
+        if self.curve_traj_key_x.text().strip():
+            new_data["traj_key_x"] = self.curve_traj_key_x.text()
         if self.name_edit.text(): new_data["toggled"] = self.toggled_check.isChecked()
 
     def _build_heatmap_panel(self) -> qw.QWidget:
@@ -1505,8 +1504,8 @@ class PlotSettingsTab(qw.QWidget):
 
     def on_apply_clicked(self) -> None:
         self._rebuild_plot_data_from_tree()
-        self._normalize_flowseqs_for_dump(self._working_plot_data)
-        self._normalize_flowseqs_for_dump(self._original_plot_data)
+        flow_seqify(self._working_plot_data)
+        flow_seqify(self._original_plot_data)
 
         try:
             for model, _ in self._original_plot_data.items():
@@ -1521,56 +1520,6 @@ class PlotSettingsTab(qw.QWidget):
                 new_dict = self._working_plot_data[model]
                 self._original_plot_data[model] = copy.deepcopy(new_dict)
             
-    def _normalize_flowseqs_for_dump(self, data: dict) -> dict:
-        for model_name, model_dict in data.items():
-            for cat_name, cat_dict in model_dict.items():
-                plots_dict = cat_dict["plots"]
-                for plot_name, plot_dict in plots_dict.items():
-                    if not plot_dict.get("special", False):
-                        labels, colors = plot_dict.get("labels"), plot_dict.get("colors")
-                        if isinstance(labels, (list, tuple)):
-                            plot_dict["labels"] = FlowSeq(labels)
-                        if isinstance(colors, (list, tuple)):
-                            plot_dict["colors"] = FlowSeq(colors)
-                    if plot_dict.get("special") == "heatmap" and plot_dict.get("overlay_markers", None):
-                        overlay_dict = plot_dict["overlay_markers"]
-                        codes = overlay_dict.get("codes")
-                        sizes = overlay_dict.get("sizes", [])
-                        labels = overlay_dict.get("labels", [])
-                        markers = overlay_dict.get("markers", [])
-                        colors = overlay_dict.get("colors", [])
-                        edgecolors = overlay_dict.get("edgecolors", [])
-
-                        overlay_dict["codes"] = FlowSeq(codes)
-                        if len(sizes) > 0: overlay_dict["sizes"] = FlowSeq(sizes)
-                        if len(labels) > 0: overlay_dict["labels"] = FlowSeq(labels)
-                        if len(markers) > 0: overlay_dict["markers"] = FlowSeq(markers)
-                        if len(colors) > 0: overlay_dict["colors"] = FlowSeq(colors)
-                        if len(edgecolors) > 0: overlay_dict["edgecolors"] = FlowSeq(edgecolors)
-
-        demos = data.get("demos", {})
-        for _k, demo in demos.items():
-            if not isinstance(demo, dict):
-                continue
-            details = demo.get("details")
-            if not isinstance(details, dict):
-                continue
-
-            lims = details.get("starting_lims")
-            if not lims:
-                continue
-
-            if (
-                isinstance(lims, (list, tuple))
-                and len(lims) == 2
-                and all(isinstance(row, (list, tuple)) and len(row) == 2 for row in lims)
-            ):
-                x = [float(lims[0][0]), float(lims[0][1])]
-                y = [float(lims[1][0]), float(lims[1][1])]
-                details["starting_lims"] = FlowSeq([FlowSeq(x), FlowSeq(y)])
-
-        return data
-
     def set_model(self, model_name: str):
         idx = self.model_combo.findText(model_name)
         if idx >= 0 and idx != self.model_combo.currentIndex():

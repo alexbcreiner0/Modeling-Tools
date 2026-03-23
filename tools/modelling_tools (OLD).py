@@ -31,20 +31,7 @@ def flowseq_representer(dumper, data):
 
 yaml.add_representer(FlowSeq, flowseq_representer, Dumper=yaml.SafeDumper)
 
-def get_dict_from_cpp(executable_path: str) -> dict:
-
-    """ Runs a C++ binary from the given path, takes its standard output, assumes it is in yaml format and turns it into a dictionary """
-    completed = subprocess.run(
-        [executable_path],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-    output = completed.stdout.strip()
-    data = yaml.safe_load(output)
-    return data
-
+# still used
 def create_new_model_dir(name= None, gui_dialog= False):
 
     if name is None:
@@ -176,7 +163,6 @@ def _add_plot(sim_name, name, labels, category, traj_key, toggled= False, checkb
     print(f"Done adding plot {name} to {sim_name}.")
 
 def _get_new_plot_category_info() -> dict:
-
     output = {}
 
     correct = False

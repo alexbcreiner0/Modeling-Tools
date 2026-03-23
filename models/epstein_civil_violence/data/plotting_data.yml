@@ -21,6 +21,7 @@ all:
         markers: [^, o, o, o]
         colors: ['#54C4C4', '#9BD08A', '#D73229', '#565656']
         edgecolors: ['#54C4C4', '#9BD08A', '#D73229', '#565656']
+  default_lims: [[-1.0, 41.0], [-1.0, 41.0]]
 demographics:
   name: Demographics
   projection: 2d
@@ -28,6 +29,7 @@ demographics:
   grid_visible: false
   ticks_visible: false
   frame_visible: false
+  default_lims: [[-1.40865, 1.3952], [-1.02062, 1.08226]]
   plots:
     citizen_states:
       special: pie

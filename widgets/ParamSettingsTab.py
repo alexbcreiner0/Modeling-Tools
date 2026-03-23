@@ -8,7 +8,7 @@ from dataclasses import MISSING, dataclass, fields, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 import logging
-from .common import atomic_write
+from tools.creation_tools import atomic_write
 
 import numpy as np
 from numpy import ndarray

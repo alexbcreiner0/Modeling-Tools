@@ -11,11 +11,9 @@ from PyQt6 import (
     QtGui as qg
 )
 
-from widgets.EditConfigDialog import load_presets
-from widgets.common import FormSection, make_shortname, atomic_write
-from tools.modelling_tools import FlowSeq, flowseq_representer, _add_demo, resave_config
-
-yaml.add_representer(FlowSeq, flowseq_representer, Dumper=yaml.SafeDumper)
+from tools.loader import load_presets
+from widgets.common import FormSection, make_shortname
+from tools.creation_tools import flow_seqify, atomic_write
 
 class DemoSettingsTab(qw.QWidget):
     
@@ -316,11 +314,14 @@ class DemoSettingsTab(qw.QWidget):
             try:
                 xlims = [float(self.edit_xlim_lo.text().strip()), float(self.edit_xlim_hi.text().strip())]
                 ylims = [float(self.edit_ylim_lo.text().strip()), float(self.edit_ylim_hi.text().strip())]
-                lims = FlowSeq([FlowSeq(xlims), FlowSeq(ylims)])
-                new_demo["details"]["starting_lims"] = lims
             except ValueError:
                 self.window.status.show("Error reading your limits. Please double check.", 4000)
                 return
+            else:
+                axis_settings = new_demo["details"].setdefault("axis_settings", {})
+                lims = flow_seqify([xlims, ylims])
+                # lims = FlowSeq([FlowSeq(xlims), FlowSeq(ylims)])
+                axis_settings["limits"] = {"a1": lims}
 
         return new_demo
 
@@ -353,7 +354,7 @@ class DemoSettingsTab(qw.QWidget):
         self.combo_function.setCurrentIndex(func_index)
         self.combo_preset.setCurrentIndex(preset_index)
 
-        lims = details.get("starting_lims", -1)
+        lims = details.get("axis_settings", {}).get("limits", {}).get("a1", -1)
         if lims != -1:
             x0, x1 = lims[0]
             y0, y1 = lims[1]
@@ -448,12 +449,18 @@ class DemoSettingsTab(qw.QWidget):
                 return k
         return None
 
-    def on_apply_clicked(self, save_dir= ""):
+    def on_apply_clicked(self, settings= {}):
 
-        if save_dir != "":
-            self.working_data["global_settings"]["default_save_dir"] = save_dir
+        if "save_dir" in settings:
+            self.working_data["global_settings"]["default_save_dir"] = settings.get("save_dir", ".")
+        if "save_name" in settings:
+            self.working_data["global_settings"]["default_save_name"] = settings.get("save_name", "figure")
+        if "run_on_startup" in settings:
+            self.working_data["global_settings"]["run_on_startup"] = settings.get("run_on_startup", True)
+        if "autosave_axis_settings" in settings:
+            self.working_data["global_settings"]["autosave_axis_settings"] = settings.get("autosave_axis_settings", False)
 
-        self._normalize_flowseqs_for_dump(self.working_data)
+        self._normalize_for_dump(self.working_data)
         path = rpath("config.yml")
         atomic_write(path, self.working_data)
         self.original_data = copy.deepcopy(self.working_data)
@@ -461,7 +468,9 @@ class DemoSettingsTab(qw.QWidget):
 
         self._refresh_demos()
 
-    def _normalize_flowseqs_for_dump(self, data: dict) -> dict:
+    def _normalize_for_dump(self, data: dict) -> dict:
+        """ Basically just flow_seqify's the data and then makes sure a dimension is specified for axis settings """
+        flow_seqify(data)
         demos = data.get("demos", {})
         for _k, demo in demos.items():
             if not isinstance(demo, dict):
@@ -470,18 +479,17 @@ class DemoSettingsTab(qw.QWidget):
             if not isinstance(details, dict):
                 continue
 
-            lims = details.get("starting_lims")
-            if not lims:
-                continue
+            axis_settings = details.get("axis_settings", {})
+            if axis_settings == {}:
+                return data
 
-            if (
-                isinstance(lims, (list, tuple))
-                and len(lims) == 2
-                and all(isinstance(row, (list, tuple)) and len(row) == 2 for row in lims)
-            ):
-                x = [float(lims[0][0]), float(lims[0][1])]
-                y = [float(lims[1][0]), float(lims[1][1])]
-                details["starting_lims"] = FlowSeq([FlowSeq(x), FlowSeq(y)])
+            dim = axis_settings.get("dimension")
+            if dim is not None:
+                dim = flow_seqify(dim)
+                axis_settings["dimension"] = dim
+            else:
+                axis_settings["dimension"] = flow_seqify([1,1])
 
         return data
+
 

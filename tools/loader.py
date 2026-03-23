@@ -9,9 +9,16 @@ from paths import rpath
 from pathlib import Path
 import logging
 import sys
-# from parameters import Params, params_from_mapping
 
+# from parameters import Params, params_from_mapping
 logger = logging.getLogger(__name__)
+
+def list_subdirs(path):
+    return [
+        p.name
+        for p in Path(path).iterdir()
+        if p.is_dir()
+    ]
 
 def load_parameters_class_from_file(parameters_py: str | Path):
     """
@@ -231,3 +238,30 @@ def reload_package_folder(anchor_module):
     # Reload dependencies first, anchor last
     for name in sorted(to_reload):
         importlib.reload(sys.modules[name])
+
+def flow_seqify(data: dict) -> dict:
+    """ Recursively reformat all list-like objects of a dictionary so that yaml.dump makes them look nice """
+    new_data = {}
+    for key, item in data:
+        if isinstance(item, dict):
+            new_data[key] = flow_seqify(item) # recurse on dicts
+        elif isinstance(item, (list, tuple, np.ndarray)):
+            new_list = _flow_seqify_list(item)
+            new_data[key] = new_list
+        else:
+            new_data[key] = item
+
+    return new_data
+
+def _flow_seqify_list(ls: list | tuple | np.ndarray) -> list:
+    new_list = []
+    for thing in ls:
+        if isinstance(thing, (list, tuple, np.ndarray)):
+            new_thing = _flow_seqify_list(thing)
+        else:
+            new_thing = thing
+        new_list.append(new_thing)
+
+    return new_list
+
+
