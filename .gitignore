@@ -5,6 +5,8 @@ __pycache__/
 venv/
 .venv/
 
+dev/
+
 logs/*
 !logs/.gitkeep
 
@@ -26,3 +28,12 @@ model/law_of_value_calculation
 model/new_model
 dimensions.txt
 config.yml
+
+release/linux/build
+release/linux/*.tar.gz
+
+release/windows/*.exe
+release/macos/dist
+release/macos/build
+release/macos/dmgroot
+release/macos/*.dmg
