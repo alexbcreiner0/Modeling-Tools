@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="modeling-tools"
+APP_NAME="Modeling-Tools"
 APP_AUTHOR="Alex Creiner"
 
 INSTALL_ROOT="$HOME/.local/share/$APP_NAME"
@@ -46,7 +46,7 @@ echo "Removing application files..."
 remove_if_exists "$INSTALL_ROOT"
 remove_if_exists "$DESKTOP_FILE"
 remove_if_exists "$ICON_FILE"
-remove_if_exists "$DATA_DIR"
+# remove_if_exists "$DATA_DIR" # this is just the install root
 remove_if_exists "$CACHE_DIR"
 
 update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true

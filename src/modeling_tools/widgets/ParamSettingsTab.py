@@ -577,7 +577,7 @@ class ParamSettingsTab(qw.QWidget):
                 atomic_write(path, code)
         except Exception as e:
             self.window.status.show(f"Error writing changes: {e}", 8000)
-            logger.log(logger.ERROR, "Error writing changes", exc_info= e)
+            logger.log(logging.ERROR, "Error writing changes", exc_info= e)
         else:
             for model, _ in self._original_data.items():
                 specs = self._working_data[model]

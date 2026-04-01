@@ -2,7 +2,7 @@
 # make sure script crashes when it should to avoid doing damage
 set -euo pipefail 
 
-APP_NAME="modeling-tools"
+APP_NAME="Modeling-Tools"
 INSTALL_ROOT="$HOME/.local/share/$APP_NAME"
 BIN_DIR="$INSTALL_ROOT/bin"
 DESKTOP_DIR="$HOME/.local/share/applications"
