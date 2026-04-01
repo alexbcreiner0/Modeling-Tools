@@ -459,7 +459,10 @@ class ControlPanel(qw.QWidget):
 
     def _get_slot_projection(self, idx):
         keys = list(self.plotting_data.keys())
-        choice_name = keys[idx]
+        try:
+            choice_name = keys[idx]
+        except IndexError:
+            return "2d"
         choice_dict = self.plotting_data.get(choice_name, {})
         projection = choice_dict.get("projection", "2d")
 

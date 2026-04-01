@@ -37,6 +37,9 @@ def bundle_root() -> Path:
         return Path(sys._MEIPASS)  # type: ignore[attr-defined]
     return Path(__file__).resolve().parent
 
+def assets_path(*parts: str) -> Path:
+    return bundle_root().parent.parent.joinpath("assets", *parts)
+
 def defaults_path(*parts: str) -> Path:
     # defaults lives one level above the package if you keep it at repo top level
     return bundle_root().parent.parent.joinpath("defaults", *parts)

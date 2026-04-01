@@ -234,7 +234,10 @@ class DemoSettingsTab(qw.QWidget):
         self.combo_preset.clear()
         current_model = self.combo_model.currentText()
         if not current_model: return
-        presets = load_presets(self.env, current_model)
+        try:
+            presets = load_presets(self.env, current_model)
+        except Exception:
+            presets = []
         for preset in presets:
             self.combo_preset.addItem(preset)
 
@@ -452,14 +455,18 @@ class DemoSettingsTab(qw.QWidget):
 
     def on_apply_clicked(self, settings= {}):
 
-        if "save_dir" in settings:
-            self.working_data["global_settings"]["default_save_dir"] = settings.get("save_dir", ".")
+        if "default_save_dir" in settings:
+            self.working_data["global_settings"]["default_save_dir"] = settings.get("default_save_dir", str(Path.home()))
         if "save_name" in settings:
             self.working_data["global_settings"]["default_save_name"] = settings.get("save_name", "figure")
         if "run_on_startup" in settings:
             self.working_data["global_settings"]["run_on_startup"] = settings.get("run_on_startup", True)
         if "autosave_axis_settings" in settings:
             self.working_data["global_settings"]["autosave_axis_settings"] = settings.get("autosave_axis_settings", False)
+        if "user_models_dir" in settings:
+            self.working_data["global_settings"]["user_models_dir"] = settings.get("user_models_dir", str(self.env.models_dir))
+        if "user_logs_dir" in settings:
+            self.working_data["global_settings"]["user_logs_dir"] = settings.get("user_logs_dir", str(self.env.log_dir))
 
         self._normalize_for_dump(self.working_data)
         path = self.env.config_dir / "config.yml" 

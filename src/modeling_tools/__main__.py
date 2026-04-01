@@ -5,7 +5,7 @@ from PyQt6 import (
 ) 
 import yaml
 import sys, os, shutil
-from .paths import APP_DIR
+from .paths import APP_DIR, assets_path
 from .bootstrap import bootstrap_user_environment
 import logging, atexit
 import logging.config
@@ -47,6 +47,8 @@ def apply_dpi_scaled_font(app: qw.QApplication, base_pt: float = 10.0) -> None:
 def apply_display_stuff(app):
     apply_dpi_scaled_font(app)
     app.setStyle("Fusion")
+    app.setWindowIcon(qg.QIcon(str(assets_path("icon.png"))))
+    app.setDesktopFileName("modeling-tools")
 
     light_palette = qg.QPalette()
 
@@ -72,6 +74,7 @@ def apply_display_stuff(app):
 
 def main():
     env = bootstrap_user_environment()
+
 
     LOG_FILE = env.log_dir / "log.jsonl"
 

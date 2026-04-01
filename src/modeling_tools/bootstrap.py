@@ -17,7 +17,7 @@ from .paths import (
     ensure_dirs,
 )
 
-@dataclass(frozen=True)
+@dataclass
 class BootstrapResult:
     config_dir: Path
     data_dir: Path
@@ -74,7 +74,7 @@ def bootstrap_user_environment() -> BootstrapResult:
         log_dir=LOG_DIR,
         models_dir=MODELS_DIR,
         config_file=CONFIG_FILE,
-        app_dir=APP_DIR
+        app_dir=APP_DIR,
     )
 
 # print(f"{CONFIG_DIR=}")

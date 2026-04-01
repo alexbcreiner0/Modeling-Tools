@@ -17,7 +17,7 @@ import sys, importlib, yaml, math, inspect
 from .ControlPanel import ControlPanel
 from .GraphPanel import GraphPanel
 from .SimWorker import SimController
-from .tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config, reload_package_folder
+from .tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config, reload_package_folder, get_top_level_function_names, get_user_models_dir, get_user_logs_dir
 from multiprocessing import Queue, get_context
 
 # from simulation.parameters import params_from_mapping, to_plain
@@ -29,6 +29,23 @@ def ensure_models_on_path(models_path: Path):
     models_parent = str(models_path.parent)
     if models_parent not in sys.path:
         sys.path.insert(0, models_parent)
+
+def refresh_models_path(old_models_dir: Path, new_models_dir: Path) -> None:
+    old_parent = str(old_models_dir.parent)
+    new_parent = str(new_models_dir.parent)
+
+    if old_parent and old_parent in sys.path and old_parent != new_parent:
+        sys.path.remove(old_parent)
+
+    if new_parent in sys.path:
+        sys.path.remove(new_parent)
+    sys.path.insert(0, new_parent)
+
+    importlib.invalidate_caches()
+
+    for name in list(sys.modules):
+        if name == "models" or name.startswith("models."):
+            del sys.modules[name]
 
 class BridgeWorker(qc.QObject):
     """
@@ -131,6 +148,11 @@ class MainWindow(qw.QMainWindow):
 
         self.status_bar = self.statusBar()
         self.settings = self.config.get("global_settings", {})
+
+        models_dir = get_user_models_dir(self.settings, self.env)
+        log_dir = get_user_logs_dir(self.settings, self.env)
+        setattr(self.env, "models_dir", models_dir)
+        setattr(self.env, "log_dir", log_dir)
         
         # TODO: add user-overrides for model and log paths here.
         ensure_models_on_path(self.env.models_dir)
@@ -172,7 +194,8 @@ class MainWindow(qw.QMainWindow):
 
         # Create top bar menu
         self.presets_submenu = self._make_menu(self.presets, self.demos, self.functions)
-        self.sim_actions[self.current_sim_func.__name__].setChecked(True)
+        if self.current_sim_func is not None:
+            self.sim_actions[self.current_sim_func.__name__].setChecked(True)
 
         # make matplotlib stuff, need toolbar for below
         self.figure, self.axis = plt.subplots(layout= "constrained")
@@ -310,7 +333,7 @@ class MainWindow(qw.QMainWindow):
 
     def _reset_global_settings(self):
         if hasattr(self, "toolbar"):
-            self.toolbar.set_default_dir(self.settings.get("default_save_dir", "."))
+            self.toolbar.set_default_dir(self.settings.get("default_save_dir", str(Path.home())))
             self.toolbar.default_save_name = self.settings.get("default_save_name", "figure")
 
     def _halt_sim_stack(self, *, force: bool= False, clear_pending: bool= True, clear_queue: bool = False) -> None:
@@ -1125,29 +1148,72 @@ class MainWindow(qw.QMainWindow):
         self.start_sim()
 
     def _reload_config(self):
+        old_models_dir = self.env.models_dir
+
         try:
             with open(self.env.config_dir / "config.yml", "r") as f:
                 self.config = yaml.safe_load(f)
-                self.settings = self.config["global_settings"]
-                self.demos = self.config["demos"]
-                self.current_demo = self.demos[self.current_demo_name]
+
+            self.settings = self.config["global_settings"]
+            self.demos = self.config["demos"]
+            self.current_demo = self.demos[self.current_demo_name]
+
+            new_models_dir = get_user_models_dir(self.settings, self.env)
+            new_log_dir = get_user_logs_dir(self.settings, self.env)
+
+            self.env.models_dir = new_models_dir
+            self.env.log_dir = new_log_dir
+
+            refresh_models_path(old_models_dir, new_models_dir)
         except OSError as e:
             logger.log(logging.ERROR, 'failed to load config.yml!', exc_info= e)
             self.status_bar.showMessage(f"Failed to load config.yml. See logs for more info.", msecs= 5000)
 
     def _get_data(self, demo):
+        sim_details = demo.get("details")
+        if not sim_details:
+            self.status_bar.showMessage(f"No details found for {demo} in config.yml!", msecs= 5000)
+
+        sim_model = sim_details.get("simulation_model")
+        if not sim_model:
+            self.status_bar.showMessage(f"No model specified for {demo} in config.yml!", msecs= 5000)
+
+        presets = self._load_presets(demo)
+        sim_function, functions = self._load_functions(demo)
+        params = self._load_params(presets, sim_model)
+
+        try:
+            with open(self.env.models_dir / sim_model / "data" / "plotting_data.yml") as f:
+                plotting_data = yaml.safe_load(f)
+        except Exception as e:
+            logger.log(logging.ERROR, "Failed to load plotting_data.yml", exc_info= e)
+            plotting_data = {}
+
+        try:
+            with open(self.env.models_dir / sim_model / "data" / "control_panel_data.yml") as f:
+                panel_data = yaml.safe_load(f)
+        except Exception as e:
+            logger.log(logging.ERROR, "Failed to load control_panel_data.yml", exc_info= e)
+            panel_data = {}
+
+        return params, sim_function, presets, panel_data, plotting_data, functions
+
+
+    def _old_get_data(self, demo):
         try:
             sim_model = demo["details"]["simulation_model"]
             sim_function_name = demo["details"]["simulation_function"]
 
             presets = load_presets(self.env, sim_model)
+            # sim_path = self.env.models_dir / sim_model / "simulation" / "simulation.py"
+            # function_names = get_top_level_function_names(sim_path)
             module_name = f"models.{sim_model}.simulation.simulation"
             trajectories_module = importlib.import_module(module_name)
             reload_package_folder(trajectories_module)
         except Exception as e:
-            self.status_bar.showMessage(f"Failed to load data for {demo}, check logs for more info.")
-            logger.log(logging.ERROR, f"Failed to load data for {demo}", exc_info= e)
-            return
+            self.status_bar.showMessage(f"Failed to load data, check logs for more info.")
+            logger.log(logging.ERROR, f"Failed to load data", exc_info= e)
+            return 
 
         functions = {}
         for name, obj in inspect.getmembers(trajectories_module, inspect.isfunction):
@@ -1194,6 +1260,79 @@ class MainWindow(qw.QMainWindow):
             panel_data = {}
 
         return params, sim_function, presets, panel_data, plotting_data, functions
+
+    def _load_presets(self, demo):
+        sim_details = demo.get("details")
+        if not sim_details:
+            return {}
+
+        sim_model = sim_details.get("simulation_model")
+        if not sim_model:
+            return {}
+
+        try:
+            presets = load_presets(self.env, sim_model)
+            return presets
+        except Exception as e:
+            self.status_bar.showMessage(f"Error loading presets, check logs for more info.")
+            logger.log(logging.ERROR, f"Failed to load presets", exc_info= e)
+
+        return {}
+
+    def _load_functions(self, demo):
+        sim_model = demo.get("details", {}).get("simulation_model")
+        sim_function_name = demo.get("details", {}).get("simulation_function")
+        if not sim_function_name:
+            self.status_bar.showMessage(f"No model specified for {demo} in config.yml!", msecs= 5000)
+            return None, {}
+
+        try:
+            module_name = f"models.{sim_model}.simulation.simulation"
+            trajectories_module = importlib.import_module(module_name)
+            reload_package_folder(trajectories_module)
+
+            functions = {}
+            for name, obj in inspect.getmembers(trajectories_module, inspect.isfunction):
+                if obj.__module__ == trajectories_module.__name__:
+                    functions[name] = obj
+
+            sim_function = getattr(trajectories_module, sim_function_name)
+        except Exception as e:
+            self.status_bar.showMessage(f"Error loading sim function from module: {e}")
+            logger.log(logging.ERROR, f"Failed to load data", exc_info= e)
+            sim_function = None
+            functions = {}
+
+        return sim_function, functions
+
+    def _load_params(self, presets, sim_model):
+        if len(sys.argv) == 1:
+            params_dict = presets.get("default_preset", {})
+        else:
+            try:
+                params_dict = presets[sys.argv[1]]
+            except KeyError:
+                logger.log(logging.INFO, f"Preset {sys.argv[1]} not found, loading the first thing in params.yaml.")
+                params_dict = presets[next(iter(presets))]
+
+        params_module_name = f"models.{sim_model}.simulation.parameters"
+
+        try:
+            if params_module_name in sys.modules:
+                importlib.reload(sys.modules[params_module_name])
+            if params_dict:
+                params = params_from_mapping(
+                    params_dict["params"],
+                    self.env.models_dir / self.sim_model / "simulation" / "parameters.py"
+                )
+            else:
+                params = {}
+        except Exception as e:
+            self.status_bar.showMessage(f"Error loading parameters for {sim_model}: {e}", msecs= 5000)
+            logger.log(logging.ERROR, f"Failed to load params for {sim_model}", exc_info= e)
+            return {}
+
+        return params
 
     def load_demo(self, demo_name):
         self._halt_sim_stack(force= True, clear_pending= True, clear_queue= True)

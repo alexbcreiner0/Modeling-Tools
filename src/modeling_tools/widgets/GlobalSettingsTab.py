@@ -1,5 +1,7 @@
 from PyQt6 import QtWidgets as qw
 import yaml
+from .FilePicker import FilePicker
+from pathlib import Path
 
 from .common import FormSection
 
@@ -15,21 +17,30 @@ class GlobalSettingsTab(qw.QWidget):
 
         with open(self.env.config_dir / "config.yml", "r") as f:
             global_settings = yaml.safe_load(f).get("global_settings")
-            save_dir = global_settings.get("default_save_dir", "")
+            image_save_dir = global_settings.get("default_save_dir", str(Path.home()))
             save_name = global_settings.get("default_save_name", "figure")
             run_on_startup = global_settings.get("run_on_startup", True)
             autosave_axis_settings = global_settings.get("autosave_axis_settings", False)
+            user_model_dir = global_settings.get("user_models_dir", str(env.models_dir))
+            user_logs_dir = global_settings.get("user_logs_dir", str(env.log_dir))
 
-        self.edit_default_save_dir = qw.QLineEdit(save_dir)
-        self.btn_browse_save_dir = qw.QToolButton()
-        self.btn_browse_save_dir.setText("…")
+        # self.edit_default_save_dir = qw.QLineEdit(save_dir)
+        # self.btn_browse_save_dir = qw.QToolButton()
+        # self.btn_browse_save_dir.setText("…")
+
+        self.edit_default_save_dir = FilePicker()
+        self.edit_models_dir = FilePicker()
+        self.edit_logs_dir = FilePicker()
+        self.edit_default_save_dir.setText(image_save_dir)
+        self.edit_models_dir.setText(user_model_dir)
+        self.edit_logs_dir.setText(user_logs_dir)
 
         self.window = self.window()
 
-        save_dir_row = qw.QHBoxLayout()
-        save_dir_row.setContentsMargins(0, 0, 0, 0)
-        save_dir_row.addWidget(self.edit_default_save_dir, 1)
-        save_dir_row.addWidget(self.btn_browse_save_dir, 0)
+        # save_dir_row = qw.QHBoxLayout()
+        # save_dir_row.setContentsMargins(0, 0, 0, 0)
+        # save_dir_row.addWidget(self.edit_default_save_dir, 1)
+        # save_dir_row.addWidget(self.btn_browse_save_dir, 0)
 
         self.save_name = qw.QLineEdit(save_name)
         self.run_on_startup = qw.QCheckBox("Auto-run simulation on startup")
@@ -41,7 +52,9 @@ class GlobalSettingsTab(qw.QWidget):
         self.checkbox_row_lay.addWidget(self.run_on_startup)
         self.checkbox_row_lay.addWidget(self.autosave_axis_settings)
 
-        sec.form.addRow("Default image save directory:", self._wrap_layout(save_dir_row))
+        sec.form.addRow("Default image save directory:", self.edit_default_save_dir)
+        sec.form.addRow("User models directory:", self.edit_models_dir)
+        sec.form.addRow("Logging directory:", self.edit_logs_dir)
         help_text = "A template string for your save name to default to. Examples: \n \
                     'my_pic' will result in the save name defaulting to my_pic.png. \n \
                     'my_pic {a} {b}' will attempt to replace {a} and {b} with the values of the parameter named a and b in your model. \n \
@@ -63,7 +76,7 @@ class GlobalSettingsTab(qw.QWidget):
         layout.addStretch(1)
 
         # Browse button placeholder
-        self.btn_browse_save_dir.clicked.connect(self._browse_save_dir)
+        # self.btn_browse_save_dir.clicked.connect(self._browse_save_dir)
 
     def _wrap_layout(self, layout: qw.QLayout) -> qw.QWidget:
         w = qw.QWidget()
@@ -79,10 +92,15 @@ class GlobalSettingsTab(qw.QWidget):
 
     def get_settings_for_config(self):
         settings = {
-            "save_dir": self.edit_default_save_dir.text(),
             "save_name": self.save_name.text(),
             "run_on_startup": self.run_on_startup.isChecked(),
             "autosave_axis_settings": self.autosave_axis_settings.isChecked(),
         }
+        if self.edit_models_dir.text() != self.env.models_dir and self.edit_models_dir.text():
+            settings["user_models_dir"] = self.edit_models_dir.text()
+        if self.edit_logs_dir.text() != self.env.log_dir and self.edit_logs_dir.text():
+            settings["user_logs_dir"] = self.edit_logs_dir.text()
+        if self.edit_default_save_dir.text() != str(Path.home()) and self.edit_default_save_dir.text():
+            settings["default_save_dir"] = self.edit_default_save_dir.text()
 
         return settings

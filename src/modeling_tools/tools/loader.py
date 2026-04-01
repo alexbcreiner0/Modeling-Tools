@@ -9,6 +9,7 @@ from modeling_tools.paths import MODELS_DIR
 from pathlib import Path
 import logging
 import sys
+import ast
 
 # from parameters import Params, params_from_mapping
 logger = logging.getLogger(__name__)
@@ -44,6 +45,38 @@ def load_parameters_class_from_file(parameters_py: str | Path):
         raise TypeError("Parameters exists but is not a dataclass")
 
     return Parameters
+
+def get_user_models_dir(settings: dict, env) -> Path:
+    raw_text = settings.get("user_models_dir")
+    if raw_text is None:
+        return env.models_dir
+
+    try:
+        raw_text = settings.get("user_models_dir")
+        candidate = Path(raw_text).expanduser().resolve(strict= False)
+    except Exception:
+        return env.models_dir
+
+    if candidate.exists() and candidate.is_dir():
+        return candidate
+
+    return env.models_dir
+
+def get_user_logs_dir(settings: dict, env) -> Path:
+    raw_text = settings.get("user_logs_dir")
+    if raw_text is None:
+        return env.log_dir
+
+    try:
+        raw_text = settings.get("user_logs_dir")
+        candidate = Path(raw_text).expanduser().resolve(strict= False)
+    except Exception:
+        return env.log_dir
+
+    if candidate.exists() and candidate.is_dir():
+        return candidate
+
+    return env.log_dir
 
 def try_instantiate_with_defaults(Parameters: Type[Any]) -> Tuple[Optional[Any], list[str]]:
     """
@@ -263,5 +296,15 @@ def _flow_seqify_list(ls: list | tuple | np.ndarray) -> list:
         new_list.append(new_thing)
 
     return new_list
+
+def get_top_level_function_names(py_file: Path) -> list[str]:
+    source = py_file.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(py_file))
+
+    names = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            names.append(node.name)
+    return names
 
 

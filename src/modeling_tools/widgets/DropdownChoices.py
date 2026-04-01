@@ -112,8 +112,10 @@ class DropdownChoices(qw.QWidget):
         self.info.setToolTip(a0)
 
     def get_current_checked_boxes(self):
-        page = self.pages[self.dropdown_choices.currentText()]
         boxes = []
+        if self.pages == {}:
+            return boxes
+        page = self.pages[self.dropdown_choices.currentText()]
         for checkbox in page.findChildren(qw.QCheckBox):
             if checkbox.isChecked(): boxes.append(checkbox.text())
         return boxes
