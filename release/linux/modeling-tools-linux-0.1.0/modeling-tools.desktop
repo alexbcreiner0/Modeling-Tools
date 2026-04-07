@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Modeling Tools
-Comment=Model visualization and exploration toolkit
-Exec=@EXEC_PATH@
-Icon=modeling-tools
-Terminal=false
-Categories=Science;Education;
-StartupNotify=true
