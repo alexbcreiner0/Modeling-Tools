@@ -4,6 +4,7 @@ import numpy as np
 import importlib.util
 import shlex
 import shutil
+import os
 from copy import deepcopy
 from dataclasses import fields, is_dataclass, asdict, MISSING
 from typing import get_origin, get_args, Any, Optional, Tuple, Type
@@ -25,21 +26,74 @@ def open_with_default_app(path: Path):
     url = qc.QUrl.fromLocalFile(str(path.resolve()))
     qg.QDesktopServices.openUrl(url)
     ok = qg.QDesktopServices.openUrl(url)
-    with open("/home/alex/log.txt", "w") as f:
-        print(f"openUrl({url.toString()}) -> {ok}", file= f)
 
-def open_in_known_editor(path: Path, env, preferred_editor= None, preferred_terminal= None):
+def open_in_known_editor(path: Path, env, preferred_editor=None, preferred_terminal=None):
+    is_windows = os.name == "nt"
+
+    def win_appdata_local(*parts: str) -> str:
+        base = os.environ.get("LOCALAPPDATA", "")
+        return str(Path(base, *parts)) if base else ""
+
+    def win_program_files(*parts: str) -> list[str]:
+        out = []
+        for var in ("ProgramFiles", "ProgramFiles(x86)"):
+            base = os.environ.get(var)
+            if base:
+                out.append(str(Path(base, *parts)))
+        return out
+
     supported_editors = {
-        "Sublime Text": { "name": "subl", "terminal": False },
-        "VSCode": { "name": "code", "terminal": False },
-        "VSCodium": { "name": "codium", "terminal": False },
-        "PyCharm": { "name": "pycharm", "terminal": False },
-        "IDLE": { "name": "idle", "terminal": False },
-        "Vim": { "name": "vi", "terminal": True },
-        "Emacs": { "name": "emacs", "terminal": True },
-        "Helix": { "name": "hx", "terminal": True },
-        "Neovim": { "name": "nvim", "terminal": True },
-        "Nano": { "name": "nano", "terminal": True },
+        "Sublime Text": {
+            "terminal": False,
+            "commands": (
+                [
+                    "sublime_text.exe",
+                    "subl.exe",
+                    *win_program_files("Sublime Text", "sublime_text.exe"),
+                ]
+                if is_windows else
+                ["subl"]
+            ),
+        },
+        "VSCode": {
+            "terminal": False,
+            "commands": (
+                [
+                    "Code.exe",
+                    win_appdata_local("Programs", "Microsoft VS Code", "Code.exe"),
+                    *win_program_files("Microsoft VS Code", "Code.exe"),
+                    "code",   # fallback only
+                ]
+                if is_windows else
+                ["code"]
+            ),
+        },
+        "VSCodium": {
+            "terminal": False,
+            "commands": (
+                [
+                    "VSCodium.exe",
+                    win_appdata_local("Programs", "VSCodium", "VSCodium.exe"),
+                    *win_program_files("VSCodium", "VSCodium.exe"),
+                    "codium",   # fallback only
+                ]
+                if is_windows else
+                ["codium"]
+            ),
+        },
+        "PyCharm": {
+            "terminal": False,
+            "commands": ["pycharm64.exe", "pycharm.exe"] if is_windows else ["pycharm"],
+        },
+        "IDLE": {
+            "terminal": False,
+            "commands": ["idle"] if not is_windows else ["idle.bat", "idle.pyw"],
+        },
+        "Vim":    { "terminal": True,  "commands": ["vim", "vi"] if not is_windows else ["vim.exe"] },
+        "Emacs":  { "terminal": True,  "commands": ["emacs"] if not is_windows else ["emacs.exe"] },
+        "Helix":  { "terminal": True,  "commands": ["hx"] if not is_windows else ["hx.exe"] },
+        "Neovim": { "terminal": True,  "commands": ["nvim"] if not is_windows else ["nvim.exe"] },
+        "Nano":   { "terminal": True,  "commands": ["nano"] if not is_windows else ["nano.exe"] },
     }
 
     fallback_order = [
@@ -58,58 +112,156 @@ def open_in_known_editor(path: Path, env, preferred_editor= None, preferred_term
     folder_path = (path / "simulation").resolve()
     file_path = (folder_path / "simulation.py").resolve()
 
-    def get_editor_args(editor_name: str) -> list[str]:
-        if editor_name in {"nvim", "vi", "nano", "idle"}:
+    def get_editor_args(editor_key: str) -> list[str]:
+        if editor_key in {"Neovim", "Vim", "Nano", "IDLE"}:
             return [str(file_path)]
-        elif editor_name == "subl":
+        elif editor_key == "Sublime Text":
             model_name = path.name
             template = env.app_dir / "templates" / "new_model.sublime-project"
             dst = path / f"{model_name}.sublime-project"
             if not dst.exists():
                 shutil.copy2(template, dst)
-            return ["--project", str(path / f"{model_name}.sublime-project"), str(file_path)]
+            return ["--project", str(dst), str(file_path)]
         else:
             return [str(folder_path), str(file_path)]
 
-    def try_launch_editor(exe, uses_term):
-        args = get_editor_args(exe)
+    def resolve_executable(candidates: list[str]) -> str | None:
+        for candidate in candidates:
+            if not candidate:
+                continue
 
-        exec_path = qc.QStandardPaths.findExecutable(exe)
-        if exec_path:
+            p = Path(candidate)
+            if p.is_file():
+                return str(p)
+
+            found = shutil.which(candidate)
+            if found:
+                return found
+
+        return None
+
+    def try_launch_editor(editor_key: str) -> bool:
+        editor_info = supported_editors[editor_key]
+        exec_path = resolve_executable(editor_info["commands"])
+        if not exec_path:
+            return False
+
+        args = get_editor_args(editor_key)
+        uses_term = editor_info["terminal"]
+
+        try:
             if uses_term:
                 if preferred_terminal is None:
                     return False
-                try:
-                    terminal_parts = shlex.split(preferred_terminal)
-                    subprocess.Popen(terminal_parts + [exec_path] + args)
-                    return True
-                except Exception as e:
-                    logger.log(logging.ERROR, f"Failed to load editor {exe} using terminal command {preferred_terminal}: {e}")
-                    return False
-
-            try:
-                subprocess.Popen([exec_path] + args)
+                # You may want a separate Windows terminal strategy later
+                subprocess.Popen([preferred_terminal, exec_path, *args])
                 return True
-            except Exception as e:
-                logger.log(logging.ERROR, f"Failed to load editor {exe}: {e}")
-                return False
 
-    if preferred_editor is not None and preferred_editor in supported_editors:
-        exe = supported_editors[preferred_editor]["name"]
-        uses_term = supported_editors[preferred_editor]["terminal"]
+            popen_kwargs = {}
 
-        if try_launch_editor(exe, uses_term):
+            if is_windows:
+                popen_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+            subprocess.Popen([exec_path, *args], **popen_kwargs)
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to load editor {editor_key} ({exec_path}): {e}")
+            return False
+
+    if preferred_editor in supported_editors:
+        if try_launch_editor(preferred_editor):
             return
 
     for editor in fallback_order:
-        exe = supported_editors[editor]["name"]
-        uses_term = supported_editors[editor]["terminal"]
-
-        if try_launch_editor(exe, uses_term):
+        if try_launch_editor(editor):
             return
 
-    logger.log(logging.ERROR, "Failed to load any editor.")
-    return
+    logger.error("Failed to load any editor.")
+
+
+# def open_in_known_editor(path: Path, env, preferred_editor= None, preferred_terminal= None):
+#     supported_editors = {
+#         "Sublime Text": { "name": "subl", "terminal": False },
+#         "VSCode": { "name": "code", "terminal": False },
+#         "VSCodium": { "name": "codium", "terminal": False },
+#         "PyCharm": { "name": "pycharm", "terminal": False },
+#         "IDLE": { "name": "idle", "terminal": False },
+#         "Vim": { "name": "vi", "terminal": True },
+#         "Emacs": { "name": "emacs", "terminal": True },
+#         "Helix": { "name": "hx", "terminal": True },
+#         "Neovim": { "name": "nvim", "terminal": True },
+#         "Nano": { "name": "nano", "terminal": True },
+#     }
+
+#     fallback_order = [
+#         "Sublime Text",
+#         "VSCode",
+#         "VSCodium",
+#         "PyCharm",
+#         "IDLE",
+#         "Neovim",
+#         "Vim",
+#         "Emacs",
+#         "Helix",
+#         "Nano",
+#     ]
+
+#     folder_path = (path / "simulation").resolve()
+#     file_path = (folder_path / "simulation.py").resolve()
+
+#     def get_editor_args(editor_name: str) -> list[str]:
+#         if editor_name in {"nvim", "vi", "nano", "idle"}:
+#             return [str(file_path)]
+#         elif editor_name == "subl":
+#             model_name = path.name
+#             template = env.app_dir / "templates" / "new_model.sublime-project"
+#             dst = path / f"{model_name}.sublime-project"
+#             if not dst.exists():
+#                 shutil.copy2(template, dst)
+#             return ["--project", str(path / f"{model_name}.sublime-project"), str(file_path)]
+#         else:
+#             return [str(folder_path), str(file_path)]
+
+#     def try_launch_editor(exe, uses_term):
+#         args = get_editor_args(exe)
+
+#         exec_path = qc.QStandardPaths.findExecutable(exe)
+#         if exec_path:
+#             if uses_term:
+#                 if preferred_terminal is None:
+#                     return False
+#                 try:
+#                     terminal_parts = shlex.split(preferred_terminal)
+#                     subprocess.Popen(terminal_parts + [exec_path] + args)
+#                     return True
+#                 except Exception as e:
+#                     logger.log(logging.ERROR, f"Failed to load editor {exe} using terminal command {preferred_terminal}: {e}")
+#                     return False
+
+#             try:
+#                 subprocess.Popen([exec_path] + args)
+#                 return True
+#             except Exception as e:
+#                 logger.log(logging.ERROR, f"Failed to load editor {exe}: {e}")
+#                 return False
+
+#     if preferred_editor is not None and preferred_editor in supported_editors:
+#         exe = supported_editors[preferred_editor]["name"]
+#         uses_term = supported_editors[preferred_editor]["terminal"]
+
+#         if try_launch_editor(exe, uses_term):
+#             return
+
+#     for editor in fallback_order:
+#         exe = supported_editors[editor]["name"]
+#         uses_term = supported_editors[editor]["terminal"]
+
+#         if try_launch_editor(exe, uses_term):
+#             return
+
+#     logger.log(logging.ERROR, "Failed to load any editor.")
+#     return
 
 def list_subdirs(path):
     return [
@@ -277,7 +429,6 @@ def coerce_value(val, anno):
     return val  # default: no change
 
 def params_from_mapping(map: dict, dataclass_path: str):
-    print(f"{dataclass_path=}")
     Params = load_from_path(dataclass_path, "Params")
     
     params_fields = fields(Params)

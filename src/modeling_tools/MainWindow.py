@@ -59,8 +59,6 @@ class MainWindow(qw.QMainWindow):
         with open(env.config_dir / "config.yml", "r") as f:
             self.config = yaml.safe_load(f)
 
-        print(f"{self.config=}")
-
         self.status_bar = self.statusBar()
         self.settings = self.config.get("global_settings", {})
 

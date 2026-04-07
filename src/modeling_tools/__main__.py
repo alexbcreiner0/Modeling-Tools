@@ -74,11 +74,11 @@ def apply_display_stuff(app):
     """)
 
 # TODO: move out of here, we should not be importing functions from an entrypoint like this
-def reconfigure_logging(log_dir):
+def reconfigure_logging(env, log_dir):
     log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / "log.jsonl"
 
-    with open(APP_DIR / "logging_config.yml", "r") as f:
+    with open(env.app_dir / "logging_config.yml", "r") as f:
         logging_config = yaml.safe_load(f)
 
     logging_config["handlers"]["app_file"]["filename"] = str(log_file)
@@ -107,7 +107,7 @@ def main():
     env.log_dir = get_user_logs_dir(settings, env)
     env.log_dir.mkdir(parents=True, exist_ok=True)
 
-    reconfigure_logging(env.log_dir)
+    reconfigure_logging(env, env.log_dir)
 
     # mp.freeze_support()
     app = qw.QApplication(sys.argv)

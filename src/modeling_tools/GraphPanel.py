@@ -1352,7 +1352,6 @@ class GraphPanel(qw.QWidget):
         if not axis_visible:
             ax.set_axis_off()
         else:
-            print(f"Setting axis on?")
             ax.set_axis_on()
             ax.grid(bool(grid_visible))
 
