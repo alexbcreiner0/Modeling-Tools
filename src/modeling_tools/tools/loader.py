@@ -2,6 +2,8 @@ from __future__ import annotations
 import yaml
 import numpy as np
 import importlib.util
+import shlex
+import shutil
 from copy import deepcopy
 from dataclasses import fields, is_dataclass, asdict, MISSING
 from typing import get_origin, get_args, Any, Optional, Tuple, Type
@@ -10,9 +12,104 @@ from pathlib import Path
 import logging
 import sys
 import ast
+from PyQt6 import (
+    QtGui as qg,
+    QtCore as qc
+)
+import subprocess
 
 # from parameters import Params, params_from_mapping
 logger = logging.getLogger(__name__)
+
+def open_with_default_app(path: Path):
+    url = qc.QUrl.fromLocalFile(str(path.resolve()))
+    qg.QDesktopServices.openUrl(url)
+    ok = qg.QDesktopServices.openUrl(url)
+    with open("/home/alex/log.txt", "w") as f:
+        print(f"openUrl({url.toString()}) -> {ok}", file= f)
+
+def open_in_known_editor(path: Path, env, preferred_editor= None, preferred_terminal= None):
+    supported_editors = {
+        "Sublime Text": { "name": "subl", "terminal": False },
+        "VSCode": { "name": "code", "terminal": False },
+        "VSCodium": { "name": "codium", "terminal": False },
+        "PyCharm": { "name": "pycharm", "terminal": False },
+        "IDLE": { "name": "idle", "terminal": False },
+        "Vim": { "name": "vi", "terminal": True },
+        "Emacs": { "name": "emacs", "terminal": True },
+        "Helix": { "name": "hx", "terminal": True },
+        "Neovim": { "name": "nvim", "terminal": True },
+        "Nano": { "name": "nano", "terminal": True },
+    }
+
+    fallback_order = [
+        "Sublime Text",
+        "VSCode",
+        "VSCodium",
+        "PyCharm",
+        "IDLE",
+        "Neovim",
+        "Vim",
+        "Emacs",
+        "Helix",
+        "Nano",
+    ]
+
+    folder_path = (path / "simulation").resolve()
+    file_path = (folder_path / "simulation.py").resolve()
+
+    def get_editor_args(editor_name: str) -> list[str]:
+        if editor_name in {"nvim", "vi", "nano", "idle"}:
+            return [str(file_path)]
+        elif editor_name == "subl":
+            model_name = path.name
+            template = env.app_dir / "templates" / "new_model.sublime-project"
+            dst = path / f"{model_name}.sublime-project"
+            if not dst.exists():
+                shutil.copy2(template, dst)
+            return ["--project", str(path / f"{model_name}.sublime-project"), str(file_path)]
+        else:
+            return [str(folder_path), str(file_path)]
+
+    def try_launch_editor(exe, uses_term):
+        args = get_editor_args(exe)
+
+        exec_path = qc.QStandardPaths.findExecutable(exe)
+        if exec_path:
+            if uses_term:
+                if preferred_terminal is None:
+                    return False
+                try:
+                    terminal_parts = shlex.split(preferred_terminal)
+                    subprocess.Popen(terminal_parts + [exec_path] + args)
+                    return True
+                except Exception as e:
+                    logger.log(logging.ERROR, f"Failed to load editor {exe} using terminal command {preferred_terminal}: {e}")
+                    return False
+
+            try:
+                subprocess.Popen([exec_path] + args)
+                return True
+            except Exception as e:
+                logger.log(logging.ERROR, f"Failed to load editor {exe}: {e}")
+                return False
+
+    if preferred_editor is not None and preferred_editor in supported_editors:
+        exe = supported_editors[preferred_editor]["name"]
+        uses_term = supported_editors[preferred_editor]["terminal"]
+
+        if try_launch_editor(exe, uses_term):
+            return
+
+    for editor in fallback_order:
+        exe = supported_editors[editor]["name"]
+        uses_term = supported_editors[editor]["terminal"]
+
+        if try_launch_editor(exe, uses_term):
+            return
+
+    logger.log(logging.ERROR, "Failed to load any editor.")
+    return
 
 def list_subdirs(path):
     return [
@@ -180,6 +277,7 @@ def coerce_value(val, anno):
     return val  # default: no change
 
 def params_from_mapping(map: dict, dataclass_path: str):
+    print(f"{dataclass_path=}")
     Params = load_from_path(dataclass_path, "Params")
     
     params_fields = fields(Params)

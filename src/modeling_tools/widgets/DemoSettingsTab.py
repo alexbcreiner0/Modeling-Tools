@@ -455,6 +455,7 @@ class DemoSettingsTab(qw.QWidget):
 
     def on_apply_clicked(self, settings= {}):
 
+        # TODO: redo all like the preferred_terminal one(s)
         if "default_save_dir" in settings:
             self.working_data["global_settings"]["default_save_dir"] = settings.get("default_save_dir", str(Path.home()))
         if "save_name" in settings:
@@ -467,6 +468,14 @@ class DemoSettingsTab(qw.QWidget):
             self.working_data["global_settings"]["user_models_dir"] = settings.get("user_models_dir", str(self.env.models_dir))
         if "user_logs_dir" in settings:
             self.working_data["global_settings"]["user_logs_dir"] = settings.get("user_logs_dir", str(self.env.log_dir))
+        if "use_cat_limits" in settings:
+            self.working_data["global_settings"]["use_cat_limits"] = settings.get("use_cat_limits", True)
+        if "figure_mode" in settings:
+            self.working_data["global_settings"]["figure_mode"] = settings.get("figure_mode", "tight")
+        if settings.get("preferred_terminal") is not None:
+            self.working_data["global_settings"]["preferred_terminal"] = settings.get("preferred_terminal")
+        if settings.get("preferred_editor") is not None:
+            self.working_data["global_settings"]["preferred_editor"] = settings.get("preferred_editor")
 
         self._normalize_for_dump(self.working_data)
         path = self.env.config_dir / "config.yml" 

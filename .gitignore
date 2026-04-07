@@ -28,6 +28,7 @@ model/law_of_value_calculation
 model/new_model
 dimensions.txt
 config.yml
+pyrightconfig.json
 
 release/linux/build
 release/linux/*.tar.gz

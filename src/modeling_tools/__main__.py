@@ -4,6 +4,7 @@ from PyQt6 import (
     QtCore as qc
 ) 
 import yaml
+from .tools.loader import get_user_models_dir, get_user_logs_dir
 import sys, os, shutil
 from .paths import APP_DIR, assets_path
 from .bootstrap import bootstrap_user_environment
@@ -72,20 +73,41 @@ def apply_display_stuff(app):
         }
     """)
 
-def main():
-    env = bootstrap_user_environment()
-
-
-    LOG_FILE = env.log_dir / "log.jsonl"
+# TODO: move out of here, we should not be importing functions from an entrypoint like this
+def reconfigure_logging(log_dir):
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "log.jsonl"
 
     with open(APP_DIR / "logging_config.yml", "r") as f:
         logging_config = yaml.safe_load(f)
 
-    logging_config["handlers"]["app_file"]["filename"] = str(LOG_FILE)
-    logging.config.dictConfig(config= logging_config)
+    logging_config["handlers"]["app_file"]["filename"] = str(log_file)
+
+    root = logging.getLogger()
+    for handler in root.handlers[:]:
+        try:
+            handler.flush()
+            handler.close()
+        except Exception:
+            pass
+        root.removeHandler(handler)
+
+    logging.config.dictConfig(logging_config)
     logging.captureWarnings(True)
 
-    logger = logging.getLogger(__name__)
+    return log_file
+
+def main():
+    env = bootstrap_user_environment()
+
+    with open(env.config_dir / "config.yml", "r") as f:
+        settings = yaml.safe_load(f).get("global_settings", {})
+
+    env.models_dir = get_user_models_dir(settings, env)
+    env.log_dir = get_user_logs_dir(settings, env)
+    env.log_dir.mkdir(parents=True, exist_ok=True)
+
+    reconfigure_logging(env.log_dir)
 
     # mp.freeze_support()
     app = qw.QApplication(sys.argv)

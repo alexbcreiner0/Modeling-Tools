@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from numpy import array, ndarray
 
+
 @dataclass
 class Params:
     A: ndarray = field(default_factory=lambda: array([[0.2, 0.0, 0.4], [0.2, 0.8, 0.0], [0.0, 0.1, 0.1]]))

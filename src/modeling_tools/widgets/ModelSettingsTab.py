@@ -4,14 +4,14 @@ logger = logging.getLogger(__name__)
 from os import name
 from pathlib import Path
 import re
+import yaml
 from dataclasses import fields, MISSING
 from typing import Any, Callable, Optional
 from importlib import import_module, reload
 import numpy as np
 from PyQt6 import QtCore as qc, QtWidgets as qw
-from modeling_tools.tools.loader import list_subdirs
+from modeling_tools.tools.loader import list_subdirs, open_in_known_editor
 from modeling_tools.tools.creation_tools import create_new_model_dir
-from modeling_tools.paths import MODELS_DIR
 
 class CheckFailure(Exception):
     """Raised for user-facing check failures with readable messages."""
@@ -30,12 +30,11 @@ def _all_param_names(ParamsCls: type) -> set[str]:
     return {f.name for f in fields(ParamsCls)}
 
 
-def _load_params_yml(model_name: str) -> dict[str, Any]:
+def _load_params_yml(env, model_name: str) -> dict[str, Any]:
     """
     Load models/<model>/data/params.yml and return the parsed dict.
     """
-    import yaml
-    path = Path(MODELS_DIR / model_name / "data" / "params.yml")
+    path = Path(env.models_dir / model_name / "data" / "params.yml")
     if not path.exists():
         raise CheckFailure(f"Missing params.yml: {path}")
     try:
@@ -224,7 +223,7 @@ def run_model_diagnostics(env, model_name: str) -> list[str]:
     lines: list[str] = []
 
     ParamsCls, sim_mod = _load_model_modules(model_name)
-    params_yml = _load_params_yml(model_name)
+    params_yml = _load_params_yml(env, model_name)
     presets = _extract_presets(params_yml)
     sim_funcs, ready = _list_sim_functions(sim_mod)
 
@@ -376,8 +375,14 @@ class ModelSettingsTab(qw.QWidget):
         self.btn_run_checks.clicked.connect(self._run_checks_clicked)
         self.btn_run_checks.setEnabled(False)
         actions.addWidget(self.btn_run_checks)
+
+        self.btn_open_in_editor = qw.QPushButton("Open in editor")
+        self.btn_open_in_editor.clicked.connect(self.open_in_editor)
+        actions.addWidget(self.btn_open_in_editor)
+
         actions.addStretch(1)
         right_l.addLayout(actions)
+
 
         new_box = qw.QGroupBox("New Model Creation")
         nb_l = qw.QVBoxLayout(new_box)
@@ -480,7 +485,7 @@ class ModelSettingsTab(qw.QWidget):
         self.modelSelected.emit(self._current_model)
 
     def _basic_file_check_lines(self, model_name: str) -> list[str]:
-        base = MODELS_DIR / model_name
+        base = self.env.models_dir / model_name
 
         checks = [
             ("data/plotting_data.yml", base / "data" / "plotting_data.yml"),
@@ -527,6 +532,16 @@ class ModelSettingsTab(qw.QWidget):
         if not self._current_model:
             return
         self._run_all_checks(self._current_model, show_status=True)
+
+    def open_in_editor(self):
+        name = self._current_model
+        path = self.env.models_dir / name
+
+        settings = self.parentWidget().parentWidget().settings
+        print(f"{settings=}")
+        preferred_editor = settings.get("preferred_editor")
+        preferred_terminal = settings.get("preferred_terminal")
+        open_in_known_editor(path, self.env, preferred_editor, preferred_terminal)
 
     def _create_model_clicked(self) -> None:
         name = self._make_shortname(self.new_model_name_entry.text().strip())

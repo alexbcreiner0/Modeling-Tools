@@ -101,6 +101,15 @@ class SaveDialog(qw.QDialog):
         self.preset_names = preset_names
         root = qw.QVBoxLayout()
         self.resize(520, 200)
+        self.setWindowTitle("Save Preset")
+
+        title = qw.QLabel("Save Preset")
+        font = title.font()
+        font.setBold(True)
+        font.setPointSize(font.pointSize() + 1)
+        title.setFont(font)
+
+        root.addWidget(title)
         
         entry_widget = qw.QWidget()
         layout = qw.QGridLayout(entry_widget)

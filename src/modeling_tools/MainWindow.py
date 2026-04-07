@@ -17,7 +17,8 @@ import sys, importlib, yaml, math, inspect
 from .ControlPanel import ControlPanel
 from .GraphPanel import GraphPanel
 from .SimWorker import SimController
-from .tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config, reload_package_folder, get_top_level_function_names, get_user_models_dir, get_user_logs_dir
+from .BridgeWorker import BridgeWorker
+from .tools.loader import load_presets, _dump_to_yaml, to_plain, params_from_mapping, format_plot_config, reload_package_folder, get_top_level_function_names, get_user_models_dir, get_user_logs_dir, open_with_default_app
 from multiprocessing import Queue, get_context
 
 # from simulation.parameters import params_from_mapping, to_plain
@@ -47,94 +48,6 @@ def refresh_models_path(old_models_dir: Path, new_models_dir: Path) -> None:
         if name == "models" or name.startswith("models."):
             del sys.modules[name]
 
-class BridgeWorker(qc.QObject):
-    """
-    Worker that rapidly drains the data queue. Later will be rejobbed into the
-    guy which 'assembles' the data from smaller serialized data points.
-    """
-
-    progress = qc.pyqtSignal(object, object)
-    done = qc.pyqtSignal()
-    error = qc.pyqtSignal(object)
-
-    def __init__(self, mp_queue, run_id, parent= None):
-        super().__init__(parent)
-        self.mp_queue = mp_queue
-        self._running = True
-        self._drain_timer = None
-        self.run_id = run_id
-
-    @qc.pyqtSlot()
-    def start(self):
-        self._drain_timer = qc.QTimer(self)
-        self._drain_timer.setInterval(10)
-        self._drain_timer.timeout.connect(self._drain_once)
-        self._drain_timer.start()
-    
-    @qc.pyqtSlot()
-    def stop(self):
-        if self._drain_timer is not None:
-            self._drain_timer.stop()
-            self._drain_timer.deleteLater()
-            self._drain_timer = None
-
-    @qc.pyqtSlot()
-    def _drain_once(self):
-        import queue as py_queue
-        latest = None
-        saw_done = False
-
-        while True:
-            try:
-                msg = self.mp_queue.get_nowait()
-            except py_queue.Empty:
-                break
-
-            if not (isinstance(msg, tuple) and msg):
-                continue
-
-            if msg[0] != self.run_id:
-                continue
-
-            if len(msg) >= 2 and msg[1] == "DONE":
-                saw_done = True
-                continue
-
-            if len(msg) >= 2 and msg[1] == "ERROR":
-                self.stop()
-                self.error.emit(msg)
-                return
-
-            latest = msg
-
-        if latest is not None:
-            _, traj, t = latest
-            if traj is not None or t is not None:
-                self.progress.emit(traj, t)
-
-        if saw_done:
-            self.stop()
-            self.done.emit()
-
-
-def _is_text_input_widget(w: qw.QWidget | None) -> bool:
-    if w is None:
-        return False
-
-    # If you click inside a QLineEdit embedded in another control,
-    # this catches it as well.
-    if isinstance(w, (qw.QLineEdit, qw.QTextEdit, qw.QPlainTextEdit)):
-        return True
-
-    # Editable combo box has an internal QLineEdit; clicking it should not clear focus
-    if isinstance(w, qw.QComboBox) and w.isEditable():
-        return True
-
-    # Spin boxes have their own internal line edits
-    if isinstance(w, (qw.QSpinBox, qw.QDoubleSpinBox)):
-        return True
-
-    return False
 
 class MainWindow(qw.QMainWindow):
 
@@ -146,6 +59,8 @@ class MainWindow(qw.QMainWindow):
         with open(env.config_dir / "config.yml", "r") as f:
             self.config = yaml.safe_load(f)
 
+        print(f"{self.config=}")
+
         self.status_bar = self.statusBar()
         self.settings = self.config.get("global_settings", {})
 
@@ -154,7 +69,6 @@ class MainWindow(qw.QMainWindow):
         setattr(self.env, "models_dir", models_dir)
         setattr(self.env, "log_dir", log_dir)
         
-        # TODO: add user-overrides for model and log paths here.
         ensure_models_on_path(self.env.models_dir)
         self.demos = self.config.get("demos", {})
 
@@ -164,6 +78,8 @@ class MainWindow(qw.QMainWindow):
         self.bridge_thread = None
         self._sim_state = "IDLE"
         self._rerun_pending = False
+
+        self._digit_buffer = (1,1)
 
         self._pending_traj = None
         self._pending_t = None
@@ -198,7 +114,7 @@ class MainWindow(qw.QMainWindow):
             self.sim_actions[self.current_sim_func.__name__].setChecked(True)
 
         # make matplotlib stuff, need toolbar for below
-        self.figure, self.axis = plt.subplots(layout= "constrained")
+        self.figure, self.axis = plt.subplots(layout= self.settings.get("figure_mode", "tight"))
         # self.figure, self.axis = plt.subplots()
         # self.figure.set_constrained_layout(True)
         self.canvas = FigureCanvasQTAgg(self.figure)
@@ -251,9 +167,360 @@ class MainWindow(qw.QMainWindow):
         self.setCentralWidget(self.main_splitter)
 
         self._install_focus_clear_filter()
+        self.assign_keybinds(first_boot= True)
+
 
         if self.settings.get("run_on_startup", True):
             self.start_sim()
+
+    def assign_keybinds(self, first_boot = False):
+        with open(self.env.config_dir / "keybindings.yml", "r") as f:
+            keybindings = yaml.safe_load(f)
+
+        if hasattr(self, "shortcuts"):
+            for sc_dict in self.shortcuts.values():
+                sc = sc_dict.get("actual_shortcut")
+                try:
+                    sc.activated.disconnect()
+                    sc.setEnabled(False)
+                    sc.deleteLater()
+                except:
+                    pass
+            self.shortcuts.clear()
+
+        self.shortcuts = {
+            # TODO:  add shortcuts for loading parameters, loading demos, halting the sim, loading the stored view
+            "toggle_control_panel": {
+                "shortcut": keybindings.get("toggle_control_panel", "Ctrl+K"),
+                "slot": self.toggle_control_panel
+            },
+            "next_control_tab": {
+                "shortcut": keybindings.get("next_control_tab", "Ctrl+Tab"),
+                "slot": lambda: self._advance_tab(1)
+            },
+            "prev_control_tab": {
+                "shortcut": keybindings.get("prev_control_tab", "Ctrl+Shift+Tab"),
+                "slot": lambda: self._advance_tab(-1)
+            },
+            "pause_sim": {
+                "shortcut": keybindings.get("pause_sim", "Space"),
+                "slot": self.toggle_pause
+            },
+            "save_screenshot": {
+                "shortcut": keybindings.get("save_screenshot", "Ctrl+S,S"),
+                "slot": self.toolbar.save_figure,
+            },
+            "save_preset": {
+                "shortcut": keybindings.get("save_preset", "Ctrl+S,P"),
+                "slot": self.save_preset
+            },
+            "save_slot_view": {
+                "shortcut": keybindings.get("save_screenshot", "Ctrl+S,V"),
+                "slot": self._save_slot_view,
+            },
+            "save_cat_view": {
+                "shortcut": keybindings.get("save_cat_view", "Ctrl+S,C"),
+                "slot": lambda: self._on_cat_settings_shortcut("S"),
+            },
+            "save_stored_limits_view": {
+                "shortcut": keybindings.get("save_stored_limits_view", "Ctrl+S,A"),
+                "slot": self._save_slot_view,
+            },
+            "save_demo_view": {
+                "shortcut": keybindings.get("save_demo_view", "Ctrl+S,D"),
+                "slot": self._save_slot_settings,
+            },
+            "speed_up": {
+                "shortcut": keybindings.get("speed_up", "Ctrl+Plus"),
+                "slot": lambda: self._increment_sim_speed(-0.01)
+            },
+            "speed_down": {
+                "shortcut": keybindings.get("speed_down", "Ctrl+Minus"),
+                "slot": lambda: self._increment_sim_speed(0.01)
+            },
+            "start_sim": {
+                "shortcut": keybindings.get("start_sim", "F5"),
+                "slot": self.start_sim
+            },
+            "tight_layout": {
+                "shortcut": keybindings.get("tight_layout", "F6"),
+                "slot": self.tight_layout
+            },
+            "reload_current_demo": {
+                "shortcut": keybindings.get("reload_current_demo", "F7"),
+                "slot": self.reload_current_demo
+            },
+            "refresh_control_panel_and_plots": {
+                "shortcut": keybindings.get("refresh_control_panel_and_plots", "F8"),
+                "slot": self.refresh_control_panel_and_plots
+            },
+            "refresh_keybindings": {
+                "shortcut": keybindings.get("refresh_keybindings", "F9"),
+                "slot": self.assign_keybinds
+            },
+            "close": {
+                "shortcut": keybindings.get("close", "Esc"),
+                "slot": self.close
+            },
+            "expand_grid_right": {
+                "shortcut": keybindings.get("expand_grid_right", "Ctrl+Shift+Right"),
+                "slot": lambda: self.expand_grid("right")
+            },
+            "expand_grid_left": {
+                "shortcut": keybindings.get("expand_grid_left", "Ctrl+Shift+Left"),
+                "slot": lambda: self.expand_grid("left")
+            },
+            "expand_grid_up": {
+                "shortcut": keybindings.get("expand_grid_up", "Ctrl+Shift+Up"),
+                "slot": lambda: self.expand_grid("up")
+            },
+            "expand_grid_down": {
+                "shortcut": keybindings.get("expand_grid_down", "Ctrl+Shift+Down"),
+                "slot": lambda: self.expand_grid("down")
+            },
+            "register_buffer_select_11": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,1,1"),
+                "slot": lambda: self.register_buffer_select((1,1))
+            },
+            "register_buffer_select_12": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,1,2"),
+                "slot": lambda: self.register_buffer_select((1,2))
+            },
+            "register_buffer_select_13": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,1,3"),
+                "slot": lambda: self.register_buffer_select((1,3))
+            },
+            "register_buffer_select_21": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,2,1"),
+                "slot": lambda: self.register_buffer_select((2,1))
+            },
+            "register_buffer_select_22": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,2,2"),
+                "slot": lambda: self.register_buffer_select((2,2))
+            },
+            "register_buffer_select_23": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,2,3"),
+                "slot": lambda: self.register_buffer_select((2,3))
+            },
+            "register_buffer_select_31": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,3,1"),
+                "slot": lambda: self.register_buffer_select((3,1))
+            },
+            "register_buffer_select_32": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,3,2"),
+                "slot": lambda: self.register_buffer_select((3,2))
+            },
+            "register_buffer_select_33": {
+                "shortcut": keybindings.get("register_buffer_select", "Ctrl+B,3,3"),
+                "slot": lambda: self.register_buffer_select((3,3))
+            },
+            "next_cat_slot": {
+                "shortcut": keybindings.get("next_cat_slot", "Ctrl+Down"),
+                "slot": lambda: self.change_plot_options("cat", 1)
+            },
+            "prev_cat_slot": {
+                "shortcut": keybindings.get("prev_cat_slot", "Ctrl+Up"),
+                "slot": lambda: self.change_plot_options("cat", -1)
+            },
+            "open_global_settings": {
+                "shortcut": keybindings.get("open_global_settings", "F1"),
+                "slot": lambda: self.open_settings(tab= 0)
+            },
+            "open_control_panel_settings": {
+                "shortcut": keybindings.get("open_control_panel_settings", "F2"),
+                "slot": lambda: self.open_settings(tab= 4)
+            },
+            "open_plot_settings": {
+                "shortcut": keybindings.get("open_plot_settings", "F3"),
+                "slot": lambda: self.open_settings(tab= 5)
+            },
+            "open_demo_settings": {
+                "shortcut": keybindings.get("open_demo_settings", "F4"),
+                "slot": lambda: self.open_settings(tab= 6)
+            },
+            "toggle_plot_1": {
+                "shortcut": keybindings.get("toggle_plot_1", "Ctrl+1"),
+                "slot": lambda: self.change_plot_options("plot", 0)
+            },
+            "toggle_plot_2": {
+                "shortcut": keybindings.get("toggle_plot_2", "Ctrl+2"),
+                "slot": lambda: self.change_plot_options("plot", 1)
+            },
+            "toggle_plot_3": {
+                "shortcut": keybindings.get("toggle_plot_3", "Ctrl+3"),
+                "slot": lambda: self.change_plot_options("plot", 2)
+            },
+            "toggle_plot_4": {
+                "shortcut": keybindings.get("toggle_plot_4", "Ctrl+4"),
+                "slot": lambda: self.change_plot_options("plot", 3)
+            },
+            "toggle_plot_5": {
+                "shortcut": keybindings.get("toggle_plot_5", "Ctrl+5"),
+                "slot": lambda: self.change_plot_options("plot", 4)
+            },
+            "toggle_plot_6": {
+                "shortcut": keybindings.get("toggle_plot_6", "Ctrl+6"),
+                "slot": lambda: self.change_plot_options("plot", 5)
+            },
+            "toggle_plot_7": {
+                "shortcut": keybindings.get("toggle_plot_7", "Ctrl+7"),
+                "slot": lambda: self.change_plot_options("plot", 6)
+            },
+            "toggle_plot_8": {
+                "shortcut": keybindings.get("toggle_plot_8", "Ctrl+8"),
+                "slot": lambda: self.change_plot_options("plot", 7)
+            },
+            "toggle_plot_9": {
+                "shortcut": keybindings.get("toggle_plot_9", "Ctrl+9"),
+                "slot": lambda: self.change_plot_options("plot", 8)
+            },
+            "toggle_legend": {
+                "shortcut": keybindings.get("toggle_legend", "Ctrl+L,Ctrl+T"),
+                "slot": lambda: self.change_plot_options("legend", "T"),
+            },
+            "legend_size_up": {
+                "shortcut": keybindings.get("legend_size_up", "Ctrl+]"),
+                "slot": lambda: self.change_plot_options("legend", "+"),
+            },
+            "legend_size_down": {
+                "shortcut": keybindings.get("legend_size_down", "Ctrl+["),
+                "slot": lambda: self.change_plot_options("legend", "-"),
+            },
+            "legend_rotate": {
+                "shortcut": keybindings.get("legend_rotate", "Ctrl+L,Ctrl+R"),
+                "slot": lambda: self.change_plot_options("legend", "R"),
+            },
+            "toggle_plot_title": {
+                "shortcut": keybindings.get("toggle_plot_title", "Ctrl+T,Ctrl+T"),
+                "slot": lambda: self.change_plot_options("title", "T")
+            },
+            "toggle_x_axis_title": {
+                "shortcut": keybindings.get("toggle_x_axis_title", "Ctrl+T,Ctrl+X"),
+                "slot": lambda: self.change_plot_options("title", "X")
+            },
+            "toggle_y_axis_title": {
+                "shortcut": keybindings.get("toggle_y_axis_title", "Ctrl+T,Ctrl+Y"),
+                "slot": lambda: self.change_plot_options("title", "Y")
+            },
+        }
+
+        for short_dict in self.shortcuts.values():
+            key_seq = short_dict["shortcut"]
+            shortcut = qg.QShortcut(qg.QKeySequence(key_seq), self)
+            shortcut.activated.connect(short_dict["slot"])
+            short_dict["actual_shortcut"] = shortcut
+
+        if not first_boot:
+            self.status_bar.showMessage("Keybindings reloaded", msecs=3000)
+
+    def register_buffer_select(self, coord):
+        self._digit_buffer = coord
+        self.status_bar.showMessage(f"Grid choice set to {coord}", msecs=3000)
+
+    def expand_grid(self, direction):
+        if direction == "left":
+            self.control_panel.cols_spinner.stepDown()
+        elif direction == "right":
+            self.control_panel.cols_spinner.stepUp()
+        elif direction == "up":
+            self.control_panel.rows_spinner.stepDown()
+        elif direction == "down":
+            self.control_panel.rows_spinner.stepUp()
+
+    def _get_slot_index(self):
+        if not hasattr(self, "_digit_buffer"):
+            return
+
+        coord = tuple(self._digit_buffer)
+        x, y = coord
+        current_rows = self.control_panel.rows_spinner.value()
+        current_cols = self.control_panel.cols_spinner.value()
+
+        if x > current_rows or y > current_cols:
+            return
+
+        slot_idx = (y-1) + current_cols*(x-1)
+        return slot_idx
+
+    def _save_slot_view(self):
+        if not hasattr(self, "_digit_buffer"):
+            return
+
+        slot_idx = self._get_slot_index()
+        axis_widget = self.control_panel.slot_axes_controls[slot_idx]
+        axis_widget._on_save_clicked()
+
+    def change_plot_options(self, target, instruct):
+        if not hasattr(self, "_digit_buffer"):
+            return
+
+        slot_idx = self._get_slot_index()
+        if slot_idx is None:
+            return
+        dropdown = self.control_panel.slot_dropdowns[slot_idx]
+
+        if target == "cat":
+            cat_idx = dropdown.currentIndex()
+            dropdown.setCurrentIndex((cat_idx + instruct) % len(self.dropdown_choices))
+
+        if target == "plot":
+            name = dropdown.currentText()
+            try:
+                current_val = dropdown.boxes[name][instruct].isChecked()
+                dropdown.boxes[name][instruct].setChecked(True if not current_val else False)
+            except IndexError:
+                pass
+
+        if target in "legend":
+            options_widget = self.control_panel.slot_options[slot_idx]
+            if instruct == "T":
+                current_val = options_widget.legend_checkbox.isChecked()
+                options_widget.legend_checkbox.setChecked(True if not current_val else False)
+
+            if instruct == "+":
+                options_widget.legend_size_spin.stepUp()
+
+            if instruct == "-":
+                options_widget.legend_size_spin.stepDown()
+
+            if instruct == "R":
+                n = options_widget.legend_pos_combo.count()
+                cur = options_widget.legend_pos_combo.currentIndex()
+                print(f"{n=}")
+                print(f"{cur=}")
+                options_widget.legend_pos_combo.setCurrentIndex((cur + 1) % n)
+
+        if target in "title":
+            options_widget = self.control_panel.slot_options[slot_idx]
+            if instruct == "T":
+                current_val = options_widget.title_checkbox.isChecked()
+                options_widget.title_checkbox.setChecked(True if not current_val else False)
+
+            if instruct == "X":
+                current_val = options_widget.xlabel_checkbox.isChecked()
+                options_widget.xlabel_checkbox.setChecked(True if not current_val else False)
+
+            if instruct == "Y":
+                current_val = options_widget.ylabel_checkbox.isChecked()
+                options_widget.ylabel_checkbox.setChecked(True if not current_val else False)
+
+    def _advance_tab(self, dir):
+        current_idx = self.control_panel.content.currentIndex()
+        self.control_panel.content.setCurrentIndex((current_idx + dir) % 2)
+
+    def toggle_control_panel(self):
+        sizes = self.main_splitter.sizes()
+
+        # If control panel is visible
+        if sizes[0] > 20:
+            self._saved_splitter_sizes = sizes
+            self.main_splitter.setSizes([0, sum(sizes)])
+        else:
+            # Restore previous sizes
+            if hasattr(self, "_saved_splitter_sizes"):
+                self.main_splitter.setSizes(self._saved_splitter_sizes)
+            else:
+                self.main_splitter.setSizes([300, 700])
 
     def _load_saved_axis_settings(self):
         demo_config = self.current_demo.get("details", {}).get("axis_settings", {})
@@ -330,11 +597,15 @@ class MainWindow(qw.QMainWindow):
         flow_seqify(self.config)
 
         atomic_write(self.env.config_dir / "config.yml", self.config)
+        self.status_bar.showMessage("Current overall view saved as demo default.", msecs= 4000)
 
     def _reset_global_settings(self):
         if hasattr(self, "toolbar"):
             self.toolbar.set_default_dir(self.settings.get("default_save_dir", str(Path.home())))
             self.toolbar.default_save_name = self.settings.get("default_save_name", "figure")
+    
+        if hasattr(self, "graph_panel"):
+            self.graph_panel.settings = self.settings
 
     def _halt_sim_stack(self, *, force: bool= False, clear_pending: bool= True, clear_queue: bool = False) -> None:
         """ Safe multipurpose method for halting/killing all of the relevant moving parts of an ongoing sim """
@@ -560,6 +831,12 @@ class MainWindow(qw.QMainWindow):
         """ Method to update the axis entries of a plot control widget when user pans a plot """
         self.control_panel.set_slot_axes_limits(slot_index, xlim, ylim)
 
+    def _on_cat_settings_shortcut(self, instruct):
+        slot_idx = self._get_slot_index()
+        
+        if instruct == "S":
+            self.on_slot_axes_cat_save_request(slot_idx)
+
     def on_slot_axes_cat_save_request(self, slot_index):
         lims = self.control_panel.get_slot_axes_limits(slot_index)
         cfg = self.control_panel.get_slot_config(slot_index)
@@ -573,6 +850,8 @@ class MainWindow(qw.QMainWindow):
 
         flow_seqify(plotting_data)
         atomic_write(path, plotting_data)
+
+        self.status_bar.showMessage("Default plot category limits saved.", msecs= 4000)
 
     def on_slot_axes_changed(self, slot_index: int):
         lims = self.control_panel.get_slot_axes_limits(slot_index)
@@ -594,7 +873,9 @@ class MainWindow(qw.QMainWindow):
 
         dropdown_index, options, legend_cfg = cfg
 
-        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, load_idx_defaults= True)
+        load_idx_defaults = self.settings.get("use_cat_limits", False)
+        load_idx_defaults = False if not isinstance(load_idx_defaults, bool) else load_idx_defaults 
+        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, load_idx_defaults= load_idx_defaults)
 
     def on_slot_options_changed(self, slot_index: int):
         """Options changed for a specific slot."""
@@ -664,7 +945,7 @@ class MainWindow(qw.QMainWindow):
         request_pause.triggered.connect(self.toggle_pause)
         nav_toolbar.addAction(request_pause)
 
-        request_threadkill = qg.QAction(bug_icon, "Kill thread (currently doesn't work)", self)
+        request_threadkill = qg.QAction(bug_icon, "Force kill sim", self)
         request_threadkill.triggered.connect(self.request_threadkill)
         nav_toolbar.addAction(request_threadkill)
 
@@ -726,16 +1007,28 @@ class MainWindow(qw.QMainWindow):
         if self.sim_controller is not None and self.sim_controller.is_alive():
             self.sim_controller.set_sleep_time(self._sleep_time)
 
+    def _increment_sim_speed(self, inc):
+        self._sleep_time = max(0, self._sleep_time + inc)
+        self.sim_speed_edit.blockSignals(True)
+        self.sim_speed_edit.setText(f"{self._sleep_time:.3f}")
+        self.sim_speed_edit.blockSignals(False)
+
     def _on_figure_background_checkbox_changed(self, state: int) -> None:
         use_window = True if state == 2 else False
         self.update_figure_background(use_window)
 
     def tight_layout(self):
-        self.figure.tight_layout()
-        # self.figure.get_constrained_layout()
+        layout_mode = self.settings.get("figure_mode", "tight")
+        if layout_mode == "tight":
+            self.figure.tight_layout()
+        elif layout_mode == "constrained":
+            self.figure.set_layout_engine("none")
+            self.figure.set_layout_engine("constrained")
+            self.canvas.draw()
+            # self.figure.get_constrained_layout()
         # self.graph_panel._recompute_base_box_aspect()
-        self.graph_panel.canvas.draw_idle()
 
+        # self.graph_panel.canvas.draw_idle()
         self.figure.canvas.draw_idle()
 
     def grab_as_initial(self):
@@ -815,6 +1108,10 @@ class MainWindow(qw.QMainWindow):
         force_kill_action = qg.QAction("Force Kill Sim", self)
         file_menu.addAction(force_kill_action)
         force_kill_action.triggered.connect(lambda _checked= False: self._halt_sim_stack(force= True))
+
+        edit_keybindings_action = qg.QAction("Edit keybindings", self)
+        file_menu.addAction(edit_keybindings_action)
+        edit_keybindings_action.triggered.connect(lambda: open_with_default_app(self.env.config_dir / "keybindings.yml"))
 
         quit_button = qg.QAction("Quit", self)
         file_menu.addAction(quit_button)
@@ -917,6 +1214,7 @@ class MainWindow(qw.QMainWindow):
         # self.bridge_worker.moveToThread(self.bridge_thread)
 
         self.sim_controller.configure(
+            self.env,
             run_id= self._run_id,
             model_info= self.current_demo, 
             params= self.params,
@@ -1045,22 +1343,6 @@ class MainWindow(qw.QMainWindow):
             dropdown_index, options, legend_cfg = cfg
             self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg)
 
-    def keyPressEvent(self, a0):
-        if a0 is not None:
-            if a0.key() == 16777268: # F5
-                self.start_sim()
-            if a0.key() == 16777269: # F6
-                self.tight_layout()
-            if a0.key() == 16777270: # F7
-                self.reload_current_demo()
-            if a0.key() == 16777271: # F8
-                self.refresh_control_panel_and_plots()
-            if a0.key() == 32: # space
-                self.toggle_pause()
-
-            if a0.key() == 16777216: # ESC
-                self.close()
-
     def _request_stop_for_rerun(self, force= False):
         try:
             self._anim_timer.stop()
@@ -1149,6 +1431,8 @@ class MainWindow(qw.QMainWindow):
 
     def _reload_config(self):
         old_models_dir = self.env.models_dir
+        old_log_dir = self.env.log_dir
+        old_layout_mode = self.settings.get("figure_mode", "tight")
 
         try:
             with open(self.env.config_dir / "config.yml", "r") as f:
@@ -1164,10 +1448,36 @@ class MainWindow(qw.QMainWindow):
             self.env.models_dir = new_models_dir
             self.env.log_dir = new_log_dir
 
-            refresh_models_path(old_models_dir, new_models_dir)
+            if old_models_dir != new_models_dir:
+                refresh_models_path(old_models_dir, new_models_dir)
+
+            if old_log_dir != new_log_dir:
+                from .__main__ import reconfigure_logging
+                reconfigure_logging(new_log_dir)
+                logger = logging.getLogger(__name__)
+                logger.info("Log directory changed at runtime", extra={
+                    "old_log_dir": str(old_log_dir),
+                    "new_log_dir": str(new_log_dir),
+                })
+
         except OSError as e:
             logger.log(logging.ERROR, 'failed to load config.yml!', exc_info= e)
             self.status_bar.showMessage(f"Failed to load config.yml. See logs for more info.", msecs= 5000)
+
+        if self.settings.get("figure_mode", "tight") != old_layout_mode:
+            self.apply_figure_layout_mode()
+
+    def apply_figure_layout_mode(self):
+        mode = self.settings.get("figure_mode", "tight")
+
+        if mode == "constrained":
+            self.figure.set_layout_engine("constrained")
+        elif mode == "tight":
+            self.figure.set_layout_engine("tight")
+        else:
+            self.figure.set_layout_engine("none")
+
+        self.canvas.draw_idle()
 
     def _get_data(self, demo):
         sim_details = demo.get("details")
@@ -1181,6 +1491,7 @@ class MainWindow(qw.QMainWindow):
         presets = self._load_presets(demo)
         sim_function, functions = self._load_functions(demo)
         params = self._load_params(presets, sim_model)
+
 
         try:
             with open(self.env.models_dir / sim_model / "data" / "plotting_data.yml") as f:
@@ -1242,6 +1553,7 @@ class MainWindow(qw.QMainWindow):
                 params_dict["params"],
                 self.env.models_dir / self.sim_model / "simulation" / "parameters.py"
             )
+            print(f"{repr(params)=}")
         else:
             params = {}
 

@@ -13,6 +13,7 @@ import numpy as np
 from matplotlib.backend_bases import cursors
 from matplotlib import colormaps, colors as mcolors
 from matplotlib.colors import ListedColormap, BoundaryNorm
+import networkx as nx
 from matplotlib.ticker import FormatStrFormatter
 import scienceplots
 import logging, json, hashlib
@@ -109,6 +110,7 @@ class GraphPanel(qw.QWidget):
 
         self.canvas.mpl_connect("button_press_event", self._on_press)
         self.canvas.mpl_connect("motion_notify_event", self.on_motion)
+        self.canvas.mpl_connect("resize_event", self.on_motion)
         self.canvas.mpl_connect("button_release_event", self.on_release)
         self.canvas.mpl_connect("scroll_event", self._on_scroll)
       
@@ -529,15 +531,10 @@ class GraphPanel(qw.QWidget):
     def _recompute_base_box_aspect(self) -> None:
         try:
             w_px, h_px = self.canvas.get_width_height()
-            print(f"{w_px=}, {h_px=}")
             pos = self.axis.get_position()  # figure-relative
-            print(f"{pos=}")
             width_px = pos.width * w_px
-            print(f"{width_px=}")
             height_px = pos.height * h_px
-            print(f"{height_px=}")
             self._base_box_aspect = height_px / width_px if width_px else 1.0
-            print(f"{self._base_box_aspect}")
         except Exception:
             self._base_box_aspect = 0.6
 
@@ -594,6 +591,10 @@ class GraphPanel(qw.QWidget):
 
                 if special == "vector":
                     self._build_vector_field(ax, slot_index, choice_name, plot_name, plot_dict)
+                    continue
+
+                if special == "discrete_graph":
+                    self._build_discrete_graph(ax, slot_index, choice_name, plot_name, plot_dict)
                     continue
 
                 key = plot_dict.get("traj_key")
@@ -1017,6 +1018,59 @@ class GraphPanel(qw.QWidget):
             cb.ax.yaxis.set_major_formatter(FormatStrFormatter('%6.2f'))
             self._slot_cbar[slot_index] = cb
 
+    def _build_discrete_graph(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict):
+        matrix_key = plot_dict["traj_key"]
+        A = np.asarray(self.traj[matrix_key])
+
+        if plot_dict.get("directed", False):
+            G = nx.from_numpy_array(A, create_using=nx.DiGraph)
+        else:
+            G = nx.from_numpy_array(A)
+
+        pos = plot_dict.get("pos")
+        if pos is None:
+            pos = nx.spring_layout(G, seed=plot_dict.get("seed", 0))
+
+        # nodes
+        nodes = nx.draw_networkx_nodes(
+            G,
+            pos,
+            ax=ax,
+            node_color=plot_dict.get("node_color", "tab:blue"),
+            node_size=plot_dict.get("node_size", 300),
+        )
+        nodes.set_gid(f"{choice_name}::{plot_name}::graph::nodes")
+
+        # edges
+        edges = nx.draw_networkx_edges(
+            G,
+            pos,
+            ax=ax,
+            edge_color=plot_dict.get("edge_color", "k"),
+            arrows=plot_dict.get("directed", False),
+        )
+
+        # draw_networkx_edges may return a LineCollection or a list of FancyArrowPatch
+        if isinstance(edges, list):
+            for k, edge_artist in enumerate(edges):
+                if hasattr(edge_artist, "set_gid"):
+                    edge_artist.set_gid(f"{choice_name}::{plot_name}::graph::edge::{k}")
+        else:
+            edges.set_gid(f"{choice_name}::{plot_name}::graph::edges")
+
+        # labels are texts; your inventory does not track texts, which is fine
+        if plot_dict.get("with_labels", True):
+            nx.draw_networkx_labels(G, pos, ax=ax)
+
+        if plot_dict.get("show_weights", True):
+            edge_labels = nx.get_edge_attributes(G, "weight")
+            nx.draw_networkx_edge_labels(
+                G,
+                pos,
+                edge_labels=edge_labels,
+                ax=ax,
+            )
+
     def _on_canvas_draw(self, event):
         """
         Called after Matplotlib redraws the figure.
@@ -1197,6 +1251,7 @@ class GraphPanel(qw.QWidget):
         # snapshot current camera pos
         # if new_lims:
         default_lims = self.data.get(choice_name, {}).get("default_lims")
+
         if default_lims and load_idx_defaults:
             xlims_base = default_lims[0]
             current_xlim = tuple(float(xlim) for xlim in xlims_base)
@@ -1272,6 +1327,14 @@ class GraphPanel(qw.QWidget):
         self._slot_artists_meta.pop(slot_index, None)
 
     def _apply_slot_config(self, ax, slot_index: int, dropdown_choice: int, slot_config: dict | None, default_font: int) -> None:
+        ax.set_axis_on()
+        ax.grid(True)
+
+        # restore spines in case a previous special plot hid them
+        for sp in ax.spines.values():
+            sp.set_visible(True)
+
+
         if slot_config is None:
             ax.legend(fontsize=default_font)
             return
@@ -1289,12 +1352,25 @@ class GraphPanel(qw.QWidget):
         if not axis_visible:
             ax.set_axis_off()
         else:
+            print(f"Setting axis on?")
             ax.set_axis_on()
             ax.grid(bool(grid_visible))
 
-            if not ticks_visible:
-                ax.set_xticks([]); ax.set_yticks([])
-                ax.set_xticklabels([]); ax.set_yticklabels([])
+            if ticks_visible:
+                ax.tick_params(
+                    axis="both",
+                    which="both",
+                    bottom=True, top=False, left=True, right=False,
+                    labelbottom=True, labelleft=True
+                )
+            else:
+                ax.tick_params(
+                    axis="both",
+                    which="both",
+                    bottom=False, top=False, left=False, right=False,
+                    labelbottom=False, labelleft=False
+                )
+
             if not frame_visible:
                 for sp in ax.spines.values():
                     sp.set_visible(False)
@@ -1537,6 +1613,11 @@ class GraphPanel(qw.QWidget):
 
             if special == "pie":
                 expected.append(f"{choice_name}::{plot_name}::pie")
+                continue
+
+            if special == "discrete_graph":
+                expected.append(f"{choice_name}::{plot_name}::graph::nodes")
+                expected.append(f"{choice_name}::{plot_name}::graph::edges")
                 continue
 
             if special == "vector":
@@ -2163,6 +2244,8 @@ class GraphPanel(qw.QWidget):
             elif kind == "collection":
                 if gid.endswith("::scatter"):
                     self._update_scatter_artist(artist, gid, self.traj)
+                elif "::graph::" in gid:
+                    pass
 
             elif kind == "surface":
                 self._update_surface_artist(ax, slot_index, gid, self.traj)
@@ -2232,6 +2315,7 @@ class GraphPanel(qw.QWidget):
 
     def _on_press(self, event) -> None:
         """ Decides what to do when the user clicks on an axis """
+
         if event.button != 1:
             return
         ax = event.inaxes
@@ -2318,6 +2402,12 @@ class GraphPanel(qw.QWidget):
             self._on_axis_limits_changed(ax)
 
     def on_release(self, event):
+        # updating axis limits here because for some stupid reason the lim_changed callbacks are unresponsive
+        # for right-click magnifications. So instead it just updates the limits after they release their mouse
+        ax = event.inaxes
+        if ax is not None and ax in self.axes:
+            self._on_axis_limits_changed(ax)
+
         if event.button != 1:
             return
         self.dragging = False

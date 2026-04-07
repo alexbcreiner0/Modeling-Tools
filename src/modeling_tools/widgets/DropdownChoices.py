@@ -130,3 +130,15 @@ class DropdownChoices(qw.QWidget):
             box.setChecked(box.text() in names)
             box.blockSignals(False)
 
+    def currentText(self):
+        return self.dropdown_choices.currentText()
+
+    def currentIndex(self):
+        return self.dropdown_choices.currentIndex()
+
+    def setCurrentIndex(self, idx):
+        try:
+            self.dropdown_choices.setCurrentIndex(idx)
+        except IndexError:
+            pass
+

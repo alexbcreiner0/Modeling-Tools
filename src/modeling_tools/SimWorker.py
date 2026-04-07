@@ -79,16 +79,17 @@ class SimController(qc.QObject):
         self._stop = False
         self._pause = False
 
-    def configure(self, *, run_id, model_info, params, mp_queue, sleep_time, yield_every):
+    def configure(self, env, *, run_id, model_info, params, mp_queue, sleep_time, yield_every):
         sim_model = model_info["details"]["simulation_model"]
 
         self._run_id = run_id
         self._yield_every = yield_every
         self.mp_queue = mp_queue
+        self.env = env
 
         self._module_path = f"models.{sim_model}.simulation.simulation" # multiprocessing expects the string
         self._func_name = model_info["details"]["simulation_function"]
-        self._params_path = MODELS_DIR / sim_model / "simulation" / "parameters.py" # but my own function needs a path
+        self._params_path = self.env.models_dir / sim_model / "simulation" / "parameters.py" # but my own function needs a path
         self._params_plain = to_plain(params)
         self._sleep_value.value = float(sleep_time)
 

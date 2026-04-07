@@ -35,14 +35,14 @@ demos:
             legend_fontsize: 10
             legend_loc: upper right
             title: true
-            xlabel: true
-            ylabel: true
+            xlabel: false
+            ylabel: false
           a2:
             legend_visible: true
             legend_fontsize: 8
             legend_loc: upper right
             title: true
-            xlabel: true
+            xlabel: false
             ylabel: true
           a3:
             legend_visible: true
@@ -60,7 +60,6 @@ demos:
             ylabel: true
         saved_limits:
           a1: [[-0.641058, 98.6897], [-0.701702, 14.4947]]
-    default: true
   morishima_s_material_constrained_reinvestment_model:
     name: Morishima's Material Constrained Reinvestment Model
     desc: See GitHub wiki pages for detailed information.
@@ -289,3 +288,4 @@ demos:
             title: true
             xlabel: true
             ylabel: true
+

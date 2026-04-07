@@ -33,8 +33,8 @@ class GraphPanel(qw.QWidget):
     slot_axes_limits_changed_3d = qc.pyqtSignal(int, tuple, tuple, tuple)
     slot_title_changed = qc.pyqtSignal(int, str)
 
-    def __init__(self, init_traj, init_t, dropdown_choices,
-                 plotting_data, canvas, figure, axis, toolbar, status_bar):
+    def __init__(self, init_traj, init_t, dropdown_choices, 
+                 plotting_data, canvas, figure, axis, toolbar, status_bar, settings= {}):
         super().__init__()
         self.start_up = True # might not be necessary anymore, iono
 
@@ -44,6 +44,7 @@ class GraphPanel(qw.QWidget):
         self.figure, self.axis = figure, axis
         self.toolbar = toolbar
         self.status_bar = status_bar
+        self.settings = settings
 
         self._slot_choices: dict[int, str] = {} # slot_index -> dropdown choices
         self.legend_label_overrides: dict[tuple[int, str], dict[str, str]] = {} # keeps track of legend info for each slot/category choice 
