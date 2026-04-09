@@ -7,9 +7,8 @@ from PyQt6 import (
     QtGui as qg,
     QtCore as qc
 )
-import time
+import time, inspect
 from multiprocessing import Process, Pool
-from .paths import MODELS_DIR
 import importlib
 import queue as py_queue
 from modeling_tools.tools.loader import params_from_mapping, to_plain
@@ -34,7 +33,15 @@ def child_run(queue, run_id, module_path, func_name, params_path, params, stop_e
         func = getattr(mod, func_name)
         params_dataclass = params_from_mapping(params, params_path)
 
-        for traj, t in func(params_dataclass):
+        result = func(params_dataclass)
+
+        if inspect.isgenerator(result):
+            iterator = result
+        else:
+            traj, t = result
+            iterator = [(traj, t)]
+
+        for i, (traj, t) in enumerate(iterator):
             if stop_event.is_set():
                 break
 

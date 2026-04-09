@@ -18,6 +18,7 @@ DATA_DIR = Path(user_data_dir(APP_NAME, APP_AUTHOR))
 CONFIG_DIR = Path(user_config_dir(APP_NAME, APP_AUTHOR, roaming= True))
 
 CONFIG_FILE = CONFIG_DIR / "config.yml"
+KEYBINDINGS_FILE = CONFIG_DIR / "keybindings.yml"
 LOG_DIR = USER_APP_DIR / "logs"
 
 def ensure_dirs():

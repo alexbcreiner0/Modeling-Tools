@@ -43,7 +43,7 @@ class ControlPanel(qw.QWidget):
         self.block_signals = True
         self.sim_model = sim_model
         self.plotting_data = plotting_data
-        self.panel_data = panel_data
+        self.panel_data = panel_data if panel_data is not None else {}
         self.dropdown_choices = dropdown_choices
         self.demo = demo
         self.constructing = True
@@ -154,7 +154,7 @@ class ControlPanel(qw.QWidget):
         self.dropdowns = {}
         self.row_wrappers = []
 
-        for row in panel_data:
+        for row in self.panel_data:
             wrap = qw.QWidget()
             wlay = qw.QHBoxLayout(wrap)
             wlay.setContentsMargins(0,0,0,0)

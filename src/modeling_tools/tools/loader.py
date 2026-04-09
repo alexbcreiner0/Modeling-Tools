@@ -27,7 +27,7 @@ def open_with_default_app(path: Path):
     qg.QDesktopServices.openUrl(url)
     ok = qg.QDesktopServices.openUrl(url)
 
-def open_in_known_editor(path: Path, env, preferred_editor=None, preferred_terminal=None):
+def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred_terminal=None):
     is_windows = os.name == "nt"
 
     def win_appdata_local(*parts: str) -> str:
@@ -109,18 +109,18 @@ def open_in_known_editor(path: Path, env, preferred_editor=None, preferred_termi
         "Nano",
     ]
 
-    folder_path = (path / "simulation").resolve()
-    file_path = (folder_path / "simulation.py").resolve()
+    folder_path = path.parent.resolve()
+    file_path = (path / name / "simulation" / "simulation.py").resolve()
 
     def get_editor_args(editor_key: str) -> list[str]:
         if editor_key in {"Neovim", "Vim", "Nano", "IDLE"}:
             return [str(file_path)]
         elif editor_key == "Sublime Text":
-            model_name = path.name
             template = env.app_dir / "templates" / "new_model.sublime-project"
-            dst = path / f"{model_name}.sublime-project"
+            dst = path.parent / f"models.sublime-project"
             if not dst.exists():
                 shutil.copy2(template, dst)
+            print(f"{["--project", str(dst), str(file_path)]=}")
             return ["--project", str(dst), str(file_path)]
         else:
             return [str(folder_path), str(file_path)]
@@ -154,7 +154,9 @@ def open_in_known_editor(path: Path, env, preferred_editor=None, preferred_termi
                 if preferred_terminal is None:
                     return False
                 # You may want a separate Windows terminal strategy later
-                subprocess.Popen([preferred_terminal, exec_path, *args])
+                terminal_parts = shlex.split(preferred_terminal)
+                subprocess.Popen(terminal_parts + [exec_path] + args)
+                # subprocess.Popen([preferred_terminal, exec_path, *args])
                 return True
 
             popen_kwargs = {}

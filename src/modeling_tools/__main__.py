@@ -13,6 +13,14 @@ import logging.config
 from logging.handlers import RotatingFileHandler
 import threading
 import multiprocessing as mp
+import ctypes
+
+PLATFORM = sys.platform
+
+# windows needs this for my app to appear as anything other than IDLE
+if PLATFORM.startswith("win"):
+    myappid = "com.alexcreiner.modelingtools"
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
@@ -48,7 +56,10 @@ def apply_dpi_scaled_font(app: qw.QApplication, base_pt: float = 10.0) -> None:
 def apply_display_stuff(app):
     apply_dpi_scaled_font(app)
     app.setStyle("Fusion")
-    app.setWindowIcon(qg.QIcon(str(assets_path("icon.png"))))
+    platform = sys.platform
+    if not platform == "darwin":
+        icon_path = assets_path("icon.ico" if sys.platform.startswith("win") else "icon.png")
+        app.setWindowIcon(qg.QIcon(str(icon_path)))
     app.setDesktopFileName("modeling-tools")
 
     light_palette = qg.QPalette()
@@ -114,6 +125,10 @@ def main():
     apply_display_stuff(app)
 
     window = MainWindow(env)
+
+    if not PLATFORM == "darwin":
+        icon_path = assets_path("icon.ico" if sys.platform.startswith("win") else "icon.png")
+        window.setWindowIcon(qg.QIcon(str(icon_path)))
 
     window.showMaximized()
     app.exec()

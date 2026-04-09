@@ -535,13 +535,12 @@ class ModelSettingsTab(qw.QWidget):
 
     def open_in_editor(self):
         name = self._current_model
-        path = self.env.models_dir / name
+        path = self.env.models_dir
 
         settings = self.parentWidget().parentWidget().settings
-        print(f"{settings=}")
         preferred_editor = settings.get("preferred_editor")
         preferred_terminal = settings.get("preferred_terminal")
-        open_in_known_editor(path, self.env, preferred_editor, preferred_terminal)
+        open_in_known_editor(path, name, self.env, preferred_editor, preferred_terminal)
 
     def _create_model_clicked(self) -> None:
         name = self._make_shortname(self.new_model_name_entry.text().strip())

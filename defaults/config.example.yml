@@ -18,17 +18,10 @@ demos:
       axis_settings:
         limits:
           a1: [[-1.09712, 98.8391], [-1.65313, 15.2356]]
-          a2: [[-0.0364387, 9.96356], [-0.621961, 0.978039]]
-          a3: [[-0.0364387, 9.96356], [-0.141679, 1.45832]]
-          a4: [[0.208542, 12.1325], [-0.655345, 5.96677]]
         dimension: [2, 2]
         dropdown_indices: [0, 3, 4, 7]
         checked_plots:
           a1: [Unit Prices, Unit Values]
-          a2: [Equilibrium Rate of Profit, Sectoral Rates of Profit]
-          a3: [Employment, Unemployment, Hourly Wage]
-          a4: [Value of Constant Capital, Value of Means of Subsistence, Total Surplus
-              Value]
         settings:
           a1:
             legend_visible: true
@@ -37,29 +30,9 @@ demos:
             title: true
             xlabel: false
             ylabel: false
-          a2:
-            legend_visible: true
-            legend_fontsize: 8
-            legend_loc: upper right
-            title: true
-            xlabel: false
-            ylabel: true
-          a3:
-            legend_visible: true
-            legend_fontsize: 8
-            legend_loc: upper right
-            title: true
-            xlabel: true
-            ylabel: true
-          a4:
-            legend_visible: true
-            legend_fontsize: 8
-            legend_loc: upper right
-            title: true
-            xlabel: true
-            ylabel: true
         saved_limits:
           a1: [[-0.641058, 98.6897], [-0.701702, 14.4947]]
+    default: true
   morishima_s_material_constrained_reinvestment_model:
     name: Morishima's Material Constrained Reinvestment Model
     desc: See GitHub wiki pages for detailed information.

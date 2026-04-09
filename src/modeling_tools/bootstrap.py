@@ -12,6 +12,7 @@ from .paths import (
     LOG_DIR,
     MODELS_DIR,
     CONFIG_FILE,
+    KEYBINDINGS_FILE,
     APP_DIR,
     defaults_path,
     ensure_dirs,
@@ -65,8 +66,8 @@ def bootstrap_user_environment() -> BootstrapResult:
     if not CONFIG_FILE.exists():
         copy_if_missing(default_config, CONFIG_FILE)
 
-    if not (CONFIG_DIR / "keybindings.yml").exists():
-        copy_if_missing(default_keybinds, CONFIG_DIR / "keybindings.yml")
+    if not KEYBINDINGS_FILE.exists():
+        copy_if_missing(default_keybinds, KEYBINDINGS_FILE)
 
     if default_models.exists():
         initialize_dirs(default_models, MODELS_DIR)
