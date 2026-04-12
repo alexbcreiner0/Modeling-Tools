@@ -18,7 +18,7 @@ demos:
       axis_settings:
         limits:
           a1: [[-1.09712, 98.8391], [-1.65313, 15.2356]]
-        dimension: [2, 2]
+        dimension: [1, 1]
         dropdown_indices: [0, 3, 4, 7]
         checked_plots:
           a1: [Unit Prices, Unit Values]

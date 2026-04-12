@@ -61,7 +61,11 @@ class GlobalSettingsTab(qw.QWidget):
         self.preferred_editor.setCurrentText(preferred_editor)
 
         self.preferred_terminal = qw.QComboBox()
-        preferred_terminal_items = ["kitty -e ", "kitty -a ", "alacritty -e ", "alacritty -a ", "wezterm start -- ", "gnome-terminal -- ", "wt ", "powershell -NoExit ", "cmd /K ", "open -a Terminal ", "open -a iTerm "]
+        preferred_terminal_items = [
+            "kitty -e ", "kitty -a ", "alacritty -e ", 
+            "alacritty -a ", "wezterm start -- ", "gnome-terminal -- ", 
+            "wt ", "powershell -NoExit ", "cmd /K ", "open -a Terminal ", 
+            "Apple Terminal", "iTerm", "iTerm2"]
         self.preferred_terminal.setEditable(True)
         self.preferred_terminal.addItems(preferred_terminal_items)
         self.preferred_terminal.setCurrentText(preferred_terminal)

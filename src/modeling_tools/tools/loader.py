@@ -28,7 +28,8 @@ def open_with_default_app(path: Path):
     ok = qg.QDesktopServices.openUrl(url)
 
 def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred_terminal=None):
-    is_windows = os.name == "nt"
+    is_windows = sys.platform == "win32"
+    is_macos = sys.platform == "darwin"
 
     def win_appdata_local(*parts: str) -> str:
         base = os.environ.get("LOCALAPPDATA", "")
@@ -142,14 +143,41 @@ def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred
 
     def try_launch_editor(editor_key: str) -> bool:
         editor_info = supported_editors[editor_key]
-        exec_path = resolve_executable(editor_info["commands"])
-        if not exec_path:
-            return False
-
         args = get_editor_args(editor_key)
         uses_term = editor_info["terminal"]
-
         try:
+            if is_macos:
+                if uses_term:
+                    exec_path = resolve_executable(editor_info["commands"])
+                    if not exec_path:
+                        return False
+
+                    return launch_macos_terminal_command(
+                            [exec_path, *args],
+                            preferred_terminal
+                    )
+
+                mac_apps = {
+                    "Sublime Text": "Sublime Text",
+                    "VSCode": "Visual Studio Code",
+                    "VSCodium": "VSCodium",
+                    "PyCharm": "PyCharm",
+                    "IDLE": "IDLE",
+                }
+                app_name = mac_apps.get(editor_key)
+                if app_name:
+                    subprocess.Popen(["open", "-a", app_name, "--args", *args])
+                    return True
+
+            exec_path = resolve_executable(editor_info["commands"])
+            if not exec_path:
+                print(f"Returning false because exec_path is None")
+                return False
+
+            print(f"Made it? {exec_path=}")
+            args = get_editor_args(editor_key)
+            uses_term = editor_info["terminal"]
+
             if uses_term:
                 if preferred_terminal is None:
                     return False
@@ -171,7 +199,9 @@ def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred
             logger.error(f"Failed to load editor {editor_key} ({exec_path}): {e}")
             return False
 
+    print(f"Preferred editor is {preferred_editor}. {(preferred_editor in supported_editors)=}")
     if preferred_editor in supported_editors:
+        print(f"Preferred editor: {preferred_editor}")
         if try_launch_editor(preferred_editor):
             return
 
@@ -180,6 +210,46 @@ def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred
             return
 
     logger.error("Failed to load any editor.")
+
+def launch_macos_terminal_command(command_argv: list[str], preferred_terminal: str | None) -> bool:
+    def applescript_string(s: str) -> str:
+        return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
+
+    command_str = " ".join(shlex.quote(part) for part in command_argv)
+    cmd_as_ascript = applescript_string(command_str)
+
+    terminal_name_map = {
+        "Terminal": "Terminal",
+        "Terminal.app": "Terminal",
+        "iTerm2": "iTerm",
+        "iTerm": "iTerm",
+        "iTerm.app": "iTerm",
+    }
+
+    app_name = terminal_name_map.get((preferred_terminal or "").strip(), "Terminal")
+
+    try:
+        if app_name in {"Terminal", "Terminal.app", "Apple Terminal"}:
+            subprocess.Popen([
+                "osascript",
+                "-e", 'tell application "Terminal" to activate',
+                "-e", f'tell application "Terminal" to do script {cmd_as_ascript}',
+            ])
+            return True
+
+        if app_name in {"iTerm", "iTerm.app", "iTerm2", "iTerm 2"}:
+            subprocess.Popen([
+                "osascript",
+                "-e", 'tell application "iTerm" to activate',
+                "-e", 'tell application "iTerm" to create window with default profile',
+                "-e", f'tell application "iTerm" to tell current session of current window to write text {cmd_as_ascript}',
+            ])
+            return True
+
+        return False
+
+    except Exception:
+        return False
 
 
 # def open_in_known_editor(path: Path, env, preferred_editor= None, preferred_terminal= None):
