@@ -1195,6 +1195,8 @@ class MainWindow(qw.QMainWindow):
                         self.sim_controller.request_stop(force= False)
                 except Exception:
                         pass
+
+                qc.QTimer.singleShot(1500, self._escalate_stop_if_needed)
                 self.status_bar.showMessage("Stop requested... will rerun.", 1500)
             else:
                 self.status_bar.showMessage("Stopping... rerun queued.", 1500)
@@ -1261,6 +1263,23 @@ class MainWindow(qw.QMainWindow):
         #     self._anim_timer.start()
 
         # self.graph_panel.set_sim_run_id(self._run_id)
+
+    def _escalate_stop_if_needed(self):
+        if self._sim_state != "STOPPING":
+            return
+
+        ctrl = self.sim_controller
+        if ctrl is None:
+            return
+
+        if ctrl.is_alive():
+            self.status_bar.showMessage("Force stopping simulation...", 1500)
+            self._halt_sim_stack(force= True, clear_pending= False, clear_queue= True)
+            self._sim_State = "IDLE"
+
+            if self._rerun_pending:
+                self._rerun_pending = False
+                self._start_sim_now()
 
     def _queue_rerun(self, requested_update= None):
         self._rerun_pending = True
@@ -1437,7 +1456,7 @@ class MainWindow(qw.QMainWindow):
         Reload simulation.py / parameters.py for the current demo
         without changing which demo is active.
         """
-        self._halt_sim_stack(force= False, clear_pending= True, clear_queue= True)
+        # self._halt_sim_stack(force= False, clear_pending= True, clear_queue= True)
         try:
             demo = self.current_demo
 

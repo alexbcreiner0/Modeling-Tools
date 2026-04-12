@@ -39,11 +39,19 @@ def bundle_root() -> Path:
     return Path(__file__).resolve().parent
 
 def assets_path(*parts: str) -> Path:
-    return bundle_root().parent.parent.joinpath("assets", *parts)
+    p = bundle_root()
+    if sys.platform == "darwin":
+        return p.parent.parent.parent.joinpath("assets", *parts)
+
+    return p.parent.parent.joinpath("assets", *parts)
 
 def defaults_path(*parts: str) -> Path:
+    p = bundle_root()
+    if sys.platform == "darwin":
+        return p.parent.parent.parent.joinpath("assets", *parts)
+    
     # defaults lives one level above the package if you keep it at repo top level
-    return bundle_root().parent.parent.joinpath("defaults", *parts)
+    return p.parent.parent.joinpath("defaults", *parts)
 
 def rpath(*parts: str) -> Path:
     """ very simple helper function to create paths throughout the app """

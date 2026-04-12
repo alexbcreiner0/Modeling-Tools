@@ -44,7 +44,7 @@ OPTIONS = {
     ],
     # "frameworks": [],
     "matplotlib_backends": ["QtAgg"],
-    # "arch": "universal2",
+    "arch": "universal2",
 }
 
 setup(
