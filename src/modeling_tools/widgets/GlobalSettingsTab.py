@@ -32,7 +32,7 @@ class GlobalSettingsTab(qw.QWidget):
             elif sys.platform == "darwin":
                 default_term = "Apple Terminal"
             else:
-                default_term == ""
+                default_term = ""
             preferred_terminal = global_settings.get("preferred_terminal", default_term)
 
         # self.edit_default_save_dir = qw.QLineEdit(save_dir)
