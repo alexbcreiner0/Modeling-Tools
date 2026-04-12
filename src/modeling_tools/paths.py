@@ -48,7 +48,7 @@ def assets_path(*parts: str) -> Path:
 def defaults_path(*parts: str) -> Path:
     p = bundle_root()
     if sys.platform == "darwin":
-        return p.parent.parent.parent.joinpath("assets", *parts)
+        return p.parent.parent.parent.joinpath("defaults", *parts)
     
     # defaults lives one level above the package if you keep it at repo top level
     return p.parent.parent.joinpath("defaults", *parts)

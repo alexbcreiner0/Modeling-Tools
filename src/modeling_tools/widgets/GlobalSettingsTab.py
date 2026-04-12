@@ -2,6 +2,7 @@ from PyQt6 import QtWidgets as qw
 import yaml
 from .FilePicker import FilePicker
 from pathlib import Path
+import sys
 
 from .common import FormSection
 
@@ -26,7 +27,13 @@ class GlobalSettingsTab(qw.QWidget):
             use_saved_cat_limits = global_settings.get("use_cat_limits", True)
             figure_mode = global_settings.get("figure_mode", "tight")
             preferred_editor = global_settings.get("preferred_editor", "Auto")
-            preferred_terminal = global_settings.get("preferred_terminal", "nvim")
+            if sys.platform == "win32":
+                default_term = "powershell -NoExit "
+            elif sys.platform == "darwin":
+                default_term = "Apple Terminal"
+            else:
+                default_term == ""
+            preferred_terminal = global_settings.get("preferred_terminal", default_term)
 
         # self.edit_default_save_dir = qw.QLineEdit(save_dir)
         # self.btn_browse_save_dir = qw.QToolButton()
@@ -104,7 +111,12 @@ class GlobalSettingsTab(qw.QWidget):
                     'If a is not the name of a parameter in either of the above cases, then {a} will just be replaced with a in the name."
         sec.form.addRow("Default image save name:", self.save_name, help_text= help_text)
         sec.form.addRow("Preferred Editor/IDE:", self.preferred_editor, help_text = "If set to auto, order of precedence mirrors the order in which IDE's are shown in this list. Preferred editors which are entered manually and not in the list will be assumed to be CLI based and use the preferred terminal (see below).")
-        sec.form.addRow("Preferred Terminal:", self.preferred_terminal, help_text = "If your preferred editor is something which runs in a terminal like Vim or Neovim, you must specify a terminal to run it from. If your terminal doesn't appear on this list, you can type in the command to open it manually. If the command fails, Modeling Tools will run down the list of preferred editors until it finds something that it can use on your computer. If it doesn't find anything, buttons attempting to use it will be unresponsive.")
+        sec.form.addRow("Preferred Terminal:", self.preferred_terminal, 
+            help_text = "If your preferred editor is something which runs in a terminal like Vim or Neovim, \
+                        you must specify a terminal to run it from. If your terminal doesn't appear on this list, \
+                        you can type in the command to open it manually. If the command fails, Modeling Tools will \
+                        run down the list of preferred editors until it finds something that it can use on your computer. \
+                        If it doesn't find anything, buttons attempting to use it will be unresponsive.")
         sec.form.addRow('', self.checkbox_row)
         sec.form.addRow("MatPlotLib figure mode:", figure_mode_radio_widget)
 
