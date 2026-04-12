@@ -148,15 +148,6 @@ def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred
         uses_term = editor_info["terminal"]
         try:
             if is_macos:
-
-                if is_macos:
-                    if editor_key == "Sublime Text":
-                        exec_path = resolve_executable(editor_info["commands"])
-                        if exec_path:
-                            subprocess.Popen([exec_path, *args])
-                            return True
-                        return False
-                        
                 if uses_term:
                     exec_path = resolve_executable(editor_info["commands"])
                     if not exec_path:
