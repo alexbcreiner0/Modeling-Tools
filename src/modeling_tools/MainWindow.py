@@ -165,7 +165,6 @@ class MainWindow(qw.QMainWindow):
 
         self.setCentralWidget(self.main_splitter)
 
-        self._install_focus_clear_filter()
         self.assign_keybinds(first_boot= True)
 
 
@@ -217,7 +216,7 @@ class MainWindow(qw.QMainWindow):
                 "slot": self.save_preset
             },
             "save_slot_view": {
-                "shortcut": keybindings.get("save_screenshot", "Ctrl+S,V"),
+                "shortcut": keybindings.get("save_slot_view", "Ctrl+S,V"),
                 "slot": self._save_slot_view,
             },
             "save_cat_view": {
@@ -406,11 +405,22 @@ class MainWindow(qw.QMainWindow):
             },
         }
 
-        for short_dict in self.shortcuts.values():
+        # for short_dict in self.shortcuts.values():
+        #     key_seq = short_dict["shortcut"]
+        #     shortcut = qg.QShortcut(qg.QKeySequence(key_seq), self)
+        #     shortcut.activated.connect(short_dict["slot"])
+        #     short_dict["actual_shortcut"] = shortcut
+
+        for name, short_dict in self.shortcuts.items():
             key_seq = short_dict["shortcut"]
             shortcut = qg.QShortcut(qg.QKeySequence(key_seq), self)
+            shortcut.setContext(qc.Qt.ShortcutContext.ApplicationShortcut)
             shortcut.activated.connect(short_dict["slot"])
-            short_dict["actual_shortcut"] = shortcut
+            shortcut.activatedAmbiguously.connect(
+                lambda name=name, seq=key_seq: print(f"AMBIGUOUS: {name} -> {seq}")
+            )
+            # print(f"Registered shortcut: {name} -> {key_seq}")
+            # short_dict["actual_shortcut"] = shortcut
 
         if not first_boot:
             self.status_bar.showMessage("Keybindings reloaded", msecs=3000)
@@ -667,14 +677,63 @@ class MainWindow(qw.QMainWindow):
             finally:
                 self.sim_controller = None
 
-    def _install_focus_clear_filter(self) -> None:
-        # Put it on the window and also on the central widget / scroll areas if needed
-        self.installEventFilter(self)
-        cw = self.centralWidget()
-        if cw:
-            cw.installEventFilter(self)
+    # def _install_focus_clear_filter(self) -> None:
+    #     # Put it on the window and also on the central widget / scroll areas if needed
+    #     self.installEventFilter(self)
+    #     cw = self.centralWidget()
+    #     if cw:
+    #         cw.installEventFilter(self)
 
-    # MainWindow.py
+    def eventFilter(self, a0, a1):
+        if a0 is None or a1 is None:
+            return super().eventFilter(a0, a1)
+
+        et = a1.type()
+
+        if et == qc.QEvent.Type.KeyPress:
+            mods = a1.modifiers()
+            key = a1.key()
+
+            if mods & qc.Qt.KeyboardModifier.ControlModifier:
+                if mods & qc.Qt.KeyboardModifier.ShiftModifier:
+                    if key == qc.Qt.Key.Key_Right:
+                        self.expand_grid("right")
+                        return True
+                    if key == qc.Qt.Key.Key_Left:
+                        self.expand_grid("left")
+                        return True
+                    if key == qc.Qt.Key.Key_Up:
+                        self.expand_grid("up")
+                        return True
+                    if key == qc.Qt.Key.Key_Down:
+                        self.expand_grid("down")
+                        return True
+
+        if et == qc.QEvent.Type.ShortcutOverride:
+            mods = a1.modifiers()
+            fw = qw.QApplication.focusWidget()
+
+            in_text_editor = isinstance(
+                fw,
+                (qw.QLineEdit, qw.QTextEdit, qw.QPlainTextEdit),
+            )
+
+            standard_edit_shortcuts = (
+                a1.matches(qg.QKeySequence.StandardKey.Copy) or
+                a1.matches(qg.QKeySequence.StandardKey.Cut) or
+                a1.matches(qg.QKeySequence.StandardKey.Paste) or
+                a1.matches(qg.QKeySequence.StandardKey.Undo) or
+                a1.matches(qg.QKeySequence.StandardKey.Redo) or
+                a1.matches(qg.QKeySequence.StandardKey.SelectAll)
+            )
+
+            if mods & qc.Qt.KeyboardModifier.ControlModifier:
+                if not (in_text_editor and standard_edit_shortcuts):
+                    a1.ignore()
+                    return False
+
+        return super().eventFilter(a0, a1)
+
     def show_partial_results(self, traj, t):
         if traj is None or t is None:
             return
@@ -909,7 +968,7 @@ class MainWindow(qw.QMainWindow):
                 if cfg is None:
                     continue
                 dropdown_index, options, slot_cfg = cfg
-                self.graph_panel.plot_slot(slot_index, dropdown_index, options, slot_cfg)
+                self.graph_panel.plot_slot(slot_index, dropdown_index, options, slot_cfg, rescale_legend= True)
 
         # qc.QTimer.singleShot(0, self.tight_layout)
 
@@ -1180,7 +1239,6 @@ class MainWindow(qw.QMainWindow):
             view_desc_action.triggered.connect(lambda _checked= False, name= preset: self.view_desc(name))
 
     def start_sim(self, name= None, new_val= None):
-        self.status_bar.showMessage(f"{self._sim_state=}", 2000)
         requested_update = None
         if name not in (None, False):
             requested_update = (name, new_val)

@@ -1227,7 +1227,7 @@ class GraphPanel(qw.QWidget):
         n = min(len(t), len(y))
         return t[:n], y[:n]
 
-    def plot_slot(self, slot_index, dropdown_choice, options, slot_config=None, load_idx_defaults= False):
+    def plot_slot(self, slot_index, dropdown_choice, options, slot_config=None, load_idx_defaults= False, rescale_legend= False):
         """ apply plots to a slot """
         if self.traj is None or self.t is None:
             self.canvas.draw_idle()
@@ -1271,7 +1271,13 @@ class GraphPanel(qw.QWidget):
             current_ylim = ax.get_ylim()
             current_zlim = ax.get_zlim() if hasattr(ax, "get_zlim") else None
 
-        legend_font_size = self._get_legend_font()
+        if slot_config is not None:
+            if slot_config.get("legend_fontsize") is not None and not rescale_legend:
+                legend_font_size = slot_config.get("legend_fontsize", 10)
+            else:
+                legend_font_size = self._get_legend_font()
+        else:
+            legend_font_size = self._get_legend_font()
 
         self._clear_slot(slot_index) # die
 
