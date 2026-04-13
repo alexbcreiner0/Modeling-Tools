@@ -45,7 +45,6 @@ echo "Installing..."
 # payload integrity check
 for required in \
     "$PAYLOAD_ROOT/src" \
-    "$PAYLOAD_ROOT/defaults" \
     "$PAYLOAD_ROOT/pyproject.toml" \
     "$PAYLOAD_ROOT/README.md" \
     "$PAYLOAD_ROOT/launcher.sh" \

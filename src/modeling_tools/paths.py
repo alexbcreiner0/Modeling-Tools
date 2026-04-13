@@ -39,19 +39,10 @@ def bundle_root() -> Path:
     return Path(__file__).resolve().parent
 
 def assets_path(*parts: str) -> Path:
-    p = bundle_root()
-    if sys.platform == "darwin":
-        return p.parent.parent.parent.joinpath("assets", *parts)
-
-    return p.parent.parent.joinpath("assets", *parts)
+    return APP_DIR.joinpath("assets", *parts)
 
 def defaults_path(*parts: str) -> Path:
-    p = bundle_root()
-    if sys.platform == "darwin":
-        return p.parent.parent.parent.joinpath("defaults", *parts)
-    
-    # defaults lives one level above the package if you keep it at repo top level
-    return p.parent.parent.joinpath("defaults", *parts)
+    return APP_DIR.joinpath("defaults", *parts)
 
 def rpath(*parts: str) -> Path:
     """ very simple helper function to create paths throughout the app """
@@ -63,5 +54,5 @@ if __name__ == "__main__":
     print(f"{CACHE_DIR=}")
     print(f"{LOG_DIR=}")
     print(f"{MODELS_DIR=}")
-    print(f"{APP_DIR}")
+    print(f"{APP_DIR=}")
 

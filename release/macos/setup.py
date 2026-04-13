@@ -1,6 +1,6 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 from pathlib import Path
-import sys
+import sys, shutil
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -9,7 +9,7 @@ APP = [ str(HERE / "main.py") ]
 
 OPTIONS = {
     "argv_emulation": False,
-    "iconfile": str(ROOT / "assets" / "icon.icns"),
+    "iconfile": "../../src/modeling_tools/assets/icon.icns",
     "plist": {
         "CFBundleName": "Modeling Tools",
         "CFBundleDisplayName": "Modeling Tools",
@@ -38,18 +38,32 @@ OPTIONS = {
     "includes": [
         "sip",
     ],
-    "resources": [
-        str(ROOT / "assets"),
-        str(ROOT / "defaults"),
-    ],
     # "frameworks": [],
     "matplotlib_backends": ["QtAgg"],
     "arch": "arm64",
 }
+
+# setup(
+#     app=APP,
+#     name="Modeling Tools",
+#     options={"py2app": OPTIONS},
+#     setup_requires=["py2app"],
+# )
 
 setup(
     app=APP,
     name="Modeling Tools",
     options={"py2app": OPTIONS},
     setup_requires=["py2app"],
+    packages=find_packages(where="../../src"),
+    package_dir={"": "../../src"},
+    include_package_data=True,
+    package_data={
+        "modeling_tools": [
+            "*",
+            "assets/**/*",
+            "defaults/**/*",
+            "templates/**/*"
+        ]
+    },
 )

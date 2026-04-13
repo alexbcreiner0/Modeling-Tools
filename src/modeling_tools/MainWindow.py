@@ -53,7 +53,7 @@ class MainWindow(qw.QMainWindow):
 
     def __init__(self, env):
         super().__init__()
-        self.setWindowTitle("Tex's Modeling Tools")
+        self.setWindowTitle("Dr. Creiner's Modeling Tools")
         self.env = env
 
         with open(env.config_dir / "config.yml", "r") as f:

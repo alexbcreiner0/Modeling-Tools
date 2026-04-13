@@ -27,9 +27,14 @@ class DemoSettingsTab(qw.QWidget):
 
         self.working_data = copy.deepcopy(self.original_data)
         self.names_dict = {}
-        for demo in self.working_data["demos"]:
-            name = self.working_data["demos"][demo]["name"]
-            self.names_dict[name] = demo
+        if self.working_data.get("demos"):
+            for demo in self.working_data["demos"]:
+                if not self.working_data["demos"].get(demo):
+                    continue
+                if not self.working_data["demos"][demo].get("name"):
+                    continue
+                name = self.working_data["demos"][demo]["name"]
+                self.names_dict[name] = demo
 
         layout = qw.QHBoxLayout(self)
         layout.setSpacing(12)
@@ -177,6 +182,10 @@ class DemoSettingsTab(qw.QWidget):
         self.names_dict.clear()
 
         for intern_key, demo_dict in self.working_data["demos"].items():
+            if demo_dict is None:
+                continue
+            if not demo_dict.get("name"):
+                continue
             display_name = demo_dict["name"]
             self.names_dict[display_name] = intern_key
 
