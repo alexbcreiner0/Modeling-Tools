@@ -15,18 +15,16 @@ CreateUninstallRegKey=yes
 Source: "install.ps1"; DestDir: "{app}";
 Source: "launcher.ps1"; DestDir: "{app}"
 Source: "uninstall.ps1"; DestDir: "{app}"
-Source: "..\..\src\*"; DestDir: "{app}\src"; Flags: recursesubdirs; Excludes: "__pycache__\*,*.pyc,*.pyo"
-Source: "..\..\defaults\*"; DestDir: "{app}\defaults"; Flags: recursesubdirs
+Source: "launcher.pyw"; DestDir: "{app}"
+Source: "..\..\src\*"; DestDir: "{app}\src"; Flags: recursesubdirs createallsubdirs; Excludes: "__pycache__\*,*.pyc,*.pyo"
 Source: "..\..\README.md"; DestDir: "{app}"
 Source: "..\..\pyproject.toml"; DestDir: "{app}"
-Source: "..\..\assets\icon.ico"; DestDir: "{app}\assets"
-Source: "launcher.pyw"; DestDir: "{app}"
 
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\install.ps1"""; Flags: waituntilterminated
 
 [Icons]
-Name: "{group}\Modeling Tools"; Filename: "{app}\.venv\Scripts\pythonw.exe"; Parameters: """{app}\launcher.pyw"""; WorkingDir: "{app}"; IconFilename: "{app}\assets\icon.ico"
+Name: "{group}\Modeling Tools"; Filename: "{app}\.venv\Scripts\pythonw.exe"; Parameters: """{app}\launcher.pyw"""; WorkingDir: "{app}"; IconFilename: "{app}\src\modeling_tools\assets\icon.ico"
 Name: "{commondesktop}\Modeling Tools"; Filename: "{app}\.venv\Scripts\pythonw.exe"; Parameters: """{app}\launcher.pyw"""; WorkingDir: "{app}"; IconFilename: "{app}\assets\icon.ico"
 
 [UninstallRun]

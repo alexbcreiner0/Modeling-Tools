@@ -48,7 +48,9 @@ for required in \
     "$PAYLOAD_ROOT/pyproject.toml" \
     "$PAYLOAD_ROOT/README.md" \
     "$PAYLOAD_ROOT/launcher.sh" \
-    "$PAYLOAD_ROOT/modeling-tools.desktop"
+    "$PAYLOAD_ROOT/modeling-tools.desktop" \
+    "$PAYLOAD_ROOT/src/modeling_tools/assets/icon.png" \
+    "$PAYLOAD_ROOT/src/modeling_tools/defaults"
 do
     if [[ ! -e "$required" ]]; then
         echo "Error: expected release file not found:"
@@ -65,12 +67,8 @@ mkdir -p "$INSTALL_ROOT" "$BIN_DIR" "$DESKTOP_DIR" "$ICON_DIR"
 # (destroy files that are already in the install root but not here)
 echo "Copying application files..."
 rm -rf "$INSTALL_ROOT/src"
-rm -rf "$INSTALL_ROOT/defaults"
-rm -rf "$INSTALL_ROOT/assets"
 
 cp -r "$PAYLOAD_ROOT/src" "$INSTALL_ROOT/"
-cp -r "$PAYLOAD_ROOT/defaults" "$INSTALL_ROOT/"
-cp -r "$PAYLOAD_ROOT/assets" "$INSTALL_ROOT/"
 cp "$PAYLOAD_ROOT/README.md" "$INSTALL_ROOT/"
 cp "$PAYLOAD_ROOT/pyproject.toml" "$INSTALL_ROOT/"
 
@@ -97,9 +95,9 @@ sed "s|@EXEC_PATH@|$BIN_DIR/launcher.sh|g" \
 
 chmod 644 "$DESKTOP_DIR/modeling-tools.desktop"
 
-if [[ -f "$PAYLOAD_ROOT/assets/icon.png" ]]; then
+if [[ -f "$PAYLOAD_ROOT/src/modeling_tools/assets/icon.png" ]]; then
     install -m 644 \
-      "$PAYLOAD_ROOT/assets/icon.png" \
+      "$PAYLOAD_ROOT/src/modeling_tools/assets/icon.png" \
       "$ICON_DIR/modeling-tools.png"
 fi
 

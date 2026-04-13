@@ -11,6 +11,7 @@ if [[ ! -x "$VENV_PYTHON" ]]; then
     exit 1
 fi
 
-export PYTHONPATH="$INSTALL_ROOT/src/${PYTHONPATH:+:$PYTHONPATH}"
+# UNCOMMENT FOR DEVELOPMENT
+# export PYTHONPATH="$INSTALL_ROOT/src/${PYTHONPATH:+:$PYTHONPATH}"
 
 exec "$VENV_PYTHON" -m modeling_tools "$@"
