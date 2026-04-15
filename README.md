@@ -1,4 +1,4 @@
-![Demo](assets/demo.gif)
+![Demo](src/modeling_tools/assets/demo.gif)
 
 # Dr. Creiner's Modelling Tools
 
