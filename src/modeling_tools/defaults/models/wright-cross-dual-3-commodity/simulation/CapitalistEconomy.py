@@ -357,7 +357,7 @@ class CapitalistEconomy:
         else:
             i = random.randint(0,self.n-1)
         # i=1
-        print(f"Improving sector {i}")
+        # print(f"Improving sector {i}")
 
         if epsilon == None: epsilon = self.params.cost_tradeoff
 
@@ -373,7 +373,7 @@ class CapitalistEconomy:
         cost_ratio = a_i.dot(p) / (w*l_i)
 
         old_cost = np.maximum(a_i.dot(p) + w*l_i, 1e-12)
-        print(f"Old cost of commodity {i}: {old_cost}")
+        # print(f"Old cost of commodity {i}: {old_cost}")
 
         gamma = cost_ratio * (1 + epsilon) # bigger epsilon => more dramatic superprofits (i think)
         alpha = beta / gamma 
@@ -395,7 +395,7 @@ class CapitalistEconomy:
 
         new_a_i = new_A[:,i]
         new_cost = new_a_i.dot(p) + w * new_l[i]
-        print(f"New cost of commodity {i}: {new_cost}")
+        # print(f"New cost of commodity {i}: {new_cost}")
 
         new_epr, new_eqp = self._get_equilibrium_info(p, w, new_A, new_l)
         self.traj["okishio_pts_x"] = np.append(self.traj["okishio_pts_x"], self.current_t)
@@ -423,7 +423,7 @@ class CapitalistEconomy:
         a_i = a_cols[i]
         cost_ratio = a_i.dot(p) / (w*l[i])
         old_cost = a_i.dot(p) + w*l[i]
-        print(f"Old cost of commodity {i}: {old_cost}")
+        # print(f"Old cost of commodity {i}: {old_cost}")
         beta = alpha * cost_ratio * (1 - epsilon) # bigger epsilon => more dramatic superprofits (i think)
 
         a_cols[i] *= (1-alpha)
@@ -440,7 +440,7 @@ class CapitalistEconomy:
             new_A /= (np.max(np.abs(eigvals)) + epsilon)
 
         new_cost = a_i.dot(p) + w*l[i]
-        print(f"New cost of commodity {i}: {new_cost}")
+        # print(f"New cost of commodity {i}: {new_cost}")
         new_epr, new_eqp = self._get_equilibrium_info(p, w, new_A, new_l)
         self.traj["okishio_pts_x"] = np.append(self.traj["okishio_pts_x"], self.current_t)
         self.traj["okishio_pts_y"] = np.append(self.traj["okishio_pts_y"], new_epr)

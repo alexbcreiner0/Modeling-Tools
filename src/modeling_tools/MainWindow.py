@@ -207,6 +207,14 @@ class MainWindow(qw.QMainWindow):
                 "shortcut": keybindings.get("pause_sim", "Space"),
                 "slot": self.toggle_pause
             },
+            "kill_sim": {
+                "shortcut": keybindings.get("kill_sim", "Ctrl+J"),
+                "slot": self._kill_sim
+            },
+            "toggle_panning": {
+                "shortcut": keybindings.get("toggle_panning", "Ctrl+P"),
+                "slot": self.graph_panel.toolbar.pan
+            },
             "save_screenshot": {
                 "shortcut": keybindings.get("save_screenshot", "Ctrl+S,S"),
                 "slot": self.toolbar.save_figure,
@@ -619,6 +627,17 @@ class MainWindow(qw.QMainWindow):
         if hasattr(self, "graph_panel"):
             self.graph_panel.settings = self.settings
 
+    def _kill_sim(self):
+
+        print("attempting murder")
+        if self._sim_state == "RUNNING":
+            self._sim_state = "STOPPING"
+            if self.sim_controller is not None:
+                self._escalate_stop_if_needed()
+
+            self.status_bar.showMessage("Sim was murdered in its sleep.", 2000)
+            self._halt_sim_stack(force= True)
+
     def _halt_sim_stack(self, *, force: bool= False, clear_pending: bool= True, clear_queue: bool = False) -> None:
         """ Safe multipurpose method for halting/killing all of the relevant moving parts of an ongoing sim """
 
@@ -929,7 +948,7 @@ class MainWindow(qw.QMainWindow):
             zlim = None
         self.graph_panel.edit_slot_axes(slot_index, xlim, ylim, zlim)
 
-    def on_slot_plot_choice_changed(self, slot_index: int):
+    def on_slot_plot_choice_changed(self, slot_index: int, source: str = "checkbox"):
         # print(f"[DEBUG] Slot {slot_index} dropdown changed to index {_dropdown_index}")
         if not hasattr(self, "traj") or self.traj is None: return
 
@@ -940,7 +959,7 @@ class MainWindow(qw.QMainWindow):
 
         load_idx_defaults = self.settings.get("use_cat_limits", False)
         load_idx_defaults = False if not isinstance(load_idx_defaults, bool) else load_idx_defaults 
-        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, load_idx_defaults= load_idx_defaults)
+        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, source= "checkbox", load_idx_defaults= load_idx_defaults)
 
     def on_slot_options_changed(self, slot_index: int):
         """Options changed for a specific slot."""
@@ -1170,7 +1189,7 @@ class MainWindow(qw.QMainWindow):
 
         force_kill_action = qg.QAction("Force Kill Sim", self)
         file_menu.addAction(force_kill_action)
-        force_kill_action.triggered.connect(lambda _checked= False: self._halt_sim_stack(force= True))
+        force_kill_action.triggered.connect(self._kill_sim)
 
         edit_keybindings_action = qg.QAction("Edit keybindings", self)
         file_menu.addAction(edit_keybindings_action)
@@ -1326,6 +1345,7 @@ class MainWindow(qw.QMainWindow):
         if self._sim_state != "STOPPING":
             return
 
+
         ctrl = self.sim_controller
         if ctrl is None:
             return
@@ -1333,7 +1353,7 @@ class MainWindow(qw.QMainWindow):
         if ctrl.is_alive():
             self.status_bar.showMessage("Force stopping simulation...", 1500)
             self._halt_sim_stack(force= True, clear_pending= False, clear_queue= True)
-            self._sim_State = "IDLE"
+            self._sim_state = "IDLE"
 
             if self._rerun_pending:
                 self._rerun_pending = False
@@ -1497,7 +1517,9 @@ class MainWindow(qw.QMainWindow):
             axis_settings = self.presets[preset].get("axis_settings", {})
             if axis_settings:
                 rows, cols, limits, saved_limits, dropdown_indices, slot_settings, checked = self._get_slot_settings(axis_settings)
+                self.graph_panel.blockSignals(True)
                 self.control_panel._alter_slot_layout(rows, cols, limits, saved_limits, dropdown_indices, checked, slot_settings)
+                self.graph_panel.blockSignals(False)
                 self._set_graph_lims(limits)
             self.control_panel.load_new_params(self.params)
             self.start_sim()
@@ -1744,14 +1766,17 @@ class MainWindow(qw.QMainWindow):
         return sim_function, functions
 
     def _load_params(self, presets, sim_model):
-        if len(sys.argv) == 1:
-            params_dict = presets.get("default_preset", {})
+        preset_name = self.current_demo.get("details", {}).get("default_preset", "default_preset")
+        preset = presets.get(preset_name)
+        if preset is not None:
+            params_dict = preset.get("params")
         else:
-            try:
-                params_dict = presets[sys.argv[1]]
-            except KeyError:
-                logger.log(logging.INFO, f"Preset {sys.argv[1]} not found, loading the first thing in params.yaml.")
-                params_dict = presets[next(iter(presets))]
+            params_dict = None
+        if params_dict is None and presets != {}:
+            preset = presets[next(iter(presets))]
+            params_dict = presets.get("params", {})
+        if params_dict is None:
+            params_dict = {}
 
         params_module_name = f"models.{sim_model}.simulation.parameters"
 
@@ -1760,7 +1785,7 @@ class MainWindow(qw.QMainWindow):
                 importlib.reload(sys.modules[params_module_name])
             if params_dict:
                 params = params_from_mapping(
-                    params_dict["params"],
+                    params_dict,
                     self.env.models_dir / self.sim_model / "simulation" / "parameters.py"
                 )
             else:
@@ -2149,12 +2174,14 @@ class MainWindow(qw.QMainWindow):
             presets = yaml.safe_load(f)["presets"]
         dialog = SaveDialog(presets.keys(), self, name_text= "New Name: ", desc_text= "(Optional) New Description")
         try:
-            shortname, new_name, new_desc = dialog.bootstrap()
+            shortname, new_name, new_desc, save_axis= dialog.bootstrap()
         except TypeError:
             return
         preset = presets[old_shortname]
         preset["name"] = new_name
         preset["desc"] = new_desc
+        if save_axis:
+            preset["axis_settings"] = self._get_current_axis_settings()
         self.delete_preset(old_shortname)
         presets[shortname] = preset
         del presets[old_shortname]

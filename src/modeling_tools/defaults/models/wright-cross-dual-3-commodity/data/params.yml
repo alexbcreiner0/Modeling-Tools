@@ -204,9 +204,72 @@ presets:
       eps_m: 1.0e-08
       T: 100
       res: 3
-  figure_2a_3:
-    name: Figure 2a, 3
-    desc: okishio-b, real-wage-more-detail
+      n: 3
+    axis_settings:
+      limits:
+        a1: [[0.0, 30.0], [-1.39891, 15.5381]]
+        a2: [[0.0, 30.0], [-0.18071, 1.31929]]
+        a3: [[0.0, 30.0], [-0.0976874, 1.14277]]
+        a4: [[0.0, 15.0], [-0.5, 1.0]]
+        a5: [[0.0, 30.0], [-0.0904106, 0.599928]]
+        a6: [[0.0, 30.0], [0.227861, 0.969349]]
+      dimension: [2, 3]
+      dropdown_indices: [0, 4, 2, 3, 6, 5]
+      checked_plots:
+        a1: [Unit Prices, Unit Values]
+        a2: [Employment, Unemployment, Hourly Wage]
+        a3: [Outputs, Supplies, Demand]
+        a4: [Equilibrium Rate of Profit, Sectoral Rates of Profit]
+        a5: [Total Interest, Total Profit of Enterprise]
+        a6: [Capitalist Savings, Hourly Wage, Worker Savings]
+      settings:
+        a1:
+          legend_visible: true
+          legend_fontsize: 10
+          legend_loc: upper right
+          title: true
+          xlabel: false
+          ylabel: false
+        a2:
+          legend_visible: true
+          legend_fontsize: 8
+          legend_loc: upper right
+          title: true
+          xlabel: true
+          ylabel: true
+        a3:
+          legend_visible: true
+          legend_fontsize: 5
+          legend_loc: upper right
+          title: true
+          xlabel: true
+          ylabel: true
+        a4:
+          legend_visible: true
+          legend_fontsize: 6
+          legend_loc: upper right
+          title: true
+          xlabel: true
+          ylabel: true
+        a5:
+          legend_visible: true
+          legend_fontsize: 6
+          legend_loc: upper right
+          title: true
+          xlabel: true
+          ylabel: true
+        a6:
+          legend_visible: true
+          legend_fontsize: 6
+          legend_loc: upper right
+          title: true
+          xlabel: true
+          ylabel: true
+      saved_limits:
+        a1: [[-0.00556859, 10.9558], [-2.95211, 17.5523]]
+  figure_3:
+    name: Figure 3
+    desc: ''
     params:
       A: [[0.2, 0.0, 0.4], [0.2, 0.4, 0.0], [0.0, 0.1, 0.1]]
       l: [0.7, 0.6, 0.3]

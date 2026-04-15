@@ -78,6 +78,7 @@ prices_and_values:
       toggled: false
       labels: [Equilibrium Price of Corn, Equilibrium Price of Iron, Equilibrium Price
           of Sugar]
+  default_lims: [[-0.00556859, 10.9558], [-2.95211, 17.5523]]
 values_and_prices:
   name: Values and Prices
   tooltip: '- This is the same as the prices and values category except that everything

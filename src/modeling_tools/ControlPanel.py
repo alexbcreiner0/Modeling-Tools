@@ -30,7 +30,7 @@ class VScrollArea(qw.QScrollArea):
 class ControlPanel(qw.QWidget):
     paramChanged = qc.pyqtSignal(str, object)
     layoutChanged = qc.pyqtSignal(int, int)
-    slotPlotChoiceChanged = qc.pyqtSignal(int)
+    slotPlotChoiceChanged = qc.pyqtSignal(int, str)
     slotOptionsChanged = qc.pyqtSignal(int)
     slotAxesChanged = qc.pyqtSignal(int)
     slotAxesCatChanged = qc.pyqtSignal(int)
@@ -301,7 +301,7 @@ class ControlPanel(qw.QWidget):
             self.slot_axes_controls.append(axes_widget)
 
             dropdown.currentIndexChanged.connect(lambda idx, s=slot_index: self._on_dropdown_changed(idx, s))
-            dropdown.checkStateChanged.connect(lambda s=slot_index: self.slotPlotChoiceChanged.emit(s))
+            dropdown.checkStateChanged.connect(lambda s=slot_index, source= "checkbox": self.slotPlotChoiceChanged.emit(s, source))
             dropdown.infoBoxHovered.connect(lambda s=slot_index: self._on_info_hovered(s))
             options_widget.settingsChanged.connect(lambda s=slot_index: self.slotOptionsChanged.emit(s))
             axes_widget.settingsChanged.connect(lambda s=slot_index: self.slotAxesChanged.emit(s))
@@ -322,7 +322,6 @@ class ControlPanel(qw.QWidget):
                     xlim, ylim, zlim = lims
                     if xlim is None or ylim is None or zlim is None:
                         continue
-                    print(f"{xlim=}, {ylim=}, {zlim=}")
                     self.slot_axes_controls[i].set_limits(xlim, ylim, zlim)
 
             last_valid = None
@@ -474,7 +473,7 @@ class ControlPanel(qw.QWidget):
         projection = self._get_slot_projection(idx)
         self.slot_axes_controls[slot_index].set_projection(projection)
 
-        self.slotPlotChoiceChanged.emit(slot_index)
+        self.slotPlotChoiceChanged.emit(slot_index, "dropdown")
 
     def _set_initial_plot_params(self, axes_widget):
         if "starting_lims" in self.demo["details"]:

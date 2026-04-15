@@ -1227,7 +1227,7 @@ class GraphPanel(qw.QWidget):
         n = min(len(t), len(y))
         return t[:n], y[:n]
 
-    def plot_slot(self, slot_index, dropdown_choice, options, slot_config=None, load_idx_defaults= False, rescale_legend= False):
+    def plot_slot(self, slot_index, dropdown_choice, options, slot_config=None, source= "checkbox", load_idx_defaults= False, rescale_legend= False):
         """ apply plots to a slot """
         if self.traj is None or self.t is None:
             self.canvas.draw_idle()
@@ -1252,7 +1252,7 @@ class GraphPanel(qw.QWidget):
         # if new_lims:
         default_lims = self.data.get(choice_name, {}).get("default_lims")
 
-        if default_lims and load_idx_defaults:
+        if default_lims and load_idx_defaults and source== "dropdown":
             xlims_base = default_lims[0]
             current_xlim = tuple(float(xlim) for xlim in xlims_base)
             

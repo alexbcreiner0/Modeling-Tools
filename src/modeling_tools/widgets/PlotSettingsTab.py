@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import os, copy
 import yaml
-from .common import make_shortname
+from .common import make_shortname, replace_key_preserve_order
 from modeling_tools.tools.creation_tools import flow_seqify, atomic_write
 import logging
 from .RowStackWidgets import *
@@ -375,7 +375,7 @@ class PlotSettingsTab(qw.QWidget):
             model_dict = self._working_plot_data[self._current_model]
 
             # Preserve plots + metadata order
-            self._replace_key_preserve_order(model_dict, old_cat_name, inter_name, new_data)
+            replace_key_preserve_order(model_dict, old_cat_name, inter_name, new_data)
 
             self._refresh_tree()
             self._select_cat(inter_name)
@@ -403,7 +403,7 @@ class PlotSettingsTab(qw.QWidget):
                 item.setText(0, display)
             return
 
-        self._replace_key_preserve_order(plots_dict, old_plot_name, inter_name, new_data)
+        replace_key_preserve_order(plots_dict, old_plot_name, inter_name, new_data)
         self._refresh_tree()
         self._select_plot(old_cat_name, inter_name)
         self._restore_cursor_pos(w, cursor_pos)
@@ -416,21 +416,6 @@ class PlotSettingsTab(qw.QWidget):
         }
         self._refresh_tree()
         self._select_cat("new_category")
-
-    def _replace_key_preserve_order(self, d: dict, old_key: str, new_key: str, new_val) -> None:
-        """Replace old_key with new_key (and new_val) keeping existing iteration order."""
-        if old_key == new_key:
-            d[old_key] = new_val
-            return
-
-        new_d = {}
-        for k, v in d.items():
-            if k == old_key:
-                new_d[new_key] = new_val
-            else:
-                new_d[k] = v
-        d.clear()
-        d.update(new_d)
 
     def _on_dup_plot_clicked(self) -> None:
         item = self.tree.currentItem()
