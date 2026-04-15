@@ -238,14 +238,6 @@ row10:
     functions:
     - random_parameters
     param_name: generation
-  n:
-    param_name: n
-    control_type: entry_block
-    type: scalar
-    scalar_type: int
-    range: [1, 10]
-    label: $n=$
-    tooltip: ''
 row11:
   A:
     control_type: entry_block
