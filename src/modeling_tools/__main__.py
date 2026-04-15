@@ -19,7 +19,7 @@ PLATFORM = sys.platform
 
 # windows needs this for my app to appear as anything other than IDLE
 if PLATFORM.startswith("win"):
-    myappid = "com.alexcreiner.modelingtools"
+    myappid = "com.redacted.modelingtools"
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 def handle_exception(exc_type, exc_value, exc_traceback):

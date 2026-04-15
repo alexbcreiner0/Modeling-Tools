@@ -3,7 +3,16 @@ from pathlib import Path
 from platformdirs import user_config_dir, user_data_dir, user_cache_dir
 import sys
 import os
+import yaml
 from dataclasses import dataclass
+
+def release_mode_active(app_dir: Path) -> bool:
+    """ looks for special global settings to determine how to unload """
+    config_path = app_dir / "defaults" / "config.example.yml"
+    with open(config_path, "r") as f:
+        settings = yaml.safe_load(f).get("global_settings", {})
+
+    return settings.get("paper_release_mode", False)
 
 APP_NAME = "Modeling-Tools"
 APP_AUTHOR = False
@@ -11,12 +20,17 @@ APP_AUTHOR = False
 # the path of the containing folder
 APP_DIR = Path(__file__).resolve().parent
 
-CACHE_DIR = Path(user_cache_dir(APP_NAME, APP_AUTHOR))
-USER_APP_DIR = Path.home() / "Documents" / "Modeling-Tools"
-MODELS_DIR = USER_APP_DIR / "models"
+CACHE_DIR = Path(user_cache_dir(APP_NAME, APP_AUTHOR)) # currenly not used I think
 DATA_DIR = Path(user_data_dir(APP_NAME, APP_AUTHOR))
-CONFIG_DIR = Path(user_config_dir(APP_NAME, APP_AUTHOR, roaming= True))
+release_mode = release_mode_active(APP_DIR)
+if release_mode:
+    USER_APP_DIR = APP_DIR / "defaults"
+    CONFIG_DIR = APP_DIR
+else:
+    USER_APP_DIR = Path.home() / "Documents" / "Modeling-Tools"
+    CONFIG_DIR = Path(user_config_dir(APP_NAME, APP_AUTHOR, roaming= True))
 
+MODELS_DIR = USER_APP_DIR / "models"
 CONFIG_FILE = CONFIG_DIR / "config.yml"
 KEYBINDINGS_FILE = CONFIG_DIR / "keybindings.yml"
 LOG_DIR = USER_APP_DIR / "logs"
