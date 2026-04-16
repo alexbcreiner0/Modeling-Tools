@@ -18,6 +18,7 @@ pyinstaller `
   --collect-data scienceplots `
   --hidden-import modeling_tools.tools.log_formatter `
   --paths ..\..\..\src `
+  --windowed `
   .\main.py
 
 if ($LASTEXITCODE -ne 0) {

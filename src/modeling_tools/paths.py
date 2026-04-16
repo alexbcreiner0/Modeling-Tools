@@ -5,6 +5,23 @@ import sys
 import os
 from dataclasses import dataclass
 
+<<<<<<< HEAD
+=======
+def release_mode_active(app_dir: Path) -> bool:
+    """ looks for special global settings to determine how to unload """
+    config_path = app_dir / "defaults" / "config.example.yml"
+    with open(config_path, "r") as f:
+        settings = yaml.safe_load(f).get("global_settings", {})
+
+    return settings.get("paper_release_mode", False)
+
+def anonymous_submission_mode_active(app_dir: Path) -> bool:
+    with open(app_dir / "defaults" / "config.example.yml") as f:
+        settings = yaml.safe_load(f).get("global_settings", {})
+
+    return settings.get("anonymous_submission_mode", False)
+
+>>>>>>> 453f424 (made pkg installer stuff)
 APP_NAME = "Modeling-Tools"
 APP_AUTHOR = False
 

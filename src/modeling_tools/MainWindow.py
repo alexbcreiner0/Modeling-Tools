@@ -14,6 +14,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from .widgets.CustomNavigationToolbar import CustomNavigationToolbar
 from matplotlib import pyplot as plt
 import sys, importlib, yaml, math, inspect
+from .paths import anonymous_submission_mode_active
 from .ControlPanel import ControlPanel
 from .GraphPanel import GraphPanel
 from .SimWorker import SimController
@@ -53,7 +54,6 @@ class MainWindow(qw.QMainWindow):
 
     def __init__(self, env):
         super().__init__()
-        self.setWindowTitle("Dr. Creiner's Modeling Tools")
         self.env = env
 
         with open(env.config_dir / "config.yml", "r") as f:
@@ -61,6 +61,11 @@ class MainWindow(qw.QMainWindow):
 
         self.status_bar = self.statusBar()
         self.settings = self.config.get("global_settings", {})
+
+        if anonymous_submission_mode_active(self.env.app_dir):
+            self.setWindowTitle("Anonymous Submittee's Modeling Tools")
+        else:
+            self.setWindowTitle("Dr. Creiner's Modeling Tools")
 
         models_dir = get_user_models_dir(self.settings, self.env)
         log_dir = get_user_logs_dir(self.settings, self.env)
@@ -109,8 +114,8 @@ class MainWindow(qw.QMainWindow):
 
         # Create top bar menu
         self.presets_submenu = self._make_menu(self.presets, self.demos, self.functions)
-        if self.current_sim_func is not None:
-            self.sim_actions[self.current_sim_func.__name__].setChecked(True)
+        # if self.current_sim_func is not None:
+        #     self.sim_actions[self.current_sim_func.__name__].setChecked(True)
 
         # make matplotlib stuff, need toolbar for below
         self.figure, self.axis = plt.subplots(layout= self.settings.get("figure_mode", "tight"))
@@ -1145,7 +1150,7 @@ class MainWindow(qw.QMainWindow):
         params_menu = menu.addMenu("Parameters")
         demo_menu = menu.addMenu("Demos")
         view_menu = menu.addMenu("View")
-        functions_menu = menu.addMenu("Sim Functions")
+        # functions_menu = menu.addMenu("Sim Functions")
         self.sim_choice = qg.QActionGroup(self)
         self.sim_choice.setExclusive(True)
 
@@ -1221,20 +1226,20 @@ class MainWindow(qw.QMainWindow):
         self.sim_submenus = {}
         self.sim_actions = {}
 
-        for name, func in functions.items():
-            function_submenu = functions_menu.addMenu(name)
-            self.sim_submenus[name] = function_submenu
+        # for name, func in functions.items():
+        #     function_submenu = functions_menu.addMenu(name)
+        #     self.sim_submenus[name] = function_submenu
 
-            parent_action = function_submenu.menuAction()
-            parent_action.setCheckable(True)
-            self.sim_choice.addAction(parent_action)
-            self.sim_actions[name] = parent_action
+        #     parent_action = function_submenu.menuAction()
+        #     parent_action.setCheckable(True)
+        #     self.sim_choice.addAction(parent_action)
+        #     self.sim_actions[name] = parent_action
 
-            load_action = qg.QAction("Load function", self)
-            view_desc_action = qg.QAction("View description", self)
-            function_submenu.addAction(load_action)
-            function_submenu.addAction(view_desc_action)
-            load_action.triggered.connect(lambda _checked= False, func= func, name= name: self.load_sim(func, name))
+        #     load_action = qg.QAction("Load function", self)
+        #     view_desc_action = qg.QAction("View description", self)
+        #     function_submenu.addAction(load_action)
+        #     function_submenu.addAction(view_desc_action)
+        #     load_action.triggered.connect(lambda _checked= False, func= func, name= name: self.load_sim(func, name))
 
         return params_menu
 
@@ -1601,7 +1606,7 @@ class MainWindow(qw.QMainWindow):
 
             if old_log_dir != new_log_dir:
                 from .__main__ import reconfigure_logging
-                reconfigure_logging(new_log_dir)
+                reconfigure_logging(self.env, new_log_dir)
                 logger = logging.getLogger(__name__)
                 logger.info("Log directory changed at runtime", extra={
                     "old_log_dir": str(old_log_dir),
@@ -1877,10 +1882,11 @@ class MainWindow(qw.QMainWindow):
         self._reload_config()
 
     def _on_config_applied(self):
-        with open(self.env.config_dir / "config.yml", "r") as f:
-            self.config = yaml.safe_load(f)
-        self.settings = self.config["global_settings"]
-        self.demos = self.config["demos"]
+        self._reload_config()
+        # with open(self.env.config_dir / "config.yml", "r") as f:
+        #     self.config = yaml.safe_load(f)
+        # self.settings = self.config["global_settings"]
+        # self.demos = self.config["demos"]
 
         # 2) rebuild the top menus so demo list / global settings changes appear immediately
         self.menuBar().clear()
@@ -1962,7 +1968,6 @@ class MainWindow(qw.QMainWindow):
             except Exception:
                 old_slot_settings.append(None)
 
-        self._reload_config()
         self._reset_global_settings()
         self.refresh_control_panel()
         self.refresh_plots()
@@ -2120,8 +2125,7 @@ class MainWindow(qw.QMainWindow):
             except Exception:
                 pass
 
-        # Finally, re-plot based on the (new) control state.
-        self.refresh_plots()
+        # self.refresh_plots()
 
 
     def save_preset(self):

@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+
+LOG_FILE="/tmp/modeling-tools-postinstall.log"
+exec > "$LOG_FILE" 2>&1
+
+echo "postinstall started"
+id
+pwd
+env | sort
+
+USER_NAME="$(stat -f%Su /dev/console)"
+USER_HOME="$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory | awk '{print $2}')"
+
+rm -rf "/Applications/Modeling Tools.app"
+
+APP_SUPPORT="/Library/Application Support/Modeling-Tools"
+
+if [ -d "$APP_SUPPORT/.venv" ]; then
+    rm -rf "$APP_SUPPORT/.venv"
+fi
+
+exit 0

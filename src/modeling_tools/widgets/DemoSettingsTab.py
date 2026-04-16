@@ -54,7 +54,6 @@ class DemoSettingsTab(qw.QWidget):
         self.combo_preset = qw.QComboBox()
         self.demo_list.setMinimumWidth(260)
 
-
         self.window = self.window()
 
         # self._refresh_demos()
@@ -128,10 +127,10 @@ class DemoSettingsTab(qw.QWidget):
         # Editor actions
         editor_actions = qw.QHBoxLayout()
         self.btn_refresh_models = qw.QPushButton("Refresh Models")
-        self.btn_save_demo = qw.QPushButton("Save")
-        self.btn_save_as_new = qw.QPushButton("Save as New")
-        editor_actions.addWidget(self.btn_save_demo)
-        editor_actions.addWidget(self.btn_save_as_new)
+        # self.btn_save_demo = qw.QPushButton("Save")
+        # self.btn_save_as_new = qw.QPushButton("Save as New")
+        # editor_actions.addWidget(self.btn_save_demo)
+        # editor_actions.addWidget(self.btn_save_as_new)
         editor_actions.addWidget(self.btn_refresh_models)
         editor_actions.addStretch(1)
 
@@ -144,8 +143,8 @@ class DemoSettingsTab(qw.QWidget):
         self._set_lims_enabled(False)
 
         self.btn_refresh_models.clicked.connect(self._refresh_models)
-        self.btn_save_as_new.clicked.connect(self._on_save_as_new_clicked)
-        self.btn_save_demo.clicked.connect(self._save_demo_changes)
+        # self.btn_save_as_new.clicked.connect(self._on_save_as_new_clicked)
+        # self.btn_save_demo.clicked.connect(self._save_demo_changes)
 
         # Demo-related wiring (page: Demos)
         self.demo_list.currentRowChanged.connect(self._on_demo_selected)
@@ -167,6 +166,8 @@ class DemoSettingsTab(qw.QWidget):
         self._refresh_demos()
         self._refresh_models()
         self._wire_autosave_signals()
+        if self.demo_list.count() > 0:
+            self._on_demo_selected(0)
 
     def on_new_model_created(self):
         with open(self.env.config_dir / "config.yml", "r") as f:

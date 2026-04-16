@@ -1,0 +1,69 @@
+#!/bin/bash
+set -euo pipefail
+
+LOG_FILE="/tmp/modeling-tools-postinstall.log"
+exec > "$LOG_FILE" 2>&1
+
+echo "postinstall started"
+id
+pwd
+env | sort
+
+USER_NAME="$(stat -f%Su /dev/console)"
+USER_HOME="$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory | awk '{print $2}')"
+
+APP_SUPPORT="/Library/Application Support/Modeling-Tools"
+LOG_FILE="$APP_SUPPORT/install-log.txt"
+
+# mkdir -p "$APP_SUPPORT"
+# exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "Starting postinstall..."
+
+find_python() {
+    for candidate in /usr/local/bin/python3 /opt/homebrew/bin/python3 /Library/Frameworks/Python.framework/Versions/Current/bin/python3 "$(command -v python3 2>/dev/null || true)"; do
+        if [ -n "${candidate:-}" ] && [ -x "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+PYTHON_BIN="$(find_python || true)"
+
+if [ -z "$PYTHON_BIN" ]; then
+    echo "INSTALL FAILED: Python 3.10+ was not found."
+    exit 1
+fi
+
+VERSION="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+echo "Detected Python version: $VERSION"
+
+MAJOR="${VERSION%%.*}"
+MINOR="${VERSION##*.}"
+
+if [ "$MAJOR" -lt 3 ] || { [ "$MAJOR" -eq 3 ] && [ "$MINOR" -lt 10 ]; }; then
+    echo "INSTALL FAILED: Python 3.10+ is required. Detected: $VERSION"
+    exit 1
+fi
+
+VENV_DIR="$APP_SUPPORT/.venv"
+VENV_PY="$VENV_DIR/bin/python"
+
+echo "Creating virtual environment..."
+"$PYTHON_BIN" -m venv "$VENV_DIR"
+
+if [ ! -x "$VENV_PY" ]; then
+    echo "INSTALL FAILED: venv creation failed."
+    exit 1
+fi
+
+echo "Upgrading pip..."
+"$VENV_PY" -m pip install --upgrade pip
+
+echo "Installing Modeling Tools..."
+"$VENV_PY" -m pip install "$APP_SUPPORT"
+
+echo "Installation complete."
+exit 0

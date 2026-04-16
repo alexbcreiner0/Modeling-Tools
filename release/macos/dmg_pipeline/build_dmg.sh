@@ -10,22 +10,22 @@ set -euo pipefail
 
 APP_NAME="Modeling Tools"
 DMG_NAME="ModelingTools"
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
-rm -rf $ROOT_DIR/release/macos/build $ROOT_DIR/release/macos/dist $ROOT_DIR/release/macos/dmgroot
+rm -rf $ROOT_DIR/release/macos/dmg_pipeline/build $ROOT_DIR/release/macos/dmg_pipeline/dist $ROOT_DIR/release/macos/dmg_pipeline/dmgroot
 
 python setup.py py2app
 
 echo NOT DONE! Done making the .app file. Moving on to package it as a .dmg
 
-mkdir -p $ROOT_DIR/release/macos/dmgroot
-cp -R "$ROOT_DIR/release/macos/dist/${APP_NAME}.app" $ROOT_DIR/release/macos/dmgroot/
-ln -s /Applications $ROOT_DIR/release/macos/dmgroot/Applications
+mkdir -p $ROOT_DIR/release/macos/dmg_pipeline/dmgroot
+cp -R "$ROOT_DIR/release/macos/dmg_pipeline/dist/${APP_NAME}.app" $ROOT_DIR/release/macos/dmg_pipeline/dmgroot/
+ln -s /Applications $ROOT_DIR/release/macos/dmg_pipeline/dmgroot/Applications
 
 hdiutil create \
   -volname "$APP_NAME" \
-  -srcfolder $ROOT_DIR/release/macos/dmgroot \
+  -srcfolder $ROOT_DIR/release/macos/dmg_pipeline/dmgroot \
   -ov -format UDZO \
-  "$ROOT_DIR/release/macos/${DMG_NAME}.dmg"
+  "$ROOT_DIR/release/macos/dmg_pipeline/${DMG_NAME}.dmg"
 
-echo "Built release/macos/${DMG_NAME}.dmg"
+echo "Built release/macos/dmg_pipeline/${DMG_NAME}.dmg"

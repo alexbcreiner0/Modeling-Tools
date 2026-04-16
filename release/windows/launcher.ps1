@@ -8,6 +8,5 @@ if (-not (Test-Path $PythonExe)) {
     exit 1
 }
 
-$env:PYTHONPATH = (Join-Path $AppRoot "src") + $(if ($env:PYTHONPATH) { ";$env:PYTHONPATH" } else { "" })
 
 & $PythonExe -m modeling_tools @args
