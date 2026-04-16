@@ -4,9 +4,8 @@ from platformdirs import user_config_dir, user_data_dir, user_cache_dir
 import sys
 import os
 from dataclasses import dataclass
+import yaml
 
-<<<<<<< HEAD
-=======
 def release_mode_active(app_dir: Path) -> bool:
     """ looks for special global settings to determine how to unload """
     config_path = app_dir / "defaults" / "config.example.yml"
@@ -21,7 +20,6 @@ def anonymous_submission_mode_active(app_dir: Path) -> bool:
 
     return settings.get("anonymous_submission_mode", False)
 
->>>>>>> 453f424 (made pkg installer stuff)
 APP_NAME = "Modeling-Tools"
 APP_AUTHOR = False
 

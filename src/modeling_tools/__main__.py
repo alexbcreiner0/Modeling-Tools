@@ -19,16 +19,12 @@ PLATFORM = sys.platform
 
 # windows needs this for my app to appear as anything other than IDLE
 if PLATFORM.startswith("win"):
-<<<<<<< HEAD
-    myappid = "com.alexcreiner.modelingtools"
-=======
     if anonymous_submission_mode_active(APP_DIR):
         myappid = "com.redacted.modelingtools"
     else:
         myappid = "com.alexcreiner.modelingtools"
 
 
->>>>>>> 453f424 (made pkg installer stuff)
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 def handle_exception(exc_type, exc_value, exc_traceback):

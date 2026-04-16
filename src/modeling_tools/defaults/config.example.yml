@@ -3,11 +3,8 @@ global_settings:
   default_save_name: figure
   run_on_startup: true
   autosave_axis_settings: false
-<<<<<<< HEAD
-=======
   paper_release_mode: false
   anonymous_submission_mode: false
->>>>>>> 453f424 (made pkg installer stuff)
 model_specific_settings:
   wright-cross-dual-3-commodity:
     commodity_names: [Corn, Iron, Sugar]
