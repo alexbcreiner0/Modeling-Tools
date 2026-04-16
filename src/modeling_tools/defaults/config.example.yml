@@ -3,7 +3,8 @@ global_settings:
   default_save_name: figure
   run_on_startup: true
   autosave_axis_settings: false
-  paper_release_mode: true
+  paper_release_mode: false
+  anonymous_submission_mode: false
 model_specific_settings:
   wright-cross-dual-3-commodity:
     commodity_names: [Corn, Iron, Sugar]

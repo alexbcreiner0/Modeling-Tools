@@ -175,7 +175,6 @@ def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred
                 print(f"Returning false because exec_path is None")
                 return False
 
-            print(f"Made it? {exec_path=}")
             args = get_editor_args(editor_key)
             uses_term = editor_info["terminal"]
 
@@ -200,9 +199,7 @@ def open_in_known_editor(path: Path, name, env, preferred_editor=None, preferred
             logger.error(f"Failed to load editor {editor_key} ({exec_path}): {e}")
             return False
 
-    print(f"Preferred editor is {preferred_editor}. {(preferred_editor in supported_editors)=}")
     if preferred_editor in supported_editors:
-        print(f"Preferred editor: {preferred_editor}")
         if try_launch_editor(preferred_editor):
             return
 

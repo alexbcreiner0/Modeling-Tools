@@ -103,6 +103,16 @@ class EditConfigDialog(qw.QDialog):
             6: self.page_demos
         }
 
+        self.idx_to_name = {
+            0: "global",
+            1: "models",
+            2: "params",
+            3: "presets",
+            4: "controls",
+            5: "plots",
+            6: "demos"
+        }
+
         self.page_plots.model_combo.currentTextChanged.connect(self._on_model_changed)
         self.page_controls.model_combo.currentTextChanged.connect(self._on_model_changed)
         self.page_params.availableParamsChanged.connect(self.page_controls.set_available_params)
@@ -179,6 +189,7 @@ class EditConfigDialog(qw.QDialog):
             self._on_model_changed(model)
 
         tab = self.idx_to_page[self.stack.currentIndex()]
+        name = self.idx_to_name[self.stack.currentIndex()]
         
         if self.stack.currentIndex() == 0:
             settings = self.page_global.get_settings_for_config()

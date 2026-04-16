@@ -36,5 +36,11 @@ release/linux/*.tar.gz
 release/windows/*.exe
 release/macos/dist
 release/macos/build
+release/macos/pkg_pipeline/payload
+release/macos/pyinstaller/__pycache__
+release/macos/pyinstaller/build
+release/macos/pyinstaller/dist
+release/macos/pyinstaller/*.zip
+release/macos/pyinstaller/*.spec
 release/macos/dmgroot
 release/macos/*.dmg

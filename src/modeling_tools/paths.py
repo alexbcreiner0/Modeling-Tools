@@ -14,6 +14,12 @@ def release_mode_active(app_dir: Path) -> bool:
 
     return settings.get("paper_release_mode", False)
 
+def anonymous_submission_mode_active(app_dir: Path) -> bool:
+    with open(app_dir / "defaults" / "config.example.yml") as f:
+        settings = yaml.safe_load(f).get("global_settings", {})
+
+    return settings.get("anonymous_submission_mode", False)
+
 APP_NAME = "Modeling-Tools"
 APP_AUTHOR = False
 

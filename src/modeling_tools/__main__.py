@@ -6,7 +6,7 @@ from PyQt6 import (
 import yaml
 from .tools.loader import get_user_models_dir, get_user_logs_dir
 import sys, os, shutil
-from .paths import APP_DIR, assets_path
+from .paths import APP_DIR, assets_path, anonymous_submission_mode_active
 from .bootstrap import bootstrap_user_environment
 import logging, atexit
 import logging.config
@@ -19,7 +19,12 @@ PLATFORM = sys.platform
 
 # windows needs this for my app to appear as anything other than IDLE
 if PLATFORM.startswith("win"):
-    myappid = "com.redacted.modelingtools"
+    if anonymous_submission_mode_active(APP_DIR):
+        myappid = "com.redacted.modelingtools"
+    else:
+        myappid = "com.alexcreiner.modelingtools"
+
+
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 def handle_exception(exc_type, exc_value, exc_traceback):
@@ -123,6 +128,9 @@ def main():
     # mp.freeze_support()
     app = qw.QApplication(sys.argv)
     apply_display_stuff(app)
+
+    app.setApplicationName("Modeling Tools")
+    app.setApplicationDisplayName("Modeling Tools")
 
     window = MainWindow(env)
 
