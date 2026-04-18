@@ -1,10 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-LOG_FILE="/tmp/modeling-tools-postinstall.log"
+LOG_FILE="/tmp/modeling-tools-preinstall.log"
 exec > "$LOG_FILE" 2>&1
 
-echo "postinstall started"
+echo "preinstall started"
 id
 pwd
 env | sort
@@ -12,7 +12,7 @@ env | sort
 USER_NAME="$(stat -f%Su /dev/console)"
 USER_HOME="$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory | awk '{print $2}')"
 
-rm -rf "/Applications/Modeling Tools.app"
+# rm -rf "/Applications/Modeling Tools.app"
 
 APP_SUPPORT="/Library/Application Support/Modeling-Tools"
 

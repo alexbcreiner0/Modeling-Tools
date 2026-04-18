@@ -14,7 +14,7 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from .widgets.CustomNavigationToolbar import CustomNavigationToolbar
 from matplotlib import pyplot as plt
 import sys, importlib, yaml, math, inspect
-from .paths import anonymous_submission_mode_active
+from .paths import anonymous_submission_mode_active, release_mode_active
 from .ControlPanel import ControlPanel
 from .GraphPanel import GraphPanel
 from .SimWorker import SimController
@@ -1788,13 +1788,10 @@ class MainWindow(qw.QMainWindow):
         try:
             if params_module_name in sys.modules:
                 importlib.reload(sys.modules[params_module_name])
-            if params_dict:
-                params = params_from_mapping(
-                    params_dict,
-                    self.env.models_dir / self.sim_model / "simulation" / "parameters.py"
-                )
-            else:
-                params = {}
+            params = params_from_mapping(
+                params_dict,
+                self.env.models_dir / self.sim_model / "simulation" / "parameters.py"
+            )
         except Exception as e:
             self.status_bar.showMessage(f"Error loading parameters for {sim_model}: {e}", msecs= 5000)
             logger.log(logging.ERROR, f"Failed to load params for {sim_model}", exc_info= e)

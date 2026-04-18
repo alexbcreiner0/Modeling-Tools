@@ -15,6 +15,7 @@ pyinstaller `
   --noconfirm `
   --additional-hooks-dir=. `
   --collect-data modeling_tools `
+  --icon ../../../src/modeling_tools/assets/icon.ico `
   --collect-data scienceplots `
   --hidden-import modeling_tools.tools.log_formatter `
   --paths ..\..\..\src `

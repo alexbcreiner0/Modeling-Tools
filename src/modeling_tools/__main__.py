@@ -6,7 +6,7 @@ from PyQt6 import (
 import yaml
 from .tools.loader import get_user_models_dir, get_user_logs_dir
 import sys, os, shutil
-from .paths import APP_DIR, assets_path, anonymous_submission_mode_active
+from .paths import APP_DIR, assets_path, anonymous_submission_mode_active, release_mode_active
 from .bootstrap import bootstrap_user_environment
 import logging, atexit
 import logging.config
@@ -23,7 +23,6 @@ if PLATFORM.startswith("win"):
         myappid = "com.redacted.modelingtools"
     else:
         myappid = "com.alexcreiner.modelingtools"
-
 
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
@@ -116,12 +115,17 @@ def reconfigure_logging(env, log_dir):
 def main():
     env = bootstrap_user_environment()
 
-    with open(env.config_dir / "config.yml", "r") as f:
-        settings = yaml.safe_load(f).get("global_settings", {})
+    if not release_mode_active(APP_DIR):
+        with open(env.config_dir / "config.yml", "r") as f:
+            settings = yaml.safe_load(f).get("global_settings", {})
+    else:
+        with open(env.config_dir / "config.example.yml", "r") as f:
+            settings = yaml.safe_load(f).get("global_settings", {})            
 
-    env.models_dir = get_user_models_dir(settings, env)
-    env.log_dir = get_user_logs_dir(settings, env)
-    env.log_dir.mkdir(parents=True, exist_ok=True)
+    if not release_mode_active(APP_DIR):
+        env.models_dir = get_user_models_dir(settings, env)
+        env.log_dir = get_user_logs_dir(settings, env)
+        env.log_dir.mkdir(parents=True, exist_ok=True)
 
     reconfigure_logging(env, env.log_dir)
 
@@ -142,5 +146,4 @@ def main():
     app.exec()
 
 if __name__ == "__main__":
-    print("hi")
     main()

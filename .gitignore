@@ -37,10 +37,11 @@ release/windows/*.exe
 release/macos/dist
 release/macos/build
 release/macos/pkg_pipeline/payload
-release/macos/pyinstaller/__pycache__
-release/macos/pyinstaller/build
-release/macos/pyinstaller/dist
-release/macos/pyinstaller/*.zip
-release/macos/pyinstaller/*.spec
-release/macos/dmgroot
+release/macos/dmg_pipeline/__pycache__
+release/macos/dmg_pipeline/build
+release/macos/dmg_pipeline/dist
+release/macos/dmg_pipeline/*.zip
+release/macos/dmg_pipeline/*.spec
+release/macos/dmg_pipeline/*.dmg
+release/macos/dmg_pipeline/dmgroot
 release/macos/*.dmg

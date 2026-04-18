@@ -11,7 +11,7 @@
     <string>Modeling Tools</string>
 
     <key>CFBundleIdentifier</key>
-    <string>edu.bc.modeling-tools</string>
+    <string>edu.modeling-tools</string>
 
     <key>CFBundleExecutable</key>
     <string>Modeling Tools</string>

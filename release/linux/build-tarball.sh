@@ -29,8 +29,6 @@ mkdir -p "$PAYLOAD_DIR"
 
 echo "Copying project files..."
 cp -r "$PROJECT_ROOT/src" "$PAYLOAD_DIR/"
-cp -r "$PROJECT_ROOT/defaults" "$PAYLOAD_DIR/"
-cp -r "$PROJECT_ROOT/assets" "$PAYLOAD_DIR/"
 cp "$PROJECT_ROOT/README.md" "$PAYLOAD_DIR/"
 cp "$PROJECT_ROOT/pyproject.toml" "$PAYLOAD_DIR/"
 
