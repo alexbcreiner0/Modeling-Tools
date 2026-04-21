@@ -964,7 +964,7 @@ class MainWindow(qw.QMainWindow):
 
         load_idx_defaults = self.settings.get("use_cat_limits", False)
         load_idx_defaults = False if not isinstance(load_idx_defaults, bool) else load_idx_defaults 
-        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, source= "checkbox", load_idx_defaults= load_idx_defaults)
+        self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, source= source, load_idx_defaults= load_idx_defaults)
 
     def on_slot_options_changed(self, slot_index: int):
         """Options changed for a specific slot."""
