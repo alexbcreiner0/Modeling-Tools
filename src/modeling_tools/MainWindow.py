@@ -7,6 +7,7 @@ from PyQt6 import (
 )
 import numpy as np
 import copy
+from datetime import datetime
 from .tools.creation_tools import flow_seqify, atomic_write
 from .tools.qt_tools import recolor_icon
 from pathlib import Path
@@ -56,16 +57,13 @@ class MainWindow(qw.QMainWindow):
         super().__init__()
         self.env = env
 
-        with open(env.config_dir / "config.yml", "r") as f:
+        with open(env.config_file, "r") as f:
             self.config = yaml.safe_load(f)
 
         self.status_bar = self.statusBar()
         self.settings = self.config.get("global_settings", {})
 
-        if anonymous_submission_mode_active(self.env.app_dir):
-            self.setWindowTitle("Anonymous Submittee's Modeling Tools")
-        else:
-            self.setWindowTitle("Dr. Creiner's Modeling Tools")
+        self.setWindowTitle("Overseer")
 
         models_dir = get_user_models_dir(self.settings, self.env)
         log_dir = get_user_logs_dir(self.settings, self.env)
@@ -113,14 +111,9 @@ class MainWindow(qw.QMainWindow):
                 plotting_data = format_plot_config(plotting_data, com_names)
 
         # Create top bar menu
-        self.presets_submenu = self._make_menu(self.presets, self.demos, self.functions)
-        # if self.current_sim_func is not None:
-        #     self.sim_actions[self.current_sim_func.__name__].setChecked(True)
+        self.presets_submenu, self.load_results_submenu = self._make_menu(self.presets, self.demos, self.functions)
 
-        # make matplotlib stuff, need toolbar for below
         self.figure, self.axis = plt.subplots(layout= self.settings.get("figure_mode", "tight"))
-        # self.figure, self.axis = plt.subplots()
-        # self.figure.set_constrained_layout(True)
         self.canvas = FigureCanvasQTAgg(self.figure)
         self.toolbar = CustomNavigationToolbar(
             self.canvas,
@@ -621,7 +614,7 @@ class MainWindow(qw.QMainWindow):
         self.current_demo["details"]["axis_settings"] = self._get_current_axis_settings()
         flow_seqify(self.config)
 
-        atomic_write(self.env.config_dir / "config.yml", self.config)
+        atomic_write(self.env.config_file, self.config)
         self.status_bar.showMessage("Current overall view saved as demo default.", msecs= 4000)
 
     def _reset_global_settings(self):
@@ -634,7 +627,6 @@ class MainWindow(qw.QMainWindow):
 
     def _kill_sim(self):
 
-        print("attempting murder")
         if self._sim_state == "RUNNING":
             self._sim_state = "STOPPING"
             if self.sim_controller is not None:
@@ -858,7 +850,11 @@ class MainWindow(qw.QMainWindow):
             self.on_slot_axes_changed(i)
 
     def _make_panels(self, plotting_data, panel_data, demo):
-        dropdown_choices, dropdown_tooltips = self._get_dropdown_choices(plotting_data)
+        if plotting_data is not None:
+            dropdown_choices, dropdown_tooltips = self._get_dropdown_choices(plotting_data)
+        else:
+            plotting_data = {}
+            dropdown_choices, dropdown_tooltips = [], {}
 
         graph_panel = GraphPanel(
             self.traj, self.t, dropdown_choices, plotting_data, self.canvas, 
@@ -872,7 +868,7 @@ class MainWindow(qw.QMainWindow):
         control_panel = ControlPanel(
             self.params, dropdown_choices, 
             dropdown_tooltips, panel_data, 
-            plotting_data, self.sim_model, demo
+            plotting_data, self.sim_model, demo, env= self.env,
         )
         control_panel.paramChanged.connect(self.start_sim)
         control_panel.layoutChanged.connect(self.on_layout_changed)
@@ -939,6 +935,8 @@ class MainWindow(qw.QMainWindow):
         print(f"Writing data to {path}")
         flow_seqify(plotting_data)
         atomic_write(path, plotting_data)
+
+        self.control_panel.plotting_data = plotting_data
 
         self.status_bar.showMessage("Default plot category limits saved.", msecs= 4000)
 
@@ -1150,6 +1148,8 @@ class MainWindow(qw.QMainWindow):
         params_menu = menu.addMenu("Parameters")
         demo_menu = menu.addMenu("Demos")
         view_menu = menu.addMenu("View")
+        results_menu = menu.addMenu("Results")
+        load_results_menu = results_menu.addMenu("Load prior results")
         # functions_menu = menu.addMenu("Sim Functions")
         self.sim_choice = qg.QActionGroup(self)
         self.sim_choice.setExclusive(True)
@@ -1223,6 +1223,20 @@ class MainWindow(qw.QMainWindow):
             load_action.triggered.connect(lambda _checked= False, name= demo: self.load_demo(name))
             view_desc_action.triggered.connect(lambda _checked= False, name= demo: self.view_demo_desc(name))
 
+            model_name = self.demos[demo]["details"]["simulation_model"]
+            results_path = Path(self.env.models_dir / model_name / "saved_results")
+            if results_path.exists():
+                results_submenu = load_results_menu.addMenu(name)
+                saved_files = [p for p in results_path.iterdir() if p.is_file() and str(p).endswith(".npz")]
+                for file in saved_files:
+                    load_action = qg.QAction(file.stem, self)
+                    load_action.triggered.connect(lambda _checked= False, filepath= file, demo_name= demo: self._load_prior_results(filepath, demo_name))
+                    results_submenu.addAction(load_action)
+
+        save_results_action = qg.QAction("Save current results", self)
+        results_menu.addAction(save_results_action)
+        save_results_action.triggered.connect(self._save_results)
+
         self.sim_submenus = {}
         self.sim_actions = {}
 
@@ -1241,7 +1255,7 @@ class MainWindow(qw.QMainWindow):
         #     function_submenu.addAction(view_desc_action)
         #     load_action.triggered.connect(lambda _checked= False, func= func, name= name: self.load_sim(func, name))
 
-        return params_menu
+        return params_menu, load_results_menu
 
     def _create_presets_submenus(self, presets, presets_submenu):
 
@@ -1257,10 +1271,58 @@ class MainWindow(qw.QMainWindow):
             preset_options_submenu.addAction(delete_action)
             preset_options_submenu.addAction(rename_action)
             preset_options_submenu.addAction(view_desc_action)
-            load_action.triggered.connect(lambda _checked= False, name= preset: self.load_preset(name))
+            load_action.triggered.connect(lambda _checked= False, name= preset: self.load_preset_by_name(name))
             delete_action.triggered.connect(lambda _checked= False, name= preset: self.delete_preset(name))
             rename_action.triggered.connect(lambda _checked= False, name= preset: self.rename_preset(name))
             view_desc_action.triggered.connect(lambda _checked= False, name= preset: self.view_desc(name))
+
+    def _save_results(self):
+        model_name = self.demos[self.current_demo_name]["details"]["simulation_model"]
+        results_path = self.env.models_dir / model_name / "saved_results"
+        results_path.mkdir(parents= True, exist_ok= True)
+        now = datetime.now().astimezone()
+        file_path_npz = results_path / f"{now}.npz"
+        file_path_yml = results_path / f"{now}.yml"
+        param_and_axis_settings = {"params": to_plain(self.params), "axis_settings": self._get_current_axis_settings()}
+        np.savez_compressed(file_path_npz, t= self.t, **self.traj)
+        atomic_write(file_path_yml, param_and_axis_settings)
+
+        new_action = qg.QAction(file_path_npz.stem, self)
+        submenus = [action.menu() for action in self.load_results_submenu.actions() if action.menu() is not None]
+        submenu_titles = [menu.title() for menu in submenus]
+        demo_submenu = submenus[submenu_titles.index(self.current_demo["name"])]
+        demo_submenu.addAction(new_action)
+        new_action.triggered.connect(lambda _checked= False, name= file_path_npz: self._load_prior_results(name, self.current_demo_name))
+
+    def _load_prior_results(self, filename, demoname):
+        if self._sim_state == "RUNNING":
+            self._halt_sim_stack()
+
+        if demoname != self.current_demo_name:
+            self.load_demo(demoname, autostart= False)
+
+        model_name = self.demos[self.current_demo_name]["details"]["simulation_model"]
+        data = np.load(filename, allow_pickle= False)
+        settings_path = self.env.models_dir / model_name / "saved_results" / f"{filename.stem}.yml"
+        if settings_path.exists():
+            with open(settings_path, "r") as f:
+                settings_dict = yaml.safe_load(f)
+                params = settings_dict.get("params")
+                raw_axis_settings = settings_dict.get("axis_settings")
+            if raw_axis_settings is not None:
+                axis_settings = self._get_slot_settings(raw_axis_settings)
+            else:
+                axis_settings = None
+            if params is not None:
+                self.params = params_from_mapping(
+                    params,
+                    self.env.models_dir / self.sim_model / "simulation" / "parameters.py"
+                )
+                self.load_new_params(axis_settings, start_sim_after= False)
+
+        t = data["t"]
+        traj = {k: data[k] for k in data.files if k != "t"}
+        self.show_results(traj, t, None)
 
     def start_sim(self, name= None, new_val= None):
         requested_update = None
@@ -1513,6 +1575,37 @@ class MainWindow(qw.QMainWindow):
         finally:
             event.accept()
 
+    def load_preset_by_name(self, name):
+        try:
+            self.params = params_from_mapping(
+                self.presets[name]["params"],
+                self.env.models_dir / self.sim_model / "simulation" / "parameters.py"
+            )
+            raw_axis_settings = self.presets[name].get("axis_settings", {})
+            if raw_axis_settings != {}:
+                axis_settings = self._get_slot_settings(raw_axis_settings)
+            else:
+                axis_settings = None
+            self.load_new_params(axis_settings)
+        except Exception as e:
+            self.status_bar.showMessage(f"Failed to load preset {name}: {e}")
+            extras = {
+                "Model": self.sim_model,
+                "Preset": name
+            }
+            logger.log(logging.ERROR, f"Failed to load preset {name}: {e}", extra= extras, exc_info= e)
+
+    def load_new_params(self, axis_settings= None, start_sim_after= True):
+        if axis_settings is not None:
+            rows, cols, limits, saved_limits, dropdown_indices, slot_settings, checked = axis_settings
+            self.graph_panel.blockSignals(True)
+            self.control_panel._alter_slot_layout(rows, cols, limits, saved_limits, dropdown_indices, checked, slot_settings)
+            self.graph_panel.blockSignals(False)
+            self._set_graph_lims(limits)      
+        self.control_panel.load_new_params(self.params)
+        if start_sim_after:
+            self.start_sim()
+
     def load_preset(self, preset):
         try:
             self.params = params_from_mapping(
@@ -1588,7 +1681,7 @@ class MainWindow(qw.QMainWindow):
         old_layout_mode = self.settings.get("figure_mode", "tight")
 
         try:
-            with open(self.env.config_dir / "config.yml", "r") as f:
+            with open(self.env.config_file, "r") as f:
                 self.config = yaml.safe_load(f)
 
             self.settings = self.config["global_settings"]
@@ -1644,7 +1737,6 @@ class MainWindow(qw.QMainWindow):
         presets = self._load_presets(demo)
         sim_function, functions = self._load_functions(demo)
         params = self._load_params(presets, sim_model)
-
 
         try:
             with open(self.env.models_dir / sim_model / "data" / "plotting_data.yml") as f:
@@ -1799,7 +1891,7 @@ class MainWindow(qw.QMainWindow):
 
         return params
 
-    def load_demo(self, demo_name):
+    def load_demo(self, demo_name, autostart= True):
         self._halt_sim_stack(force= True, clear_pending= True, clear_queue= True)
         try:
             demo = self.demos[demo_name]
@@ -1859,7 +1951,8 @@ class MainWindow(qw.QMainWindow):
 
         self.model_label.setText(f"Model: {demo["name"]}")
 
-        self.start_sim()
+        if autostart:
+            self.start_sim()
 
     def load_sim(self, func, name):
         print(f"Setting sim function = {func}")
@@ -1887,7 +1980,7 @@ class MainWindow(qw.QMainWindow):
 
         # 2) rebuild the top menus so demo list / global settings changes appear immediately
         self.menuBar().clear()
-        self.presets_submenu = self._make_menu(self.presets, self.demos, self.functions)
+        self.presets_submenu, self.load_results_submenu = self._make_menu(self.presets, self.demos, self.functions)
         self.refresh_control_panel_and_plots()
         # self.sim_actions[self.get_trajectories.__name__].setChecked(True)
 
@@ -1950,7 +2043,6 @@ class MainWindow(qw.QMainWindow):
             pass
 
     def refresh_control_panel_and_plots(self):
-
         # remembering old settings
         rows = self.control_panel.rows_spinner.value()
         cols = self.control_panel.cols_spinner.value()
@@ -2062,7 +2154,8 @@ class MainWindow(qw.QMainWindow):
             formatted,
             self.sim_model,
             self.current_demo,
-            old_current_tab
+            old_current_tab,
+            env= self.env
         )
         new_cp.paramChanged.connect(self.start_sim)
         new_cp.layoutChanged.connect(self.on_layout_changed)
@@ -2126,21 +2219,22 @@ class MainWindow(qw.QMainWindow):
 
 
     def save_preset(self):
-        with open(self.env.models_dir / self.sim_model / "data" / "params.yml", "r") as f:
-            presets = yaml.safe_load(f)["presets"]
+        # with open(self.env.models_dir / self.sim_model / "data" / "params.yml", "r") as f:
+            # presets = yaml.safe_load(f)["presets"]
 
         params_dict = to_plain(self.params)
-        dialog = SaveDialog(presets.keys(), self)
+        dialog = SaveDialog(self.presets.keys(), self)
         try:
             shortname, name, desc, save_axis = dialog.bootstrap()
         except TypeError:
             return
 
-        presets[shortname] = {"name": name, "desc": desc, "params": params_dict}
+        self.presets[shortname] = {"name": name, "desc": desc, "params": params_dict}
         if save_axis:
-            presets[shortname]["axis_settings"] = self._get_current_axis_settings()
+            self.presets[shortname]["axis_settings"] = self._get_current_axis_settings()
 
-        _dump_to_yaml(self.env, presets, self.sim_model)
+        # _dump_to_yaml(self.env, self.presets, self.sim_model)
+        atomic_write(self.env.models_dir / self.sim_model / "data" / "params.yml", self.presets)
         
         preset_options_submenu = self.presets_submenu.addMenu(name)
         preset_options_submenu.setProperty("preset_id", shortname)

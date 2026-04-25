@@ -217,7 +217,7 @@ def random_vector(dim, unif_range= (0,1), random_nonzeros= False):
 
     return vec
 
-def random_parameters(params, epsilon=1e-1):
+def random_parameters(params, env, epsilon=1e-1):
     new_params = deepcopy(params)
     dim = int(params.A.shape[0])
     M = params.M
@@ -280,7 +280,7 @@ def random_parameters(params, epsilon=1e-1):
     params = params_from_mapping(params_dict)
 
     commodities = []
-    with open("assets/commodities.txt", "r") as f:
+    with open(env.data_dir / "assets" / "commodities.txt", "r") as f:
         for line in f:
             commodities.append(line.strip())
     sector_names = random.sample(commodities, dim)
