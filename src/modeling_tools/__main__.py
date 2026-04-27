@@ -14,17 +14,24 @@ from logging.handlers import RotatingFileHandler
 import threading
 import multiprocessing as mp
 import ctypes
+import argparse
 
 PLATFORM = sys.platform
 
 # windows needs this for my app to appear as anything other than IDLE
 if PLATFORM.startswith("win"):
     if anonymous_submission_mode_active(APP_DIR):
-        myappid = "com.redacted.modelingtools"
+        myappid = "com.redacted.overseer"
     else:
-        myappid = "com.alexcreiner.modelingtools"
+        myappid = "com.alexcreiner.overseer"
 
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-c", "--config", help= "Path to an alternative config.yml file.")
+
+    return parser.parse_args()
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):
@@ -113,10 +120,11 @@ def reconfigure_logging(env, log_dir):
     return log_file
 
 def main():
-    env = bootstrap_user_environment()
+    args = parse_args()
+    env = bootstrap_user_environment(config_override= args.config)
 
     if not release_mode_active(APP_DIR):
-        with open(env.config_dir / "config.yml", "r") as f:
+        with open(env.config_file, "r") as f:
             settings = yaml.safe_load(f).get("global_settings", {})
     else:
         with open(env.config_dir / "config.example.yml", "r") as f:
@@ -133,8 +141,8 @@ def main():
     app = qw.QApplication(sys.argv)
     apply_display_stuff(app)
 
-    app.setApplicationName("Modeling Tools")
-    app.setApplicationDisplayName("Modeling Tools")
+    app.setApplicationName("Overseer")
+    app.setApplicationDisplayName("Overseer")
 
     window = MainWindow(env)
 

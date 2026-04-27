@@ -1542,12 +1542,18 @@ class GraphPanel(qw.QWidget):
     # ----------------------------
 
     def _choice_name_from_index(self, dropdown_choice: int) -> str:
+        if len(self.data.keys()) == 0:
+            return ""
+
         dropdown_list = list(self.data.keys())
         return dropdown_list[dropdown_choice]
 
     def _choice_dict_from_index(self, dropdown_choice: int):
-        dropdown_list = list(self.data.keys())
-        return self.data[dropdown_list[dropdown_choice]]
+        try:
+            dropdown_list = list(self.data.keys())
+            return self.data[dropdown_list[dropdown_choice]]
+        except IndexError:
+            return {}
 
     def _has_special_plots(self, dropdown_choice: int, options: dict) -> bool:
         """Return True if the active selection includes any plot types that we can't update in-place."""
@@ -1576,9 +1582,13 @@ class GraphPanel(qw.QWidget):
           - histogram bars:       choice::plot::hist::patch::k
           - surfaces:             choice::plot::surface  
         """
-        dropdown_list = list(self.data.keys())
-        choice_name = dropdown_list[dropdown_choice]
-        choice_dict = self._choice_dict_from_index(dropdown_choice) 
+        if len(self.data.keys()) == 0:
+            choice_name = None
+            choice_dict = {}
+        else:
+            dropdown_list = list(self.data.keys())
+            choice_name = dropdown_list[dropdown_choice]
+            choice_dict = self._choice_dict_from_index(dropdown_choice) 
         plots = choice_dict.get("plots", {})
 
         expected: list[str] = []

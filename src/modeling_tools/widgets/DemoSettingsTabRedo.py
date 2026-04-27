@@ -23,7 +23,7 @@ class DemoSettingsTab(qw.QWidget):
         self.window = self.window()
         self._loading_editor = False
 
-        with open(self.env.config_dir / "config.yml", "r") as f:
+        with open(self.env.config_file, "r") as f:
             self.original_data = yaml.safe_load(f)
 
         self.working_data = copy.deepcopy(self.original_data)

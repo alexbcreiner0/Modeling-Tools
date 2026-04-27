@@ -13,7 +13,7 @@ class AutoSizingStack(qw.QStackedWidget):
 
     def minimumSizeHint(self):
         w = self.currentWidget()
-        return w.minimumSizeHint() if w else super().minimumSizeHint
+        return w.minimumSizeHint() if w else super().minimumSizeHint()
 
 class DropdownChoices(qw.QWidget):
     infoBoxHovered = qc.pyqtSignal()

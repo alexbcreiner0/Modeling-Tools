@@ -23,7 +23,7 @@ class DemoSettingsTab(qw.QWidget):
         self.env = env
         self._loading_editor = False
 
-        with open(self.env.config_dir / "config.yml", "r") as f:
+        with open(self.env.config_file, "r") as f:
             self.original_data = yaml.safe_load(f)
 
         self.working_data = copy.deepcopy(self.original_data)
@@ -170,7 +170,7 @@ class DemoSettingsTab(qw.QWidget):
             self._on_demo_selected(0)
 
     def on_new_model_created(self):
-        with open(self.env.config_dir / "config.yml", "r") as f:
+        with open(self.env.config_file, "r") as f:
             data = yaml.safe_load(f)
         
         for key in data["model_specific_settings"]:
@@ -539,7 +539,7 @@ class DemoSettingsTab(qw.QWidget):
             self.working_data["global_settings"]["preferred_editor"] = settings.get("preferred_editor")
 
         self._normalize_for_dump(self.working_data)
-        path = self.env.config_dir / "config.yml" 
+        path = self.env.config_file
         atomic_write(path, self.working_data)
         self.original_data = copy.deepcopy(self.working_data)
         self.working_data = copy.deepcopy(self.original_data)

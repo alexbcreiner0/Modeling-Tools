@@ -6,6 +6,17 @@ import os
 from dataclasses import dataclass
 import yaml
 
+ENV_CONFIG = "OVERSEER_CONFIG"
+
+def resolve_config(cli_config: str | None, default_config_file: Path) -> Path:
+    raw = cli_config or os.environ.get(ENV_CONFIG)
+    if not raw:
+        return default_config_file
+    path = Path(raw).expanduser().resolve()
+    if not path.is_file():
+        raise FileNotFoundError(f"Config file does not exist: {path}")
+    return path
+
 def release_mode_active(app_dir: Path) -> bool:
     """ looks for special global settings to determine how to unload """
     config_path = app_dir / "defaults" / "config.example.yml"
@@ -39,11 +50,12 @@ CACHE_DIR = Path(user_cache_dir(APP_NAME, APP_AUTHOR))
 if release_mode:
     USER_APP_DIR = defaults_path()
     CONFIG_DIR = defaults_path()
+    CONFIG_FILE = CONFIG_DIR / "config.yml"
 else:
     USER_APP_DIR = Path.home() / "Documents" / "Modeling-Tools"
-    CONFIG_DIR = Path(user_config_dir(APP_NAME, APP_AUTHOR, roaming= True))
+    CONFIG_DIR = Path(user_config_dir(APP_NAME, APP_AUTHOR, roaming= True)) 
+    CONFIG_FILE = CONFIG_DIR / "config.yml"
 
-CONFIG_FILE = CONFIG_DIR / "config.yml"
 MODELS_DIR = USER_APP_DIR / "models"
 DATA_DIR = Path(user_data_dir(APP_NAME, APP_AUTHOR))
 KEYBINDINGS_FILE = CONFIG_DIR / "keybindings.yml"

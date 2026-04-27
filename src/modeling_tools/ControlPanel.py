@@ -36,7 +36,7 @@ class ControlPanel(qw.QWidget):
     slotAxesCatChanged = qc.pyqtSignal(int)
     paramsReplaced = qc.pyqtSignal(object)
 
-    def __init__(self, params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data, sim_model, demo, current_tab= 0):
+    def __init__(self, params, dropdown_choices, dropdown_tooltips, panel_data, plotting_data, sim_model, demo, current_tab= 0, env= None):
         # print(f"Loaded params: {asdict(params)}")
         super().__init__()
         self.params = params
@@ -47,6 +47,7 @@ class ControlPanel(qw.QWidget):
         self.dropdown_choices = dropdown_choices
         self.demo = demo
         self.constructing = True
+        self.env = env
 
         self.content = qw.QTabWidget()
 
@@ -668,7 +669,7 @@ class ControlPanel(qw.QWidget):
                     new_params = None
                     sector_names = None
                     try:
-                        new_params, sector_names = function(self.params)
+                        new_params, sector_names = function(self.params, self.env)
                     except Exception as e:
                         print(f"Error: {e}")
 

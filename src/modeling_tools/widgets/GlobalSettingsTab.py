@@ -16,7 +16,7 @@ class GlobalSettingsTab(qw.QWidget):
 
         sec = FormSection("Global settings")
 
-        with open(self.env.config_dir / "config.yml", "r") as f:
+        with open(self.env.config_file, "r") as f:
             global_settings = yaml.safe_load(f).get("global_settings")
             image_save_dir = global_settings.get("default_save_dir", str(Path.home()))
             save_name = global_settings.get("default_save_name", "figure")

@@ -3,6 +3,7 @@ from PyQt6 import (
     QtGui as qg
 )
 import re, os
+from datetime import datetime
 from modeling_tools.tools.creation_tools import create_new_model_dir
 from modeling_tools.paths import rpath
 
@@ -96,14 +97,13 @@ class NewModelDialog(qw.QDialog):
         return None
 
 class SaveDialog(qw.QDialog):
-    def __init__(self, preset_names, parent= None, name_text= None, desc_text= None):
+    def __init__(self, existing_names= [], title= "Save Preset", parent= None, name_text= None, desc_text= None):
         super().__init__(parent)
-        self.preset_names = preset_names
+        self.existing_names = existing_names
         root = qw.QVBoxLayout()
         self.resize(520, 200)
-        self.setWindowTitle("Save Preset")
-
-        title = qw.QLabel("Save Preset")
+        self.setWindowTitle(title)
+        title = qw.QLabel(title)
         font = title.font()
         font.setBold(True)
         font.setPointSize(font.pointSize() + 1)
@@ -122,6 +122,8 @@ class SaveDialog(qw.QDialog):
         else:
             desc_label = qw.QLabel("(Optional) New Description: ")
         self.name_entry = qw.QLineEdit()
+        now = datetime.now().astimezone()
+        self.name_entry.setText(str(now))
         self.desc_entry = qw.QTextEdit()
         self.save_axis_settings = qw.QCheckBox("Include Axis Settings")
         layout.addWidget(name_label, 0, 0)
@@ -155,7 +157,7 @@ class SaveDialog(qw.QDialog):
             self.dialog_label.setText("Please enter a name.")
             self.name_entry.setFocus()
             return
-        if make_shortname(name) in self.preset_names:
+        if make_shortname(name) in self.existing_names:
             self.dialog_label.setText("Name already in use. Please choose something different.")
             self.name_entry.setFocus()
             return
