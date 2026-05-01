@@ -46,7 +46,7 @@ class ControlPanel(qw.QWidget):
         self.panel_data = panel_data if panel_data is not None else {}
         self.dropdown_choices = dropdown_choices
         self.demo = demo
-        self.constructing = True
+        # self.constructing = True
         self.env = env
 
         self.content = qw.QTabWidget()
@@ -196,7 +196,7 @@ class ControlPanel(qw.QWidget):
             self.get_tooltip(i)
 
         self.block_signals = False
-        self.constructing = False
+        # self.constructing = False
 
     def _collect_metadeps_from_info(self, info, meta_deps):
         control_type = info.get("control_type", "")
@@ -233,10 +233,10 @@ class ControlPanel(qw.QWidget):
         if 0 <= slot_index < len(self.slot_dropdowns):
             self.slot_dropdowns[slot_index].dropdown_choices.setCurrentIndex(idx)
 
-    def set_slot_axes_limits(self, slot_index: int, xlim, ylim):
+    def set_slot_axes_limits(self, slot_index: int, xlim, ylim, zlim= None):
         """ Update the axes for a given slot """
         if 0 <= slot_index < len(self.slot_axes_controls):
-            self.slot_axes_controls[slot_index].set_limits(xlim, ylim)
+            self.slot_axes_controls[slot_index].set_limits(xlim, ylim, zlim)
 
     def set_slot_title(self, slot_index: int, title: str) -> None:
         if title is None or str(title).strip() == "":
@@ -275,21 +275,30 @@ class ControlPanel(qw.QWidget):
             for dropdown_choice in self.plotting_data:
                 choice_dict = self.plotting_data[dropdown_choice]
                 plots = choice_dict["plots"]
-                projection = choice_dict.get("projection", "2d")
                 for plot in plots:
                     plot_dict = plots[plot]
                     if "checkbox_name" in plot_dict:
                         dropdown.add_checkbox(choice_dict["name"], plot_dict["checkbox_name"], plot_dict["toggled"])
 
+            if old_dropdown_indices is not None and len(old_dropdown_indices)-1 >= slot_index:
+                dropdown_idx = old_dropdown_indices[slot_index]
+                dropdown_choice = self._get_inter_name_from_name(self.dropdown_choices[dropdown_idx])
+                choice_dict = self.plotting_data[dropdown_choice]
+                projection = choice_dict.get("projection", "2d")
+            else:
+                projection = None
+
+            z_axis = True if projection == "3d" else False
             default_font = self._auto_fontsize(rows, cols)
             options_widget = SlotControlsWidget()
             options_widget.legend_size_spin.setValue(default_font)
-            if isinstance(old_saved_limits, list) and slot_index < len(old_saved_limits):
-                axes_widget = AxesControlWidget(saved_limits= old_saved_limits[slot_index])
+            if isinstance(old_saved_limits, list) and slot_index <= len(old_saved_limits)-1:
+                axes_widget = AxesControlWidget(saved_limits= old_saved_limits[slot_index], z_axis= z_axis)
             else:
-                axes_widget = AxesControlWidget()
+                axes_widget = AxesControlWidget(z_axis= z_axis)
 
-            if self.constructing: self._set_initial_plot_params(axes_widget)
+            # never called?
+            # if self.constructing: self._set_initial_plot_params(axes_widget)
 
             self.slot_controls_layout.addWidget(section_divider)
             self.slot_controls_layout.addWidget(SectionDivider("Settings", alignment= "left"))
@@ -332,9 +341,13 @@ class ControlPanel(qw.QWidget):
                     break
 
             if last_valid is not None:
-                xlim0, ylim0 = last_valid
+                if len(last_valid) == 3:
+                    xlim0, ylim0, zlim0 = last_valid
+                else:
+                    xlim0, ylim0 = last_valid
+                    zlim0 = None
                 for i in range(len(old_limits), len(self.slot_axes_controls)):
-                    self.slot_axes_controls[i].set_limits(xlim0, ylim0)
+                    self.slot_axes_controls[i].set_limits(xlim0, ylim0, zlim0)
 
         if old_dropdown_indices is not None:
             # 1) Restore existing slots
@@ -436,6 +449,11 @@ class ControlPanel(qw.QWidget):
                     w.set_settings(settings)
                     w.blockSignals(False)
 
+    def _get_inter_name_from_name(self, name):
+        for inter_name, plot_dict in self.plotting_data.items():
+            if plot_dict["name"] == name:
+                return inter_name
+
     def _on_info_hovered(self, slot_index: int):
         self.get_tooltip(slot_index)
 
@@ -476,16 +494,20 @@ class ControlPanel(qw.QWidget):
 
         self.slotPlotChoiceChanged.emit(slot_index, "dropdown")
 
-    def _set_initial_plot_params(self, axes_widget):
-        if "starting_lims" in self.demo["details"]:
-            lims = self.demo["details"]["starting_lims"]
-            try:
-                xlim = tuple(lims[0])
-                ylim = tuple(lims[1])
-            except ValueError:
-                return
+    # def _set_initial_plot_params(self, axes_widget):
+    #     if "starting_lims" in self.demo["details"]:
+    #         lims = self.demo["details"]["starting_lims"]
+    #         try:
+    #             xlim = tuple(lims[0])
+    #             ylim = tuple(lims[1])
+    #             if len(lims) == 3:
+    #                 zlim = tuple(lims[2])
+    #             else:
+    #                 zlim = None
+    #         except ValueError:
+    #             return
 
-            axes_widget.set_limits(xlim, ylim)
+    #         axes_widget.set_limits(xlim, ylim, zlim)
 
     def get_slot_axes_limits(self, slot_index: int):
         """ return (xlim, ylim) for a given slot """

@@ -96,24 +96,24 @@ class DemoSettingsTab(qw.QWidget):
         # self.combo_model.currentIndexChanged.connect(self._refresh_presets)
 
         # Starting lims
-        self.chk_starting_lims = qw.QCheckBox("Specify starting x/y limits")
-        self.edit_xlim_lo = qw.QLineEdit()
-        self.edit_xlim_hi = qw.QLineEdit()
-        self.edit_ylim_lo = qw.QLineEdit()
-        self.edit_ylim_hi = qw.QLineEdit()
-        for w in (self.edit_xlim_lo, self.edit_xlim_hi, self.edit_ylim_lo, self.edit_ylim_hi):
-            w.setPlaceholderText("e.g. 0.0")
+        # self.chk_starting_lims = qw.QCheckBox("Specify starting x/y limits")
+        # self.edit_xlim_lo = qw.QLineEdit()
+        # self.edit_xlim_hi = qw.QLineEdit()
+        # self.edit_ylim_lo = qw.QLineEdit()
+        # self.edit_ylim_hi = qw.QLineEdit()
+        # for w in (self.edit_xlim_lo, self.edit_xlim_hi, self.edit_ylim_lo, self.edit_ylim_hi):
+        #     w.setPlaceholderText("e.g. 0.0")
 
-        lims_grid = qw.QGridLayout()
-        lims_grid.setContentsMargins(0, 0, 0, 0)
-        lims_grid.addWidget(qw.QLabel("x min"), 0, 0)
-        lims_grid.addWidget(self.edit_xlim_lo, 0, 1)
-        lims_grid.addWidget(qw.QLabel("x max"), 0, 2)
-        lims_grid.addWidget(self.edit_xlim_hi, 0, 3)
-        lims_grid.addWidget(qw.QLabel("y min"), 1, 0)
-        lims_grid.addWidget(self.edit_ylim_lo, 1, 1)
-        lims_grid.addWidget(qw.QLabel("y max"), 1, 2)
-        lims_grid.addWidget(self.edit_ylim_hi, 1, 3)
+        # lims_grid = qw.QGridLayout()
+        # lims_grid.setContentsMargins(0, 0, 0, 0)
+        # lims_grid.addWidget(qw.QLabel("x min"), 0, 0)
+        # lims_grid.addWidget(self.edit_xlim_lo, 0, 1)
+        # lims_grid.addWidget(qw.QLabel("x max"), 0, 2)
+        # lims_grid.addWidget(self.edit_xlim_hi, 0, 3)
+        # lims_grid.addWidget(qw.QLabel("y min"), 1, 0)
+        # lims_grid.addWidget(self.edit_ylim_lo, 1, 1)
+        # lims_grid.addWidget(qw.QLabel("y max"), 1, 2)
+        # lims_grid.addWidget(self.edit_ylim_hi, 1, 3)
 
         sec.form.addRow("Display name:", self.edit_demo_display_name)
         sec.form.addRow("Internal name:", self.lbl_internal_name)
@@ -121,8 +121,8 @@ class DemoSettingsTab(qw.QWidget):
         sec.form.addRow("Simulation model:", self.combo_model)
         sec.form.addRow("Simulation function:", self.combo_function)
         sec.form.addRow("Default preset:", self.combo_preset)
-        sec.form.addRow(self.chk_starting_lims)
-        sec.form.addRow(self._wrap_layout(lims_grid))
+        # sec.form.addRow(self.chk_starting_lims)
+        # sec.form.addRow(self._wrap_layout(lims_grid))
 
         # Editor actions
         editor_actions = qw.QHBoxLayout()
@@ -139,8 +139,6 @@ class DemoSettingsTab(qw.QWidget):
 
         # Wiring for this page
         self.demo_filter.textChanged.connect(self._filter_demo_list)
-        self.chk_starting_lims.toggled.connect(self._set_lims_enabled)
-        self._set_lims_enabled(False)
 
         self.btn_refresh_models.clicked.connect(self._refresh_models)
         # self.btn_save_as_new.clicked.connect(self._on_save_as_new_clicked)
@@ -156,11 +154,11 @@ class DemoSettingsTab(qw.QWidget):
             self.combo_model,
             self.combo_function,
             self.combo_preset,
-            self.chk_starting_lims,
-            self.edit_xlim_lo,
-            self.edit_xlim_hi,
-            self.edit_ylim_lo,
-            self.edit_ylim_hi
+            # self.chk_starting_lims,
+            # self.edit_xlim_lo,
+            # self.edit_xlim_hi,
+            # self.edit_ylim_lo,
+            # self.edit_ylim_hi
         ]
 
         self._refresh_demos()
@@ -279,9 +277,9 @@ class DemoSettingsTab(qw.QWidget):
             key = (it.data(qc.Qt.ItemDataRole.UserRole) or "")
             it.setHidden(t not in key.lower())
 
-    def _set_lims_enabled(self, enabled: bool) -> None:
-        for w in (self.edit_xlim_lo, self.edit_xlim_hi, self.edit_ylim_lo, self.edit_ylim_hi):
-            w.setEnabled(enabled)
+    # def _set_lims_enabled(self, enabled: bool) -> None:
+    #     for w in (self.edit_xlim_lo, self.edit_xlim_hi, self.edit_ylim_lo, self.edit_ylim_hi):
+    #         w.setEnabled(enabled)
 
     def _on_save_as_new_clicked(self) -> None:
         if self.edit_demo_display_name.text() == "":
@@ -339,18 +337,18 @@ class DemoSettingsTab(qw.QWidget):
         new_demo["details"]["simulation_model"] = self.combo_model.currentText()
         new_demo["details"]["simulation_function"] = self.combo_function.currentText()
         new_demo["details"]["default_preset"] = self.combo_preset.currentText()
-        if self.chk_starting_lims.isChecked():
-            try:
-                xlims = [float(self.edit_xlim_lo.text().strip()), float(self.edit_xlim_hi.text().strip())]
-                ylims = [float(self.edit_ylim_lo.text().strip()), float(self.edit_ylim_hi.text().strip())]
-            except ValueError:
-                self.window.status.show("Error reading your limits. Please double check.", 4000)
-                return new_demo
-            else:
-                axis_settings = new_demo["details"].setdefault("axis_settings", {})
-                lims = flow_seqify([xlims, ylims])
-                # lims = FlowSeq([FlowSeq(xlims), FlowSeq(ylims)])
-                axis_settings["limits"] = {"a1": lims}
+        # if self.chk_starting_lims.isChecked():
+            # try:
+            #     xlims = [float(self.edit_xlim_lo.text().strip()), float(self.edit_xlim_hi.text().strip())]
+            #     ylims = [float(self.edit_ylim_lo.text().strip()), float(self.edit_ylim_hi.text().strip())]
+            # except ValueError:
+            #     self.window.status.show("Error reading your limits. Please double check.", 4000)
+            #     return new_demo
+            # else:
+            #     axis_settings = new_demo["details"].setdefault("axis_settings", {})
+            #     lims = flow_seqify([xlims, ylims])
+            #     # lims = FlowSeq([FlowSeq(xlims), FlowSeq(ylims)])
+            #     axis_settings["limits"] = {"a1": lims}
 
         return new_demo
 
@@ -382,21 +380,21 @@ class DemoSettingsTab(qw.QWidget):
             self.combo_function.setCurrentIndex(func_index)
             self.combo_preset.setCurrentIndex(preset_index)
 
-            lims = details.get("axis_settings", {}).get("limits", {}).get("a1", -1)
-            if lims != -1:
-                x0, x1 = lims[0]
-                y0, y1 = lims[1]
-                self.chk_starting_lims.setChecked(True)
-                self.edit_xlim_lo.setText(str(x0))
-                self.edit_xlim_hi.setText(str(x1))
-                self.edit_ylim_lo.setText(str(y0))
-                self.edit_ylim_hi.setText(str(y1))
-            else:
-                self.chk_starting_lims.setChecked(False)
-                self.edit_xlim_lo.clear()
-                self.edit_xlim_hi.clear()
-                self.edit_ylim_lo.clear()
-                self.edit_ylim_hi.clear()
+            # lims = details.get("axis_settings", {}).get("limits", {}).get("a1", -1)
+            # if lims != -1:
+            #     x0, x1 = lims[0]
+            #     y0, y1 = lims[1]
+            #     self.chk_starting_lims.setChecked(True)
+            #     self.edit_xlim_lo.setText(str(x0))
+            #     self.edit_xlim_hi.setText(str(x1))
+            #     self.edit_ylim_lo.setText(str(y0))
+            #     self.edit_ylim_hi.setText(str(y1))
+            # else:
+            #     self.chk_starting_lims.setChecked(False)
+            #     self.edit_xlim_lo.clear()
+            #     self.edit_xlim_hi.clear()
+            #     self.edit_ylim_lo.clear()
+            #     self.edit_ylim_hi.clear()
         finally:
             self._block_editor_signals(False)
             self._loading_editor = False
@@ -578,12 +576,12 @@ class DemoSettingsTab(qw.QWidget):
         self.combo_function.currentIndexChanged.connect(self._save_demo_changes)
         self.combo_preset.currentIndexChanged.connect(self._save_demo_changes)
 
-        self.chk_starting_lims.toggled.connect(self._on_starting_lims_toggled)
+        # self.chk_starting_lims.toggled.connect(self._on_starting_lims_toggled)
 
-        self.edit_xlim_lo.textEdited.connect(self._save_demo_changes)
-        self.edit_xlim_hi.textEdited.connect(self._save_demo_changes)
-        self.edit_ylim_lo.textEdited.connect(self._save_demo_changes)
-        self.edit_ylim_hi.textEdited.connect(self._save_demo_changes)
+        # self.edit_xlim_lo.textEdited.connect(self._save_demo_changes)
+        # self.edit_xlim_hi.textEdited.connect(self._save_demo_changes)
+        # self.edit_ylim_lo.textEdited.connect(self._save_demo_changes)
+        # self.edit_ylim_hi.textEdited.connect(self._save_demo_changes)
 
     def _block_editor_signals(self, block: bool) -> None:
         for w in self._editor_widgets:

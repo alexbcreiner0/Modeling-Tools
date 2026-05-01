@@ -255,6 +255,7 @@ class AxesControlWidget(qw.QWidget):
         self.settingsChanged.emit()
 
     def _on_save_cat_clicked(self):
+        print("Save cat clicked, emitting.")
         self.catSettingsChanged.emit()
 
     def _on_load_clicked(self):

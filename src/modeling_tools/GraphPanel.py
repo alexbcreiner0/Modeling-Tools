@@ -329,6 +329,12 @@ class GraphPanel(qw.QWidget):
         if getattr(self, "_block_axis_callback", False):
             return
 
+        if isinstance(ax, int):
+            try:
+                ax = self.axes[ax]
+            except IndexError:
+                return
+
         # Read current limits from the axes
         # self.xlim = ax.get_xlim()
         # self.ylim = ax.get_ylim()
@@ -477,7 +483,7 @@ class GraphPanel(qw.QWidget):
         self.canvas.draw_idle()
 
     def edit_slot_axes(self, slot_index, xlim, ylim, zlim= None):
-        """ Apply (xlim, ylim) to the axes corresponding to the slot_index """
+        """ Apply (xlim, ylim) or (xlim, ylim, zlim) to the axes corresponding to the slot_index """
         if slot_index < 0 or slot_index >= len(self.axes):
             return
 
@@ -486,8 +492,11 @@ class GraphPanel(qw.QWidget):
         self._block_axis_callback = True
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
-        if hasattr(ax, "get_zlim") and zlim is not None:
-            ax.set_zlim(zlim)
+        if zlim is not None:
+            try:
+                ax.set_zlim(zlim)
+            except Exception:
+                pass
         self._block_axis_callback = False
 
         # self.xlim = xlim
@@ -805,7 +814,6 @@ class GraphPanel(qw.QWidget):
                 )
                 coll.set_gid(f"{choice_name}::{plot_name}::overlay::{code}")
 
-        # keep legacy teardown support for now
         self._slot_images[slot_index] = im
 
         if plot_dict.get("colorbar", False):
@@ -819,12 +827,6 @@ class GraphPanel(qw.QWidget):
                 except Exception:
                     pass
 
-        # vmin = plot_dict.get("vmin", None)
-        # vmax = plot_dict.get("vmax", None)
-        # if vmin is not None or vmax is not None:
-        #     im.set_clim(vmin=vmin, vmax=vmax)
-        # else:
-        #     im.autoscale()
         if disc_values is None:
             vmin = plot_dict.get("vmin", None)
             vmax = plot_dict.get("vmax", None)
@@ -833,22 +835,36 @@ class GraphPanel(qw.QWidget):
             else:
                 im.autoscale()
 
-    def _build_hist(self, ax, slot_index, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
-        data = traj[plot_dict["dist"]]
+    def _hist_series(self, data: np.ndarray) -> list[np.ndarray]:
+        data = np.asarray(data)
 
-        if data.ndim != 1:
-            raise ValueError(
-                f"Histogram expects 1D data, got shape {data.shape}"
-                f"for plot '{plot_name}' (choice '{choice_name}')"
-            )
+        if data.ndim == 1:
+            return [data]
+
+        if data.ndim == 2:
+            return [data[:, i] for i in range(data.shape[1])]
+
+        raise ValueError(f"Histogram expects 1D or 2D vector-series data, got shape {data.shape}")
+
+    def _build_hist(self, ax, slot_index, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
+        data = np.asarray(traj[plot_dict["dist"]])
+        series = self._hist_series(data)
 
         edge_color = plot_dict.get("edgecolor", "black")
         rwidth = plot_dict.get("rwidth", 1)
         histtype = plot_dict.get("histtype", 'bar')
         density = plot_dict.get("density", False)
-        color = plot_dict.get("color", "black")
-        label = plot_dict.get("label", "")
+
+        color = plot_dict.get("color")
+        label = plot_dict.get("label")
+
         weights = plot_dict.get("weights", None)
+
+        labels = self._auto_vector_labels(plot_name, plot_dict, len(series))
+        colors = self._auto_vector_colors(plot_dict, len(series))
+        edge_colors = plot_dict.get("edgecolors", ["black"]*len(colors))
+        while len(edge_colors) < len(colors):
+            edge_colors.append("black")
 
         if weights is not None:
             weights = traj[weights]
@@ -857,34 +873,61 @@ class GraphPanel(qw.QWidget):
         if isinstance(bins, str):
             bins = traj[plot_dict["bins"]]
         if bins is None:
-            bins = self._desired_hist_edges(data, plot_dict)
+            bins = self._desired_hist_edges(data.ravel(), plot_dict)
 
-        counts, edges, patches = ax.hist(
-            data,
-            bins=bins, 
-            edgecolor=edge_color, 
-            rwidth=rwidth, 
-            histtype= histtype, 
-            density= density, 
-            color= color, 
-            label= label, 
-            weights= weights
-        )
-        for k, rect in enumerate(patches):
-            rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
-        self._hist_state[(slot_index, choice_name, plot_name)] = {"edges": np.asarray(edges, dtype=float)}
+        all_edges = None
+        gradient = plot_dict.get("gradient", "None")
+        for i, values in enumerate(series):
+            counts, edges, patches = ax.hist(
+                values,
+                bins=bins,
+                edgecolor=edge_colors[i] if edge_color is None else edge_color,
+                rwidth=rwidth,
+                histtype=histtype,
+                density=density,
+                color=colors[i] if color is None else color, # backwards compatibility
+                label=labels[i] if label is None else label,
+                weights=weights[:, i] if weights is not None and np.asarray(weights).ndim == 2 else weights,
+                alpha=plot_dict.get("alpha", 1.0),
+            )
+
+            if gradient != "None":
+                norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)))
+                cmap = colormaps.get(gradient)
+                for c, p in zip(counts, patches):
+                    p.set_facecolor(cmap(norm(c)))
+
+            for k, rect in enumerate(patches):
+                rect.set_gid(f"{choice_name}::{plot_name}::hist::{i}::patch::{k}")
+
+            all_edges = edges
+
+        # counts, edges, patches = ax.hist(
+        #     data,
+        #     bins=bins, 
+        #     edgecolor=edge_color, 
+        #     rwidth=rwidth, 
+        #     histtype= histtype, 
+        #     density= density, 
+        #     color= color, 
+        #     label= label, 
+        #     weights= weights
+        # )
+        # for k, rect in enumerate(patches):
+        #     rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
+        # self._hist_state[(slot_index, choice_name, plot_name)] = {"edges": np.asarray(edges, dtype=float)}
+
+        self._hist_state[(slot_index, choice_name, plot_name)] = {
+            "edges": np.asarray(all_edges, dtype=float),
+            "n_series": len(series),
+        }
 
         # try:
         #     ax.set_xlim(0, float(np.max(data)))
         # except Exception:
         #     pass
 
-        gradient = plot_dict.get("gradient", "None")
-        if gradient != "None":
-            norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)))
-            cmap = colormaps.get(gradient)
-            for c, p in zip(counts, patches):
-                p.set_facecolor(cmap(norm(c)))
+
 
     
     def _build_surface(self, ax, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, traj: dict):
@@ -940,6 +983,7 @@ class GraphPanel(qw.QWidget):
         for k in ("rstride", "cstride", "linewidth", "antialiased", "alpha", "cmap", "shade"):
             if k in plot_dict:
                 kwargs[k] = plot_dict[k]
+
 
         # vmin/vmax support (useful when Z values drift over time)
         vmin = plot_dict.get("vmin", None)
@@ -1027,6 +1071,8 @@ class GraphPanel(qw.QWidget):
         else:
             G = nx.from_numpy_array(A)
 
+        colors = self._auto_vector_colors(plot_dict, A.shape[0])
+
         pos = plot_dict.get("pos")
         if pos is None:
             pos = nx.spring_layout(G, seed=plot_dict.get("seed", 0))
@@ -1036,7 +1082,7 @@ class GraphPanel(qw.QWidget):
             G,
             pos,
             ax=ax,
-            node_color=plot_dict.get("node_color", "tab:blue"),
+            node_color=colors,
             node_size=plot_dict.get("node_size", 300),
         )
         nodes.set_gid(f"{choice_name}::{plot_name}::graph::nodes")
@@ -1662,8 +1708,16 @@ class GraphPanel(qw.QWidget):
                     edges = np.asarray(bins_spec, dtype= float).ravel()
                     nbins = max(0, edges.size - 1)
 
-                expected.extend([f"{choice_name}::{plot_name}::hist::patch::{k}" for k in range(nbins)])
+                # expected.extend([f"{choice_name}::{plot_name}::hist::patch::{k}" for k in range(nbins)])
+
+                data = np.asarray(data)
+                n_series = len(self._hist_series(data))
+
+                for i in range(n_series):
+                    for k in range(nbins):
+                        expected.append(f"{choice_name}::{plot_name}::hist::{i}::patch::{k}")
                 continue
+
                 # prefix = f"{choice_name}::{plot_name}::hist::patch"
                 # patch_gids = [gid for gid in slot_bucket.keys() if isinstance(gid, str) and gid.startswith(prefix)]
                 # # Stable numeric ordering by the trailing index if possible
@@ -2025,48 +2079,63 @@ class GraphPanel(qw.QWidget):
         return bins
 
     def _rebuild_hist_plot(self, ax, slot_index, choice_name, plot_name, plot_dict, data):
-        # remove only this histogram's patches
-        prefix = f"{choice_name}::{plot_name}::hist::patch::"
+        prefix = f"{choice_name}::{plot_name}::hist::"
+
         for p in list(ax.patches):
             gid = getattr(p, "get_gid", lambda: None)()
             if isinstance(gid, str) and gid.startswith(prefix):
-                try: p.remove()
-                except Exception: pass
+                try:
+                    p.remove()
+                except Exception:
+                    pass
 
-        edge_color = plot_dict.get("edgecolor", "black")
-        color = plot_dict.get("color", "black")
-        rwidth = plot_dict.get("rwidth", 1)
-        density = plot_dict.get("density", False)
-        align = plot_dict.get("align", "mid")
-        histtype = plot_dict.get("histtype", 'bar')
-        label = plot_dict.get("label", "")
+        self._build_hist(ax, slot_index, choice_name, plot_name, plot_dict, {plot_dict["dist"]: data})
+        self._rebuild_slot_artists_inventory(slot_index)
 
-        edges = self._desired_hist_edges(data, plot_dict)
-        counts, edges, patches = ax.hist(
-            data, 
-            bins=edges,
-            edgecolor=edge_color,
-            rwidth=rwidth,
-            density= density,
-            color= color,
-            align= align,
-            histtype= histtype,
-            label= label
-        )
+    # def _rebuild_hist_plot(self, ax, slot_index, choice_name, plot_name, plot_dict, data):
+    #     # remove only this histogram's patches
+    #     # prefix = f"{choice_name}::{plot_name}::hist::patch::"
+    #     series_prefix = f"{choice_name}::{plot_name}::hist::"
+    #     for p in list(ax.patches):
+    #         gid = getattr(p, "get_gid", lambda: None)()
+    #         if isinstance(gid, str) and gid.startswith(prefix):
+    #             try: p.remove()
+    #             except Exception: pass
 
-        for k, rect in enumerate(patches):
-            rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
+    #     edge_color = plot_dict.get("edgecolor", "black")
+    #     color = plot_dict.get("color", "black")
+    #     rwidth = plot_dict.get("rwidth", 1)
+    #     density = plot_dict.get("density", False)
+    #     align = plot_dict.get("align", "mid")
+    #     histtype = plot_dict.get("histtype", 'bar')
+    #     label = plot_dict.get("label", "")
 
-        self._hist_state[(slot_index, choice_name, plot_name)] = {"edges": np.asarray(edges, dtype=float)}
+    #     edges = self._desired_hist_edges(data, plot_dict)
+    #     counts, edges, patches = ax.hist(
+    #         data, 
+    #         bins=edges,
+    #         edgecolor=edge_color,
+    #         rwidth=rwidth,
+    #         density= density,
+    #         color= color,
+    #         align= align,
+    #         histtype= histtype,
+    #         label= label
+    #     )
 
-        ax.set_xlim(float(edges[0]), float(edges[-1]))
+    #     for k, rect in enumerate(patches):
+    #         rect.set_gid(f"{choice_name}::{plot_name}::hist::patch::{k}")
 
-        gradient = plot_dict.get("gradient", "None")
-        if gradient != "None":
-            norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
-            cmap = colormaps.get(gradient)
-            for c, p in zip(counts, patches):
-                p.set_facecolor(cmap(norm(c)))
+    #     self._hist_state[(slot_index, choice_name, plot_name)] = {"edges": np.asarray(edges, dtype=float)}
+
+    #     ax.set_xlim(float(edges[0]), float(edges[-1]))
+
+    #     gradient = plot_dict.get("gradient", "None")
+    #     if gradient != "None":
+    #         norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
+    #         cmap = colormaps.get(gradient)
+    #         for c, p in zip(counts, patches):
+    #             p.set_facecolor(cmap(norm(c)))
 
     def _update_hist(self, slot_index, choice_name, plot_name, plot_dict, traj):
         dist_key = plot_dict.get("dist")
@@ -2078,58 +2147,143 @@ class GraphPanel(qw.QWidget):
             return
 
         ax = self.axes[slot_index]
-        # self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
-        # return
-
         key = (slot_index, choice_name, plot_name)
 
-        desired_edges = self._desired_hist_edges(data, plot_dict)
+        series = self._hist_series(data)
+        desired_edges = self._desired_hist_edges(data.ravel(), plot_dict)
+
         state = self._hist_state.get(key)
         stored_edges = state.get("edges") if state else None
+        stored_n_series = state.get("n_series") if state else None
 
-        # decide whether to rebuild
-        if stored_edges is None or stored_edges.shape != desired_edges.shape or not np.allclose(stored_edges, desired_edges, rtol=0, atol=0):
+        if (
+            stored_edges is None
+            or stored_edges.shape != desired_edges.shape
+            or not np.allclose(stored_edges, desired_edges, rtol=0, atol=0)
+            or stored_n_series != len(series)
+        ):
             self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
             return
 
-        # update heights using the true edges
-        counts, _ = np.histogram(data, bins=stored_edges)
-        if plot_dict.get("density", False):
-            widths = np.diff(stored_edges)
-            n = counts.sum()
-            counts = counts / (n * widths) if n > 0 else counts
-
-        # collect rects in stable k order from inventory (or from ax.patches)
         bucket = self._slot_artists.get(slot_index, {})
-        prefix = f"{choice_name}::{plot_name}::hist::patch::"
-        rects = []
-        for gid, artist in bucket.items():
-            if isinstance(gid, str) and gid.startswith(prefix):
-                try: k = int(gid.rsplit("::", 1)[-1])
-                except Exception: k = 10**9
-                rects.append((k, artist))
-        rects.sort(key=lambda kv: kv[0])
-        rects = [r for _, r in rects]
+        all_counts = []
 
-        # if count mismatch, rebuild
-        if len(rects) != len(counts):
-            self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
-            return
+        for i, values in enumerate(series):
+            counts, _ = np.histogram(values, bins=stored_edges)
 
-        for rect, c in zip(rects, counts):
-            if not isinstance(rect, Rectangle):
+            if plot_dict.get("density", False):
+                widths = np.diff(stored_edges)
+                n = counts.sum()
+                counts = counts / (n * widths) if n > 0 else counts
+
+            prefix = f"{choice_name}::{plot_name}::hist::{i}::patch::"
+
+            rects = []
+            for gid, artist in bucket.items():
+                if isinstance(gid, str) and gid.startswith(prefix):
+                    try:
+                        k = int(gid.rsplit("::", 1)[-1])
+                    except Exception:
+                        k = 10**9
+                    rects.append((k, artist))
+
+            rects.sort(key=lambda kv: kv[0])
+            rects = [r for _, r in rects]
+
+            if len(rects) != len(counts):
                 self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
                 return
-            rect.set_height(float(c))
+
+            for rect, c in zip(rects, counts):
+                if not isinstance(rect, Rectangle):
+                    self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+                    return
+                rect.set_height(float(c))
+
+            all_counts.append(counts)
+
+            gradient = plot_dict.get("gradient", "None")
+            if gradient != "None":
+                hi = float(np.max(counts)) if np.max(counts) > 0 else 1.0
+                norm = plt.Normalize(float(np.min(counts)), hi)
+                cmap = colormaps.get(gradient)
+                for c, p in zip(counts, rects):
+                    p.set_facecolor(cmap(norm(c)))
 
         ax.set_xlim(float(stored_edges[0]), float(stored_edges[-1]))
 
-        gradient = plot_dict.get("gradient", "None")
-        if gradient != "None":
-            norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
-            cmap = colormaps.get(gradient)
-            for c, p in zip(counts, rects):
-                p.set_facecolor(cmap(norm(c)))
+        if all_counts:
+            ymax = max(float(np.max(c)) for c in all_counts if len(c))
+            ax.set_ylim(0, ymax * 1.05 if ymax > 0 else 1.0)
+
+    # def _update_hist(self, slot_index, choice_name, plot_name, plot_dict, traj):
+    #     dist_key = plot_dict.get("dist")
+    #     if not dist_key or dist_key not in traj:
+    #         return
+
+    #     data = np.asarray(traj[dist_key])
+    #     series = self._hist_series(data)
+    #     desired_edges = self._desired_hist_edges(data.ravel(), plot_dict)
+
+
+    #     if data.size == 0:
+    #         return
+
+    #     ax = self.axes[slot_index]
+    #     # self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+    #     # return
+
+    #     key = (slot_index, choice_name, plot_name)
+
+    #     desired_edges = self._desired_hist_edges(data, plot_dict)
+    #     state = self._hist_state.get(key)
+    #     stored_edges = state.get("edges") if state else None
+
+    #     # decide whether to rebuild
+    #     if stored_edges is None or stored_edges.shape != desired_edges.shape or not np.allclose(stored_edges, desired_edges, rtol=0, atol=0):
+    #         self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+    #         return
+
+    #     # update heights using the true edges
+    #     counts, _ = np.histogram(data, bins=stored_edges)
+    #     if plot_dict.get("density", False):
+    #         widths = np.diff(stored_edges)
+    #         n = counts.sum()
+    #         counts = counts / (n * widths) if n > 0 else counts
+
+    #     # collect rects in stable k order from inventory (or from ax.patches)
+    #     bucket = self._slot_artists.get(slot_index, {})
+    #     prefix = f"{choice_name}::{plot_name}::hist::patch::"
+    #     # series = self._hist_series(np.asarray(traj[dist_key]))
+    #     # prefix = f"{choice_name}::{plot_name}::hist::patch::"
+    #     rects = []
+    #     for gid, artist in bucket.items():
+    #         if isinstance(gid, str) and gid.startswith(prefix):
+    #             try: k = int(gid.rsplit("::", 1)[-1])
+    #             except Exception: k = 10**9
+    #             rects.append((k, artist))
+    #     rects.sort(key=lambda kv: kv[0])
+    #     rects = [r for _, r in rects]
+
+    #     # if count mismatch, rebuild
+    #     if len(rects) != len(counts):
+    #         self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+    #         return
+
+    #     for rect, c in zip(rects, counts):
+    #         if not isinstance(rect, Rectangle):
+    #             self._rebuild_hist_plot(ax, slot_index, choice_name, plot_name, plot_dict, data)
+    #             return
+    #         rect.set_height(float(c))
+
+    #     ax.set_xlim(float(stored_edges[0]), float(stored_edges[-1]))
+
+    #     gradient = plot_dict.get("gradient", "None")
+    #     if gradient != "None":
+    #         norm = plt.Normalize(float(np.min(counts)), float(np.max(counts)) if np.max(counts) > 0 else 1.0)
+    #         cmap = colormaps.get(gradient)
+    #         for c, p in zip(counts, rects):
+    #             p.set_facecolor(cmap(norm(c)))
 
     # def _update_hist(self, slot_index: int, choice_name: str, plot_name: str, plot_dict: dict, traj: dict) -> None:
     #     dist_key = plot_dict.get("dist")
