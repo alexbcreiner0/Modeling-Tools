@@ -130,7 +130,9 @@ class MainWindow(qw.QMainWindow):
         self.traj, self.t = None, None
 
         self.graph_panel, self.control_panel, self.dropdown_choices = self._make_panels(plotting_data, panel_data, self.current_demo)
+        self.graph_panel._block_axis_callback = True
         self._load_saved_axis_settings()
+        self.graph_panel._block_axis_callback = False
 
         self.graph_panel.toolbar.pan()
 
@@ -162,9 +164,7 @@ class MainWindow(qw.QMainWindow):
         qc.QCoreApplication.instance().installEventFilter(self)
 
         self.setCentralWidget(self.main_splitter)
-
         self.assign_keybinds(first_boot= True)
-
 
         if self.settings.get("run_on_startup", True):
             self.start_sim()
@@ -534,7 +534,16 @@ class MainWindow(qw.QMainWindow):
         demo_config = self.current_demo.get("details", {}).get("axis_settings", {})
         rows, cols, limits, saved_limits, dropdown_indices, slot_settings, checked = self._get_slot_settings(demo_config)
         self.control_panel._alter_slot_layout(rows, cols, limits, saved_limits, dropdown_indices, checked, slot_settings)
+        self._apply_saved_projections(dropdown_indices)
         self._set_graph_lims(limits)
+
+    def _apply_saved_projections(self, dropdown_indices):
+        for slot_index, idx in enumerate(dropdown_indices):
+            choice_name = self.graph_panel._choice_name_from_index(idx)
+            projection = self.graph_panel.data.get(choice_name, {}).get("projection", "2d")
+            # print(f"{projection=}")
+            want_3d = True if projection == "3d" else False
+            self.graph_panel._ensure_slot_projection(slot_index, want_3d)
 
     def _get_slot_settings(self, demo_config):
         dim = demo_config.get("dimension", (1,1))
@@ -852,6 +861,7 @@ class MainWindow(qw.QMainWindow):
         )
         # graph_panel.saved_lims_changed.connect(self.update_saved_lims)
         graph_panel.slot_axes_limits_changed.connect(self.on_slot_axes_limits_changed)
+        graph_panel.slot_axes_limits_changed_3d.connect(self.on_slot_axes_limits_changed)
         # xlim, ylim = graph_panel.xlim, graph_panel.ylim
         # self.update_saved_lims(xlim, ylim)
 
@@ -900,9 +910,9 @@ class MainWindow(qw.QMainWindow):
 
         self.show_partial_results(self._pending_traj, self._pending_t)
 
-    def on_slot_axes_limits_changed(self, slot_index: int, xlim: tuple, ylim: tuple):
+    def on_slot_axes_limits_changed(self, slot_index: int, xlim: tuple, ylim: tuple, zlim: tuple | None= None):
         """ Method to update the axis entries of a plot control widget when user pans a plot """
-        self.control_panel.set_slot_axes_limits(slot_index, xlim, ylim)
+        self.control_panel.set_slot_axes_limits(slot_index, xlim, ylim, zlim)
 
     def _on_cat_settings_shortcut(self, instruct):
         slot_idx = self._get_slot_index()
@@ -953,6 +963,7 @@ class MainWindow(qw.QMainWindow):
         load_idx_defaults = self.settings.get("use_cat_limits", False)
         load_idx_defaults = False if not isinstance(load_idx_defaults, bool) else load_idx_defaults 
         self.graph_panel.plot_slot(slot_index, dropdown_index, options, legend_cfg, source= source, load_idx_defaults= load_idx_defaults)
+        # self.graph_panel._on_axis_limits_changed(slot_index)
 
     def on_slot_options_changed(self, slot_index: int):
         """Options changed for a specific slot."""

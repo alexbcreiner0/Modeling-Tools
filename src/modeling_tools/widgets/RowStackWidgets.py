@@ -7,7 +7,9 @@ QtGui as qg,
 from typing import Any, Callable, Generic, Optional, Type, TypeVar, Any
 
 T = TypeVar("T")
+Color = tuple[str]
 LabelColor = tuple[str, str]
+LabelColorColor = tuple[str, str, str]
 # value, size, label
 # marker, color, color
 OverlayMarkerLabel = tuple[Any, str, str | None, str, str | None, str | None]
@@ -109,6 +111,20 @@ def label_color_make_kwargs(item: LabelColor) -> dict[str, Any]:
         label, color = item
         return {"label": label, "color": color}
 
+def just_color_make_kwargs(item: Color) -> dict[str, Any]:
+    if not isinstance(item, tuple):
+        return {"color": ""}
+    else:
+        color, = item
+        return {"color": color}
+
+def label_color_color_make_kwargs(item: LabelColorColor) -> dict[str, Any]:
+    if not isinstance(item, tuple):
+        return {"label": "", "color": "", "color2": None, "extra_picker": True}
+    else:
+        label, color, color2 = item
+        return {"label": label, "color": color, "color2": color2, "extra_picker": True}
+
 def overlay_marker_make_kwargs(item: OverlayMarkerLabel) -> dict[str, Any]:
     if not isinstance(item, tuple):
         return {
@@ -123,15 +139,29 @@ def overlay_marker_make_kwargs(item: OverlayMarkerLabel) -> dict[str, Any]:
         }
 
 # this probably shouldn't be generic
+def just_color_get_data(row: qw.QWidget) -> Color:
+    return row.get_color()
+
 def label_color_get_data(row: qw.QWidget) -> LabelColor:
     return row.get_pair()
+
+def label_color_color_get_data(row: qw.QWidget) -> LabelColorColor:
+    return row.get_triple()
 
 def overlay_marker_get_data(row: qw.QWidget) -> OverlayMarkerLabel:
     return row.get_data()
 
+def just_color_connect_signals(row: qw.QWidget, changed_cb: Callable[[], None]) -> None:
+    row.color_edit.textChanged.connect(changed_cb)
+
 def label_color_connect_signals(row: qw.QWidget, changed_cb: Callable[[], None]) -> None:
     row.label_edit.textChanged.connect(changed_cb)
     row.color_edit.textChanged.connect(changed_cb)
+
+def label_color_color_connect_signals(row: qw.QWidget, changed_cb: Callable[[], None]) -> None:
+    row.label_edit.textChanged.connect(changed_cb)
+    row.color_edit.textChanged.connect(changed_cb)
+    row.color_edit2.textChanged.connect(changed_cb)
 
 def overlay_marker_connect_signals(row: qw.QWidget, changed_cb: Callable[[], None]) -> None:
     row.value_edit.textChanged.connect(changed_cb)
@@ -314,7 +344,7 @@ class ValueColorLabelRow(qw.QWidget):
 class LabelColorRow(qw.QWidget):
     removed = qc.pyqtSignal(object)
 
-    def __init__(self, label: str = "", color: str = "", parent=None, indep= False, extra_picker= False):
+    def __init__(self, label: str = "", color: str = "", color2: str | None = None, parent=None, indep= False, extra_picker= False):
         super().__init__(parent)
         lay = qw.QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -335,7 +365,10 @@ class LabelColorRow(qw.QWidget):
             self.color_edit2 = ColorLineEdit()
             self.color_edit2.setPlaceholderText("#RRGGBB")
             self.color_edit2.setMaximumWidth(120)
-            self.color_edit2.set_hex(color)
+            if color2 is not None:
+                self.color_edit2.set_hex(color2)
+            else:
+                self.color_edit2.set_hex("")
 
             self.pick_btn2 = qw.QToolButton()
             self.pick_btn2.setText("🎨")
@@ -386,4 +419,53 @@ class LabelColorRow(qw.QWidget):
     def get_pair(self) -> tuple[str, str]:
         return (self.label_edit.text().strip(), self.color_edit.text().strip())
 
+    def get_triple(self) -> tuple[str, str, str] | None:
+        if not hasattr(self, "color_edit2"):
+            return None
+        return (self.label_edit.text().strip(), self.color_edit.text().strip(), self.color_edit2.text().strip())
 
+class ColorRow(qw.QWidget):
+    removed = qc.pyqtSignal(object)
+
+    def __init__(self, color: str = "", parent=None, indep= False):
+        super().__init__(parent)
+        lay = qw.QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setAlignment(qc.Qt.AlignmentFlag.AlignLeft)
+
+        self.color_edit = ColorLineEdit()
+        self.color_edit.setPlaceholderText("#RRGGBB")
+        self.color_edit.setMaximumWidth(120)
+        self.color_edit.set_hex(color)
+
+        self.pick_btn = qw.QToolButton()
+        self.pick_btn.setText("🎨")
+        self.pick_btn.setToolTip("Pick a color")
+
+        if not indep:
+            self.del_btn = qw.QToolButton()
+            self.del_btn.setText("✕")
+            self.del_btn.setToolTip("Remove this row")
+
+        lay.addWidget(self.color_edit, 0)
+        lay.addWidget(self.pick_btn, 0)
+
+        if not indep:
+            lay.addWidget(self.del_btn, 0)
+
+        self.pick_btn.clicked.connect(self._pick_color)
+        if not indep:
+            self.del_btn.clicked.connect(lambda: self.removed.emit(self))
+
+        self.color_edit.textChanged.connect(self.color_edit._update_swatch)
+
+    def _pick_color(self) -> None:
+        initial = qg.QColor(self.color_edit.text().strip())
+        if initial.name().lower() == "#000000":
+            initial = qg.QColor("#ffffff")
+        c = qw.QColorDialog.getColor(initial, self, "Choose color")
+        if c.isValid():
+            self.color_edit.set_hex(c.name())
+
+    def get_color(self) -> tuple[str]:
+        return (self.color_edit.text().strip(),)

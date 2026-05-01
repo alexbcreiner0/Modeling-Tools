@@ -82,6 +82,20 @@ class PlotSettingsTab(qw.QWidget):
                 "save": self._get_new_field_data,
                 "stack_idx": 6,
                 "yaml_name": "vector"
+            },
+            "Discrete Graph": {
+                "build": self._build_dgraph_panel,
+                "load": self._load_dgraph_info,
+                "save": self._get_new_dgraph_data,
+                "stack_idx": 7,
+                "yaml_name": "discrete_graph"
+            },
+            "Surface": {
+                "build": self._build_surface_panel,
+                "load": self._load_surface_info,
+                "save": self._get_new_surface_data,
+                "stack_idx": 8,
+                "yaml_name": "surface"
             }
         }
 
@@ -305,7 +319,7 @@ class PlotSettingsTab(qw.QWidget):
                 widget.textChanged.connect(self._save_changes)
             elif isinstance(widget, qw.QCheckBox):
                 widget.checkStateChanged.connect(self._save_changes)
-            elif isinstance(widget, qw.QDoubleSpinBox):
+            elif isinstance(widget, qw.QDoubleSpinBox) or isinstance(widget, qw.QSpinBox):
                 widget.valueChanged.connect(self._save_changes)
             elif isinstance(widget, qw.QComboBox):
                 widget.currentIndexChanged.connect(self._save_changes)
@@ -952,6 +966,16 @@ class PlotSettingsTab(qw.QWidget):
 
         self.hist_density = qw.QCheckBox("Density (normalize)")
         self.hist_label_color_edgecolor = LabelColorRow(indep= True, extra_picker= True)
+        label_template_helptext = "If this is checked, you only need to fill in a single label for all of your curves, in the form 'Quantity {i}'. The {i} here will be replaced with a number based on the number of curves in the vector trajectory. Colors will also be chosen automatically, but you can create additional series and fill in just the colors to manually specificy colors for an initial segment of curves. Useful if the number of quantities in your vector trajectory is variable."
+        self.hist_label_template = qw.QCheckBox("Use label template")
+        self.hist_series_editor = DynamicRowStack[LabelColorColor](
+            row_widget= LabelColorRow,
+            make_row_kwargs= label_color_color_make_kwargs,
+            get_row_data= label_color_color_get_data,
+            connect_row_signals= label_color_color_connect_signals,
+            add_button_text= "+ Add series",
+            default_item= ("", "", "")
+        )
 
         self.hist_type = qw.QComboBox()
         self.hist_type.addItems(["bar", "barstacked", "step", "stepfilled"])
@@ -971,7 +995,9 @@ class PlotSettingsTab(qw.QWidget):
         layout.addRow("", self.hist_density)
         layout.addRow("Type:", self.hist_type)
         layout.addRow("Alignment:", self.hist_align)
-        layout.addRow("Label/Color/Edgecolor:", self.hist_label_color_edgecolor)
+        # layout.addRow("Label/Color/Edgecolor:", self.hist_label_color_edgecolor)
+        layout.addRow("", self.hist_label_template, help_text= label_template_helptext) 
+        layout.addRow("Label/Color/Edgecolor:", self.hist_series_editor)
         layout.addRow("Gradient:", self.hist_cmap)
         layout.addRow("", self.hist_tip)
         layout.addRow("", self.hist_tip2)
@@ -979,7 +1005,7 @@ class PlotSettingsTab(qw.QWidget):
         self.field_widgets += [
             self.hist_data, self.hist_bins, self.hist_weights, self.hist_density,
             self.hist_label_color_edgecolor.label_edit, self.hist_label_color_edgecolor.color_edit, self.hist_label_color_edgecolor.color_edit2,
-            self.hist_type, self.hist_align, self.hist_cmap,
+            self.hist_type, self.hist_align, self.hist_cmap, self.hist_label_template, self.hist_series_editor
         ]
 
         return w
@@ -1010,9 +1036,38 @@ class PlotSettingsTab(qw.QWidget):
         else:
             self.hist_cmap.setCurrentIndex(self.hist_cmap.findText("bar"))
 
-        self.hist_label_color_edgecolor.label_edit.setText(plot.get("label", "") or "")
-        self.hist_label_color_edgecolor.color_edit.set_hex(plot.get("color", "") or "")
-        self.hist_label_color_edgecolor.color_edit2.set_hex(plot.get("edgecolor", "") or "")
+        template_mode = True if plot.get("label_template") else False
+        self.hist_label_template.setChecked(template_mode)
+
+        old_label = plot.get("label")
+        old_color = plot.get("color")
+        old_edgecolor = plot.get("edgecolor")
+
+        if old_color:
+            colors = [old_color]
+        else:
+            colors = plot.get("colors", [])
+
+        if old_edgecolor:
+            edgecolors = [old_edgecolor]
+        else:
+            edgecolors = plot.get("edgecolors", [""]*len(colors))
+
+        if template_mode:
+            labels = [""]*len(colors)
+            labels[0] = plot.get("label_template")
+        elif old_label:
+            labels = [old_label]
+        else:
+            labels = plot.get("labels", []) or []
+
+
+        triples = list(zip(labels, colors, edgecolors))
+        self.hist_series_editor.set_items(triples)
+
+        # self.hist_label_color_edgecolor.label_edit.setText(plot.get("label", "") or "")
+        # self.hist_label_color_edgecolor.color_edit.set_hex(plot.get("color", "") or "")
+        # self.hist_label_color_edgecolor.color_edit2.set_hex(plot.get("edgecolor", "") or "")
 
     def _get_new_hist_data(self, new_data):
         new_data["dist"] = self.hist_data.text()
@@ -1025,16 +1080,34 @@ class PlotSettingsTab(qw.QWidget):
         if self.hist_weights.text().strip():
             new_data["weights"] = self.hist_weights.text().strip()
         new_data["density"] = bool(self.hist_density.isChecked())
-        if self.hist_label_color_edgecolor.label_edit.text().strip():
-            new_data["label"] = self.hist_label_color_edgecolor.label_edit.text().strip()
-        if self.hist_label_color_edgecolor.color_edit.text().strip():
-            new_data["color"] = self.hist_label_color_edgecolor.color_edit.text().strip()
-        if self.hist_label_color_edgecolor.color_edit2.text().strip():
-            new_data["edgecolor"] = self.hist_label_color_edgecolor.color_edit2.text().strip()
-        histtype = self.hist_type.currentText()
-        new_data["histtype"] = histtype
+
+        triplets = self.hist_series_editor.get_items()
+        try:
+            labels, colors, edgecolors = zip(*triplets) # unzipping magic
+        except ValueError:
+            labels, colors, edgecolors = [], [], []
+
         gradient = self.hist_cmap.currentText()
         new_data["gradient"] = gradient
+
+        if self.hist_label_template.isChecked():
+            new_data["label_template"] = labels[0]
+            if new_data.get("labels"):
+                del new_data["labels"]
+        else:
+            new_data["labels"] = labels
+
+        new_data["colors"] = colors
+        new_data["edgecolors"] = edgecolors
+
+        if self.hist_label_color_edgecolor.label_edit.text().strip():
+            new_data["label"] = self.hist_label_color_edgecolor.label_edit.text().strip()
+        # if self.hist_label_color_edgecolor.color_edit.text().strip():
+        #     new_data["color"] = self.hist_label_color_edgecolor.color_edit.text().strip()
+        # if self.hist_label_color_edgecolor.color_edit2.text().strip():
+        #     new_data["edgecolor"] = self.hist_label_color_edgecolor.color_edit2.text().strip()
+        histtype = self.hist_type.currentText()
+        new_data["histtype"] = histtype
         align = self.hist_align.currentText()
         new_data["align"] = align
 
@@ -1181,6 +1254,117 @@ class PlotSettingsTab(qw.QWidget):
             new_data["traj_key_C"] = traj_key_C
 
         new_data["colorbar"] = self.quiver_display_cbar.isChecked()
+
+    def _build_dgraph_panel(self) -> qw.QWidget:
+        w = qw.QWidget()
+        layout = HelpFormLayout(w)
+
+        self.dgraph_traj_key = qw.QLineEdit()
+        self.dgraph_type = qw.QCheckBox("Directed Graph")
+
+        self.dgraph_node_size = qw.QSpinBox()
+        self.dgraph_node_size.setRange(200, 600)
+        self.dgraph_node_size.setValue(300)
+        self.dgraph_node_size.setSingleStep(10)
+        self.dgraph_node_size.setProperty("default_value", 300)
+
+        self.dgraph_color_series_editor = DynamicRowStack[Color](
+            row_widget= ColorRow,
+            make_row_kwargs= just_color_make_kwargs,
+            get_row_data= just_color_get_data,
+            connect_row_signals= just_color_connect_signals,
+            add_button_text= "+ Add color",
+            default_item= ("",)
+        )
+
+        layout.addRow("Adj. Matrix Key*:", self.dgraph_traj_key, help_text= "Key for the adjacency matrix.")
+        layout.addRow("", self.dgraph_type, help_text= "Check box if graph is directed to draw edges with tips, e.g. '->'")
+        layout.addRow("Node size:", self.dgraph_node_size, help_text= "How big the nodes are.")
+        layout.addRow("Node colors:", self.dgraph_color_series_editor, help_text= "If left blank, colors will be automatically chosen. However, you can choose the first however many colors manually (if more colors are needed, these will be generated automatically in the same way).")
+
+        self.field_widgets += [
+            self.dgraph_traj_key, self.dgraph_type, self.dgraph_node_size, self.dgraph_color_series_editor
+        ]
+
+        return w
+
+    def _load_dgraph_info(self, plot):
+        self.dgraph_traj_key.setText(plot.get("traj_key", "") or "")
+        self.dgraph_type.setChecked(plot.get("directed", False))
+        node_size = plot.get("node_size", 300)
+        try:
+            node_size = int(node_size)
+        except ValueError:
+            node_size = 300
+        self.dgraph_node_size.setValue(node_size)
+        colors = plot.get("colors", []) or []
+        tups = [(color,) for color in colors]
+        self.dgraph_color_series_editor.set_items(tups)
+
+    def _get_new_dgraph_data(self, new_data):
+        new_data["traj_key"] = self.dgraph_traj_key.text()
+        new_data["directed"] = self.dgraph_type.isChecked()
+        new_data["node_size"] = self.dgraph_node_size.value()
+        tups = self.dgraph_color_series_editor.get_items()
+        colors = [tup[0] for tup in tups]
+
+        new_data["colors"] = colors
+
+    def _build_surface_panel(self) -> qw.QWidget():
+        w = qw.QWidget()
+        layout = HelpFormLayout(w)
+
+        self.surface_traj_key_x = qw.QLineEdit()
+        self.surface_traj_key_y = qw.QLineEdit()
+        self.surface_traj_key_z = qw.QLineEdit()
+
+        self.surface_rcount = qw.QSpinBox()
+        self.surface_rcount.setRange(10, 90)
+        self.surface_rcount.setValue(50)
+        self.surface_rcount.setProperty("default_value", 50)
+
+        self.surface_cmap = qw.QComboBox()
+        self.surface_cmap.addItem("None")
+        self.surface_cmap.addItems(list(colormaps))
+
+        self.surface_display_cbar = qw.QCheckBox("Display Colorbar: ")
+
+        layout.addRow("X Key:", self.surface_traj_key_x)
+        layout.addRow("Y Key:", self.surface_traj_key_y)
+        layout.addRow("Z Key:", self.surface_traj_key_z)
+        layout.addRow("Color map:", self.surface_cmap)
+        layout.addRow("", self.surface_display_cbar)
+
+        self.field_widgets += [
+            self.surface_traj_key_x, self.surface_traj_key_y, self.surface_traj_key_z,
+            self.surface_cmap, self.surface_display_cbar, self.surface_rcount,
+        ]
+
+        return w
+
+    def _load_surface_info(self, plot):
+        self.surface_traj_key_x.setText(plot.get("traj_key_X", "") or "")
+        self.surface_traj_key_y.setText(plot.get("traj_key_Y", "") or "")
+        self.surface_traj_key_z.setText(plot.get("traj_key_Z", "") or "")
+
+        val = (plot.get("cmap") or "None").strip()
+        idx = self.surface_cmap.findText(val)
+        if idx >= 0:
+            self.surface_cmap.setCurrentIndex(idx)
+        else:
+            self.surface_cmap.setCurrentIndex(self.surface_cmap.findText("bar"))
+
+        self.surface_display_cbar.setChecked(plot.get("colorbar", False) or False)
+
+    def _get_new_surface_data(self, new_data):
+        new_data["traj_key_X"] = self.surface_traj_key_x.text().strip()
+        new_data["traj_key_Y"] = self.surface_traj_key_y.text().strip()
+        new_data["traj_key_Z"] = self.surface_traj_key_z.text().strip()
+
+        cmap = self.surface_cmap.currentText()
+        new_data["cmap"] = cmap
+
+        new_data["colorbar"] = self.surface_display_cbar.isChecked()
 
     def _refresh_models(self) -> None:
         models = list_subdirs(self.env.models_dir)
@@ -1503,7 +1687,7 @@ class PlotSettingsTab(qw.QWidget):
                 atomic_write(path, model_dict)
         except Exception as e:
             self.window.status.show(f"Error writing changes: {e}", 8000)
-            logger.log(logger.ERROR, "Error writing changes", exc_info= e)
+            logger.log(logging.ERROR, "Error writing changes", exc_info= e)
         else:
             for model, _ in self._original_plot_data.items():
                 new_dict = self._working_plot_data[model]
